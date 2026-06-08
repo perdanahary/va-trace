@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Factory, Mail, MoreHorizontal, Phone, Plus, Search, Trash2, User } from "lucide-react";
+import { Eye, Factory, Mail, MoreHorizontal, Phone, Plus, Search, Trash2, User } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
@@ -12,12 +12,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from "@/lib/utils";
 import type { Supplier } from "@/lib/supplierStore";
 import { useSupplierStore } from "@/lib/supplierStore";
+import { SupplierDetailModal } from "./SupplierDetailModal";
 import { SupplierModal } from "./SupplierModal";
 
 export function SupplierList() {
   const { suppliers, addSupplier, updateSupplier, deleteSupplier } = useSupplierStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
 
   const filteredSuppliers = useMemo(() => {
@@ -57,6 +59,24 @@ export function SupplierList() {
     }
   };
 
+  const handleOpenCreateModal = () => {
+    setSelectedSupplier(null);
+    setIsDetailModalOpen(false);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    setIsDetailModalOpen(false);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenDetailModal = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    setIsModalOpen(false);
+    setIsDetailModalOpen(true);
+  };
+
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role="admin" />
@@ -74,12 +94,7 @@ export function SupplierList() {
                 className="pl-9"
               />
             </div>
-            <Button
-              onClick={() => {
-                setSelectedSupplier(null);
-                setIsModalOpen(true);
-              }}
-            >
+            <Button onClick={handleOpenCreateModal}>
               <Plus className="h-4 w-4" />
               Register New Supplier
             </Button>
@@ -155,10 +170,13 @@ export function SupplierList() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
-                              onClick={() => {
-                                setSelectedSupplier(supplier);
-                                setIsModalOpen(true);
-                              }}
+                              onClick={() => handleOpenDetailModal(supplier)}
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Detail
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleOpenEditModal(supplier)}
                             >
                               Edit Supplier
                             </DropdownMenuItem>
@@ -171,6 +189,13 @@ export function SupplierList() {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {filteredSuppliers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
+                        No suppliers found matching your search.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
                 </TableBody>
               </Table>
             </CardContent>
@@ -185,6 +210,15 @@ export function SupplierList() {
           setSelectedSupplier(null);
         }}
         onSave={handleSave}
+        supplier={selectedSupplier}
+      />
+      <SupplierDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedSupplier(null);
+        }}
+        onEdit={handleOpenEditModal}
         supplier={selectedSupplier}
       />
     </div>

@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableCombobox, type ComboboxOption } from "@/components/ui/searchable-combobox";
 import { getSalesPointCustomerBinding, mockSalesPoints } from "@/lib/mockData";
+import { useProjectStore } from "@/lib/projectStore";
 import { mockProducts } from "@/lib/productMaster";
 import { appendOrders, createManualOrder } from "@/lib/orderStore";
 import { useSupplierStore } from "@/lib/supplierStore";
@@ -39,6 +40,7 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { suppliers } = useSupplierStore();
+  const { projects, addProject } = useProjectStore();
 
   const salesPoint = mockSalesPoints.find((entry) => entry.wcode === selectedSalesPoint) ?? mockSalesPoints[0];
   const salesPointCustomer = getSalesPointCustomerBinding(salesPoint.wcode);
@@ -67,6 +69,16 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
         keywords: [supplier.id, supplier.name, supplier.picName, supplier.email, supplier.phone, supplier.type, supplier.status].filter(Boolean) as string[],
       })),
     [suppliers],
+  );
+  const projectOptions = useMemo(
+    () =>
+      projects.map((project) => ({
+        value: project,
+        label: project,
+        description: "Shared project record",
+        keywords: project.split(/\s+/).filter(Boolean),
+      })),
+    [projects],
   );
   const salesPointOptions = useMemo(
     () =>
@@ -196,6 +208,7 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
     });
 
     appendOrders([order]);
+    addProject(campaignName);
     toast.success(`Order ${order.id} created.`);
     navigate(`/admin/orders/${order.id}`);
   };
@@ -241,8 +254,19 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                     <FormField label="Customer PO Ref" required htmlFor="client-po">
                       <Input id="client-po" placeholder="e.g. 123928098" value={clientPO} onChange={(e) => setClientPO(e.target.value)} />
                     </FormField>
-                    <FormField label="Project" required htmlFor="campaign-name">
-                      <Input id="campaign-name" placeholder="Project e.g. Sunscreen Q2" value={campaignName} onChange={(e) => setCampaignName(e.target.value)} />
+                    <FormField label="Project" required>
+                      <SearchableCombobox
+                        value={campaignName}
+                        onValueChange={setCampaignName}
+                        onCreate={(project) => addProject(project)}
+                        options={projectOptions}
+                        placeholder="Select or create a project..."
+                        searchPlaceholder="Search or type a new project name..."
+                        emptyText="No matching projects found."
+                        allowCreate
+                        ariaLabel="Project"
+                        createLabel="Create project"
+                      />
                     </FormField>
                     <FormField label="SO Number" required htmlFor="so-number">
                       <Input id="so-number" placeholder="e.g. SO123928" value={soNumber} onChange={(e) => setSoNumber(e.target.value)} />

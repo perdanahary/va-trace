@@ -8,9 +8,11 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { cn } from "@/lib/utils";
 import { getSalesPointCustomerBinding, mockProducts, mockSalesPoints } from "@/lib/mockData";
 import { appendOrders, createManualOrder } from "@/lib/orderStore";
+import { useProjectStore } from "@/lib/projectStore";
 
 export function CreateOrder() {
   const navigate = useNavigate();
@@ -23,10 +25,21 @@ export function CreateOrder() {
   const [linkFA, setLinkFA] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { projects, addProject } = useProjectStore();
 
   const salesPoint = mockSalesPoints.find((entry) => entry.wcode === selectedSalesPoint) ?? mockSalesPoints[0];
   const salesPointCustomer = getSalesPointCustomerBinding(salesPoint.wcode);
   const totalQuantity = items.reduce((total, item) => total + item.quantity, 0);
+  const projectOptions = useMemo(
+    () =>
+      projects.map((project) => ({
+        value: project,
+        label: project,
+        description: "Shared project record",
+        keywords: project.split(/\s+/).filter(Boolean),
+      })),
+    [projects],
+  );
 
   const validationErrors = useMemo(() => {
     const errors: string[] = [];
@@ -100,6 +113,7 @@ export function CreateOrder() {
     });
 
     appendOrders([order]);
+    addProject(campaignName);
     toast.success(`Order ${order.id} created.`);
     navigate("/customer");
   };
@@ -129,8 +143,24 @@ export function CreateOrder() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <FormInput id="customer-po" label="Customer PO Ref" placeholder="e.g. 123928098" required value={clientPO} onChange={setClientPO} />
-                  <FormInput id="campaign-name" label="Campaign Name" placeholder="e.g. Sunscreen Q2" required value={campaignName} onChange={setCampaignName} />
+                    <FormInput id="customer-po" label="Customer PO Ref" placeholder="e.g. 123928098" required value={clientPO} onChange={setClientPO} />
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Campaign Name *
+                    </label>
+                    <SearchableCombobox
+                      value={campaignName}
+                      onValueChange={setCampaignName}
+                      onCreate={(project) => addProject(project)}
+                      options={projectOptions}
+                      placeholder="Select or create a project..."
+                      searchPlaceholder="Search or type a new project name..."
+                      emptyText="No matching projects found."
+                      allowCreate
+                      ariaLabel="Campaign Name"
+                      createLabel="Create project"
+                    />
+                  </div>
                   <FormInput id="so-number" label="SO Number" placeholder="e.g. SO123928" required value={soNumber} onChange={setSoNumber} />
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground" htmlFor="sales-point">

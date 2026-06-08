@@ -16,6 +16,31 @@ test.describe("Create order form", () => {
     await expect(page.getByText("Product", { exact: true })).toBeVisible();
   });
 
+  test("can create a new project and reuse it on another create form", async ({ page }) => {
+    const projectName = `QA Project ${Date.now()}`;
+
+    await page.goto(`${baseUrl}/admin/create`);
+
+    const projectCombobox = page.getByRole("combobox", { name: "Project" });
+    await projectCombobox.click();
+    await page.getByPlaceholder("Search or type a new project name...").fill(projectName);
+    await page.getByRole("button", { name: `Create project "${projectName}"` }).click();
+
+    await expect(projectCombobox).toContainText(projectName);
+
+    await page.goto(`${baseUrl}/customer/create`);
+
+    const clientProjectCombobox = page.getByRole("combobox", { name: "Campaign Name" });
+    await clientProjectCombobox.click();
+    await page.getByPlaceholder("Search or type a new project name...").fill(projectName);
+
+    await expect(page.getByRole("button", { name: `Create project "${projectName}"` })).toHaveCount(0);
+    const existingProjectOption = page.locator("button").filter({ hasText: projectName }).first();
+    await expect(existingProjectOption).toBeVisible();
+    await existingProjectOption.click();
+    await expect(clientProjectCombobox).toContainText(projectName);
+  });
+
   test("reorders item rows with the grip handle", async ({ page }) => {
     await page.goto(`${baseUrl}/admin/create`);
 

@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronUp, Search, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Plus, Search, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,10 @@ interface SearchableComboboxProps {
   placeholder: string;
   searchPlaceholder?: string;
   emptyText?: string;
+  allowCreate?: boolean;
+  createLabel?: string;
+  onCreate?: (value: string) => void;
+  ariaLabel?: string;
   className?: string;
   disabled?: boolean;
 }
@@ -28,6 +32,10 @@ export function SearchableCombobox({
   placeholder,
   searchPlaceholder = "Search...",
   emptyText = "No results found.",
+  allowCreate = false,
+  createLabel,
+  onCreate,
+  ariaLabel,
   className,
   disabled = false,
 }: SearchableComboboxProps) {
@@ -38,10 +46,19 @@ export function SearchableCombobox({
   const listboxId = useId();
 
   const selectedOption = useMemo(() => options.find((option) => option.value === value) ?? null, [options, value]);
+  const trimmedQuery = query.trim();
+  const normalizedQuery = trimmedQuery.toLowerCase();
+  const exactMatch = useMemo(() => {
+    if (!normalizedQuery) {
+      return null;
+    }
+
+    return options.find((option) => {
+      return option.value.toLowerCase() === normalizedQuery || option.label.trim().toLowerCase() === normalizedQuery;
+    }) ?? null;
+  }, [normalizedQuery, options]);
 
   const filteredOptions = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
     if (!normalizedQuery) {
       return options;
     }
@@ -51,6 +68,7 @@ export function SearchableCombobox({
       return haystack.includes(normalizedQuery);
     });
   }, [options, query]);
+  const canCreate = allowCreate && Boolean(trimmedQuery) && !exactMatch;
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
@@ -94,10 +112,21 @@ export function SearchableCombobox({
     setOpen(false);
   };
 
+  const handleCreate = () => {
+    if (!canCreate) {
+      return;
+    }
+
+    onCreate?.(trimmedQuery);
+    onValueChange(trimmedQuery);
+    setOpen(false);
+  };
+
   return (
     <div ref={wrapperRef} className={cn("relative", className)}>
       <div
         role="combobox"
+        aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listboxId}
@@ -154,6 +183,20 @@ export function SearchableCombobox({
               className="h-9 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               autoComplete="off"
               aria-label={searchPlaceholder}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+
+                  if (canCreate) {
+                    handleCreate();
+                    return;
+                  }
+
+                  if (exactMatch) {
+                    handleSelect(exactMatch.value);
+                  }
+                }
+              }}
             />
             <button
               type="button"
@@ -166,6 +209,22 @@ export function SearchableCombobox({
           </div>
 
           <div id={listboxId} role="listbox" className="max-h-72 overflow-auto p-1">
+            {canCreate ? (
+              <button
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={handleCreate}
+                className="mb-1 flex w-full items-start gap-2 rounded-sm border border-dashed border-primary/30 bg-primary/5 px-2 py-2 text-left text-sm outline-none transition-colors hover:bg-primary/10 hover:text-foreground"
+              >
+                <Plus className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">
+                    {createLabel ? `${createLabel} "${trimmedQuery}"` : `Create "${trimmedQuery}"`}
+                  </span>
+                  <span className="block truncate text-xs text-muted-foreground">Add and select this new value</span>
+                </span>
+              </button>
+            ) : null}
             {filteredOptions.length > 0 ? (
               filteredOptions.map((option) => {
                 const isSelected = option.value === value;
