@@ -85,7 +85,7 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
     const errors: string[] = [];
 
     if (!clientPO.trim()) errors.push("Customer PO Ref is required.");
-    if (!campaignName.trim()) errors.push("Campaign Name is required.");
+    if (!campaignName.trim()) errors.push("Project is required.");
     if (!soNumber.trim()) errors.push("SO Number is required.");
     if (!picProgramName.trim()) errors.push("PIC Program Name is required.");
     if (!picProgramEmail.trim()) errors.push("PIC Program Email is required.");
@@ -240,8 +240,8 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                     <FormField label="Customer PO Ref" required htmlFor="client-po">
                       <Input id="client-po" placeholder="e.g. 123928098" value={clientPO} onChange={(e) => setClientPO(e.target.value)} />
                     </FormField>
-                    <FormField label="Campaign Name" required htmlFor="campaign-name">
-                      <Input id="campaign-name" placeholder="e.g. Sunscreen Q2" value={campaignName} onChange={(e) => setCampaignName(e.target.value)} />
+                    <FormField label="Project" required htmlFor="campaign-name">
+                      <Input id="campaign-name" placeholder="Project e.g. Sunscreen Q2" value={campaignName} onChange={(e) => setCampaignName(e.target.value)} />
                     </FormField>
                     <FormField label="SO Number" required htmlFor="so-number">
                       <Input id="so-number" placeholder="e.g. SO123928" value={soNumber} onChange={(e) => setSoNumber(e.target.value)} />
