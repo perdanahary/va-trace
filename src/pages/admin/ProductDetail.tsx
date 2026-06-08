@@ -1,7 +1,6 @@
 import { useState, type ChangeEvent, type ComponentType, type ReactNode } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft,
   Edit3,
   Layers,
   Package,
@@ -86,44 +85,36 @@ export function ProductDetail() {
     <div className="flex min-h-screen bg-background font-sans">
       <Sidebar role="admin" />
       <div className="flex-1">
-        <Header title={isNew ? "Add New Product" : `Product Details: ${product.code}`} />
+        <Header
+          title={isNew ? "Add New Product" : `Product Details: ${product.code}`}
+          actions={
+            !isEditing ? (
+              <>
+                <Button variant="destructive" onClick={handleDelete}>
+                  <X className="h-4 w-4" />
+                  Delete
+                </Button>
+                <Button onClick={() => setIsEditing(true)}>
+                  <Edit3 className="h-4 w-4" />
+                  Edit Product
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={handleCancel}>
+                  <X className="h-4 w-4" />
+                  Cancel
+                </Button>
+                <Button onClick={handleSave}>
+                  <Save className="h-4 w-4" />
+                  {isNew ? "Create Product" : "Save Changes"}
+                </Button>
+              </>
+            )
+          }
+        />
 
         <main className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <Button asChild variant="ghost" className="w-fit justify-start gap-2 px-0">
-              <Link to="/admin/products">
-                <ArrowLeft className="h-4 w-4" />
-                Back to Catalog
-              </Link>
-            </Button>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {!isEditing ? (
-                <>
-                  <Button variant="destructive" onClick={handleDelete}>
-                    <X className="h-4 w-4" />
-                    Delete
-                  </Button>
-                  <Button onClick={() => setIsEditing(true)}>
-                    <Edit3 className="h-4 w-4" />
-                    Edit Product
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button variant="outline" onClick={handleCancel}>
-                    <X className="h-4 w-4" />
-                    Cancel
-                  </Button>
-                  <Button onClick={handleSave}>
-                    <Save className="h-4 w-4" />
-                    {isNew ? "Create Product" : "Save Changes"}
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-
           <Card className="border-border/70 shadow-sm">
             <CardContent className="p-6">
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
