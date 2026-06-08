@@ -1,5 +1,14 @@
 import { useSyncExternalStore } from "react";
-import { mockOrders, type ComplaintHistoryEntry, type ComplaintLineItem, type ComplaintStatus, type Order, type OrderComplaint, type OrderLine } from "@/lib/mockData";
+import {
+  getSalesPointCustomerBinding,
+  mockOrders,
+  type ComplaintHistoryEntry,
+  type ComplaintLineItem,
+  type ComplaintStatus,
+  type Order,
+  type OrderComplaint,
+  type OrderLine,
+} from "@/lib/mockData";
 import { getOrderRequestStatus } from "@/lib/orderStatus";
 
 export interface ImportedOrderLine extends OrderLine {
@@ -205,6 +214,7 @@ export function createManualOrder(draft: ManualOrderDraft): StoredOrder {
     deliveredQuantity: 0,
     status: "Created",
   }));
+  const salesPointCustomer = getSalesPointCustomerBinding(draft.salesPointId);
 
   return {
     id: makeOrderId(),
@@ -216,6 +226,9 @@ export function createManualOrder(draft: ManualOrderDraft): StoredOrder {
     soNumber: draft.soNumber.trim(),
     supplier: draft.supplier.trim(),
     salesPointId: draft.salesPointId,
+    customerId: salesPointCustomer?.customerId,
+    customerName: salesPointCustomer?.customerName,
+    customerEntityName: salesPointCustomer?.customerEntityName,
     picProgram: {
       name: draft.picProgramName.trim(),
       email: draft.picProgramEmail.trim(),

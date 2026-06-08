@@ -9,8 +9,7 @@ import { Header } from "@/components/layout/Header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { mockProducts } from "@/lib/productMaster";
-import { mockSalesPoints } from "@/lib/mockData";
+import { getSalesPointCustomerBinding, mockProducts, mockSalesPoints } from "@/lib/mockData";
 import { appendOrders, createManualOrder } from "@/lib/orderStore";
 
 export function CreateOrder() {
@@ -26,6 +25,7 @@ export function CreateOrder() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const salesPoint = mockSalesPoints.find((entry) => entry.wcode === selectedSalesPoint) ?? mockSalesPoints[0];
+  const salesPointCustomer = getSalesPointCustomerBinding(salesPoint.wcode);
   const totalQuantity = items.reduce((total, item) => total + item.quantity, 0);
 
   const validationErrors = useMemo(() => {
@@ -286,6 +286,9 @@ export function CreateOrder() {
                     <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">Destination</p>
                     <p className="font-medium">
                       {salesPoint.wcode} - {salesPoint.salesPoint}
+                    </p>
+                    <p className="text-[10px] uppercase tracking-widest opacity-70">
+                      Customer: {salesPointCustomer?.customerName ?? "Unbound"} · {salesPointCustomer?.customerEntityName ?? "No entity"}
                     </p>
                   </div>
 

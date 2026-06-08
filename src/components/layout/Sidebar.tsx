@@ -63,6 +63,7 @@ const navItems: Record<UserRole, SidebarNavItem[]> = {
     { icon: Tag, label: "Products", path: "/admin/products" },
     { icon: Bookmark, label: "Brands", path: "/admin/brands" },
     { icon: Map, label: "Sales Points", path: "/admin/sales-points" },
+    { icon: Users, label: "Customers", path: "/admin/customers" },
     { icon: Users, label: "Users", path: "/admin/users" },
   ],
   operator: [

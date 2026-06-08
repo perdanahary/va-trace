@@ -56,8 +56,8 @@ export function UserModal({ isOpen, onClose, onSave, user }: UserModalProps) {
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{user ? "Edit Operator" : "Invite New Operator"}</DialogTitle>
-          <DialogDescription>Capture the operator profile and their access level.</DialogDescription>
+          <DialogTitle>{user ? "Edit User" : "Invite New User"}</DialogTitle>
+          <DialogDescription>Capture the user profile and their access level.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">

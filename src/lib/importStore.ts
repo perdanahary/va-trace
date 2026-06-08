@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import * as XLSX from "xlsx";
-import { mockSalesPoints, type SalesPointMapping } from "@/lib/mockData";
+import { getSalesPointCustomerBinding, mockSalesPoints, type SalesPointMapping } from "@/lib/mockData";
 import { mockProducts } from "@/lib/productMaster";
 import { getSupplierSnapshot } from "@/lib/supplierStore";
 import { appendOrders, getOrdersSnapshot, type StoredOrder } from "@/lib/orderStore";
@@ -44,6 +44,9 @@ export interface ImportRowMatch {
   productName: string | null;
   salesPointId: string | null;
   salesPointName: string | null;
+  customerId: string | null;
+  customerName: string | null;
+  customerEntityName: string | null;
   brandName: string | null;
   categoryName: string | null;
   issues: string[];
@@ -317,6 +320,7 @@ function resolveRowMatch(raw: ImportRowRaw, quantity: number): ImportRowMatch {
   const salesPoint =
     mockSalesPoints.find((entry) => entry.wcode === raw.wcode) ??
     mockSalesPoints.find((entry) => entry.salesPoint.toLowerCase() === raw.salesPoint.toLowerCase());
+  const customerBinding = salesPoint ? getSalesPointCustomerBinding(salesPoint.wcode) : null;
   const issues: string[] = [];
 
   if (!raw.poNumber) issues.push("Missing PO Number");
@@ -336,6 +340,9 @@ function resolveRowMatch(raw: ImportRowRaw, quantity: number): ImportRowMatch {
     productName: product?.name ?? null,
     salesPointId: salesPoint?.wcode ?? null,
     salesPointName: salesPoint?.salesPoint ?? null,
+    customerId: customerBinding?.customerId ?? null,
+    customerName: customerBinding?.customerName ?? null,
+    customerEntityName: customerBinding?.customerEntityName ?? null,
     brandName: product?.brand ?? (raw.brand || null),
     categoryName: product?.productType ?? (raw.category || null),
     issues,
@@ -558,7 +565,8 @@ export function getDispatchReadiness(batch: ImportBatch) {
 export function createOrdersFromDispatchableRows(batch: ImportBatch, dispatchableRows: ImportBatchRow[], dispatchRunId = "") {
   const groupedRows = dispatchableRows.reduce<Record<string, ImportBatchRow[]>>((accumulator, row) => {
     const salesPointId = row.match.salesPointId ?? row.raw.wcode;
-    const key = `${row.raw.poNumber}::${salesPointId}::${row.assignment?.vendorId}`;
+    const customerId = row.match.customerId ?? getSalesPointCustomerBinding(salesPointId)?.customerId ?? "";
+    const key = `${row.raw.poNumber}::${salesPointId}::${customerId}::${row.assignment?.vendorId}`;
     accumulator[key] = [...(accumulator[key] ?? []), row];
     return accumulator;
   }, {});
@@ -567,6 +575,13 @@ export function createOrdersFromDispatchableRows(batch: ImportBatch, dispatchabl
     const firstRow = rows[0];
     const vendor = firstRow.assignment!;
     const salesPointId = firstRow.match.salesPointId ?? firstRow.raw.wcode;
+    const customerBinding = firstRow.match.customerId
+      ? {
+          customerId: firstRow.match.customerId,
+          customerName: firstRow.match.customerName,
+          customerEntityName: firstRow.match.customerEntityName,
+        }
+      : getSalesPointCustomerBinding(salesPointId);
     const sourcePoNumber = firstRow.raw.poNumber;
     const topProgramName = rows.reduce<Record<string, number>>((accumulator, row) => {
       const key = row.raw.brandNamePo || row.raw.brand || "Imported Program";
@@ -599,6 +614,9 @@ export function createOrdersFromDispatchableRows(batch: ImportBatch, dispatchabl
       soNumber: "",
       supplier: vendor.vendorName,
       salesPointId,
+      customerId: customerBinding?.customerId ?? undefined,
+      customerName: customerBinding?.customerName ?? undefined,
+      customerEntityName: customerBinding?.customerEntityName ?? undefined,
       picProgram: {
         name: "",
         email: "",

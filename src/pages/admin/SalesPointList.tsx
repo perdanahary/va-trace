@@ -42,7 +42,9 @@ export function SalesPointList() {
       const matchesSearch =
         sp.salesPoint.toLowerCase().includes(searchQuery.toLowerCase()) ||
         sp.wcode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        sp.area.toLowerCase().includes(searchQuery.toLowerCase());
+        sp.area.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        sp.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        sp.customerEntityName.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesZone = selectedZone === "All Zones" || sp.zone === selectedZone;
       const matchesRegion = selectedRegion === "All Regions" || sp.region === selectedRegion;
@@ -90,7 +92,7 @@ export function SalesPointList() {
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by Sales Point, WCode, or Area..."
+                  placeholder="Search by Sales Point, WCode, Area, or Customer..."
                   className="pl-9 pr-10"
                 />
                 {searchQuery ? (
@@ -211,6 +213,7 @@ export function SalesPointList() {
                     <SortableHead field="zone" currentField={sortField} direction={sortDirection} onSort={handleSort} label="Zone" />
                     <SortableHead field="region" currentField={sortField} direction={sortDirection} onSort={handleSort} label="Region" />
                     <SortableHead field="area" currentField={sortField} direction={sortDirection} onSort={handleSort} label="Area" />
+                    <TableHead>Customer</TableHead>
                     <SortableHead field="wcode" currentField={sortField} direction={sortDirection} onSort={handleSort} label="WCode" />
                     <SortableHead field="salesPoint" currentField={sortField} direction={sortDirection} onSort={handleSort} label="Sales Point" />
                     <TableHead className="text-right">Actions</TableHead>
@@ -223,6 +226,12 @@ export function SalesPointList() {
                         <TableCell className="text-sm">{sp.zone}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{sp.region}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{sp.area}</TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium">{sp.customerName}</p>
+                            <p className="text-xs text-muted-foreground">{sp.customerEntityName}</p>
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Badge variant="secondary" className="rounded-full font-mono text-[10px] uppercase tracking-[0.18em]">
                             {sp.wcode}
@@ -251,7 +260,7 @@ export function SalesPointList() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="py-16 text-center">
+                      <TableCell colSpan={7} className="py-16 text-center">
                         <div className="mx-auto flex max-w-sm flex-col items-center gap-2 text-muted-foreground">
                           <Filter className="h-8 w-8 opacity-20" />
                           <p className="text-sm font-medium">No sales points match your filters</p>

@@ -116,8 +116,16 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
 
       const matchesSearch =
         !query ||
-        [row.raw.itemName, row.raw.itemCode, row.raw.salesPoint, row.raw.poNumber, row.raw.brandNamePo]
-          .filter(Boolean)
+        [
+          row.raw.itemName,
+          row.raw.itemCode,
+          row.raw.salesPoint,
+          row.raw.poNumber,
+          row.raw.brandNamePo,
+          row.match.customerName,
+          row.match.customerEntityName,
+        ]
+          .filter((value): value is string => Boolean(value))
           .some((value) => value.toLowerCase().includes(query));
 
       const matchesRegion = regionFilter === "All Regions" || row.raw.region === regionFilter;
@@ -863,6 +871,11 @@ function ImportRowTableRow({
       <td className="px-4 py-4">
         <p className="font-medium text-slate-950">{row.raw.wcode} · {row.raw.salesPoint}</p>
         <p className="mt-1 text-[10px] leading-5 text-slate-500">{row.raw.region} · {row.raw.area}</p>
+        {row.match.customerName ? (
+          <p className="mt-2 text-[10px] leading-5 text-slate-500">
+            Customer: {row.match.customerName} · {row.match.customerEntityName}
+          </p>
+        ) : null}
       </td>
       <td className="px-4 py-4">
         <p className="font-medium text-slate-950">{row.raw.brandNamePo || row.raw.brand || "-"}</p>

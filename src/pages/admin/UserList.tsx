@@ -44,7 +44,7 @@ export function UserList({ role = "admin" }: UserListProps) {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this operator?")) {
+    if (confirm("Are you sure you want to delete this user?")) {
       deleteUser(id);
     }
   };
@@ -53,14 +53,14 @@ export function UserList({ role = "admin" }: UserListProps) {
     <div className="flex min-h-screen bg-background">
       <Sidebar role={role} />
       <div className="flex-1">
-        <Header title={canManageUsers ? "Operator Management" : "Operator Directory"} />
+        <Header title={canManageUsers ? "User Management" : "User Directory"} />
 
         <main className="flex flex-col gap-4 p-4 sm:p-6 lg:p-8">
           <section className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="relative w-full xl:max-w-xl">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search operators by name, email, or company..."
+                placeholder="Search users by name, email, or company..."
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 className="pl-9"
@@ -74,7 +74,7 @@ export function UserList({ role = "admin" }: UserListProps) {
                 }}
               >
                 <Plus className="h-4 w-4" />
-                Invite New Operator
+                Invite New User
               </Button>
             ) : (
               <Badge variant="outline" className="rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.24em]">
@@ -87,7 +87,7 @@ export function UserList({ role = "admin" }: UserListProps) {
           {!canManageUsers ? (
             <Card className="border-border/70 shadow-sm">
               <CardContent className="pt-6 text-sm text-muted-foreground">
-                Analysts can search and review operator accounts, but only admins can invite, edit, or remove operators.
+                Analysts can search and review user accounts, but only admins can invite, edit, or remove users.
               </CardContent>
             </Card>
           ) : null}
@@ -137,7 +137,7 @@ export function UserList({ role = "admin" }: UserListProps) {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{user.company}</TableCell>
                       <TableCell>
-                        <StatusBadge status={user.status === "Active" ? "Accepted" : "Waiting"} />
+                        <StatusBadge status={user.status} />
                       </TableCell>
                       <TableCell className="text-right">
                         {canManageUsers ? (
@@ -155,11 +155,11 @@ export function UserList({ role = "admin" }: UserListProps) {
                                 }}
                               >
                                 <Edit2 className="mr-2 h-4 w-4" />
-                                Edit Operator
+                                Edit User
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleDelete(user.id)} className="text-destructive focus:text-destructive">
                                 <Trash2 className="mr-2 h-4 w-4" />
-                                Delete Operator
+                                Delete User
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -171,8 +171,8 @@ export function UserList({ role = "admin" }: UserListProps) {
                   ))}
                   {filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
-                        No operators found matching your search.
+                        <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
+                        No users found matching your search.
                       </TableCell>
                     </TableRow>
                   ) : null}

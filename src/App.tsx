@@ -10,6 +10,7 @@ import { ProductList } from './pages/admin/ProductList';
 import { ProductDetail } from './pages/admin/ProductDetail';
 import { BrandList } from './pages/admin/BrandList';
 import { SalesPointList } from './pages/admin/SalesPointList';
+import { CustomerList } from './pages/admin/CustomerList';
 import { AdminCreateOrder } from './pages/admin/AdminCreateOrder';
 import { ClientDashboard } from './pages/client/ClientDashboard';
 import { CreateOrder } from './pages/client/CreateOrder';
@@ -52,6 +53,7 @@ function App() {
                 <Route path="/admin/products/:code" element={<ProductDetail />} />
                 <Route path="/admin/brands" element={<BrandList />} />
                 <Route path="/admin/sales-points" element={<SalesPointList />} />
+                <Route path="/admin/customers" element={<CustomerList />} />
 
               {/* Operator Routes */}
                 <Route path="/operator" element={<AdminDashboard role="operator" />} />

@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableCombobox, type ComboboxOption } from "@/components/ui/searchable-combobox";
-import { mockSalesPoints } from "@/lib/mockData";
+import { getSalesPointCustomerBinding, mockSalesPoints } from "@/lib/mockData";
 import { mockProducts } from "@/lib/productMaster";
 import { appendOrders, createManualOrder } from "@/lib/orderStore";
 import { useSupplierStore } from "@/lib/supplierStore";
@@ -41,6 +41,7 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
   const { suppliers } = useSupplierStore();
 
   const salesPoint = mockSalesPoints.find((entry) => entry.wcode === selectedSalesPoint) ?? mockSalesPoints[0];
+  const salesPointCustomer = getSalesPointCustomerBinding(salesPoint.wcode);
   const selectedSupplierRecord = suppliers.find((supplier) => supplier.id === selectedSupplier) ?? null;
   const selectedSupplierName = selectedSupplierRecord?.name ?? "Not Selected";
   const totalQuantity = items.reduce((total, item) => total + item.quantity, 0);
@@ -363,6 +364,14 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                   <div className="space-y-2 border-b border-white/20 pb-4 text-xs">
                     <ReviewRow label="Assigned Supplier" value={selectedSupplierName} />
                     <ReviewRow label="Sales Point" value={`${salesPoint.wcode} - ${salesPoint.salesPoint}`} />
+                    <ReviewRow
+                      label="Customer"
+                      value={
+                        salesPointCustomer
+                          ? `${salesPointCustomer.customerName} · ${salesPointCustomer.customerEntityName}`
+                          : "Unbound"
+                      }
+                    />
                     <ReviewRow label="SO Number" value={soNumber || "Missing"} />
                     <ReviewRow label="PIC Program" value={picProgramName || "Missing"} />
                     <ReviewRow label="Total Qty" value={`${totalQuantity} qty`} />

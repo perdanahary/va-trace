@@ -176,6 +176,25 @@ test.describe("bulk order request import", () => {
     expect(orders.every((order) => order.importPoNumbers?.length === 1 && order.importPoNumbers[0] === order.clientPO)).toBe(true);
   });
 
+  test("binds imported sales points to the Sampoerna customer on the row match and generated order", () => {
+    const batch = buildImportBatch(
+      "customer-binding.xlsx",
+      "Sheet1",
+      "Test",
+      parsedRows([makeRecord({ "PO Number": "PO-CUS-A", Wcode: "WH055", "Sales Point": "Jakarta Barat", Quantity: "9" })]),
+    );
+    const assignedRows = batch.rows.map((row) => assign(row, "SUP-001", "CV Cetakan Terbaik Sejagat"));
+
+    expect(assignedRows[0].match.customerId).toBe("CUS-SAMPOERNA");
+    expect(assignedRows[0].match.customerName).toBe("Sampoerna");
+    expect(assignedRows[0].match.customerEntityName).toBe("PT HM Sampoerna Tbk");
+
+    const orders = createOrdersFromDispatchableRows({ ...batch, rows: assignedRows }, assignedRows, "DSP-CUSTOMER");
+    expect(orders[0].customerId).toBe("CUS-SAMPOERNA");
+    expect(orders[0].customerName).toBe("Sampoerna");
+    expect(orders[0].customerEntityName).toBe("PT HM Sampoerna Tbk");
+  });
+
   test("dispatch readiness only allows assigned, resolved, reviewed rows", () => {
     const duplicate = makeRecord({ "PO Number": "PO-READY-DUP", Quantity: "8" });
     const batch = buildImportBatch(

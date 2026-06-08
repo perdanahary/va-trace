@@ -50,6 +50,9 @@ export interface Order {
   soNumber: string;
   supplier: string;
   salesPointId: string;
+  customerId?: string;
+  customerName?: string;
+  customerEntityName?: string;
   picProgram: {
     name: string;
     email: string;
@@ -70,6 +73,9 @@ const mockOrderSeeds: Omit<Order, "status">[] = [
     soNumber: "SO123928",
     supplier: "PT. HH Global Services Indonesia",
     salesPointId: "WH055",
+    customerId: "CUS-SAMPOERNA",
+    customerName: "Sampoerna",
+    customerEntityName: "PT HM Sampoerna Tbk",
     picProgram: {
       name: "Chandra Sadikin",
       email: "Chandra.Sadikin@sampoerna.com",
@@ -89,6 +95,9 @@ const mockOrderSeeds: Omit<Order, "status">[] = [
     soNumber: "SO178056",
     supplier: "PT Print Solusi",
     salesPointId: "WH020",
+    customerId: "CUS-SAMPOERNA",
+    customerName: "Sampoerna",
+    customerEntityName: "PT HM Sampoerna Tbk",
     picProgram: {
       name: "Chandra Sadikin",
       email: "Chandra.Sadikin@sampoerna.com",
@@ -108,6 +117,9 @@ const mockOrderSeeds: Omit<Order, "status">[] = [
     soNumber: "SO998271",
     supplier: "CV Cetakan Terbaik Sejagat",
     salesPointId: "WH071",
+    customerId: "CUS-SAMPOERNA",
+    customerName: "Sampoerna",
+    customerEntityName: "PT HM Sampoerna Tbk",
     picProgram: {
       name: "Reno Saputra",
       email: "Reno.Saputra@panamas.com",
@@ -127,6 +139,9 @@ const mockOrderSeeds: Omit<Order, "status">[] = [
     soNumber: "SO772615",
     supplier: "Pending",
     salesPointId: "WH069",
+    customerId: "CUS-SAMPOERNA",
+    customerName: "Sampoerna",
+    customerEntityName: "PT HM Sampoerna Tbk",
     picProgram: {
       name: "Joko Santoso",
       email: "Joko.Santoso@sampoerna.com",
@@ -145,6 +160,9 @@ const mockOrderSeeds: Omit<Order, "status">[] = [
     soNumber: "SO445162",
     supplier: "PT Multi Print",
     salesPointId: "WH179",
+    customerId: "CUS-SAMPOERNA",
+    customerName: "Sampoerna",
+    customerEntityName: "PT HM Sampoerna Tbk",
     picProgram: {
       name: "Chandra Sadikin",
       email: "Chandra.Sadikin@sampoerna.com",
@@ -2060,6 +2078,9 @@ export const adminMetrics = [
 ];
 
 export interface SalesPointMapping {
+  customerId: string;
+  customerName: string;
+  customerEntityName: string;
   zone: string;
   region: string;
   area: string;
@@ -2072,7 +2093,13 @@ export interface SalesPointMapping {
   picClient?: string;
 }
 
-export const mockSalesPoints: SalesPointMapping[] = [
+const boundCustomer = {
+  customerId: "CUS-SAMPOERNA",
+  customerName: "Sampoerna",
+  customerEntityName: "PT HM Sampoerna Tbk",
+} as const;
+
+const baseSalesPoints: Omit<SalesPointMapping, "customerId" | "customerName" | "customerEntityName">[] = [
   {
     "zone": "Jakarta",
     "region": "Jakarta Inner",
@@ -2949,3 +2976,22 @@ export const mockSalesPoints: SalesPointMapping[] = [
     "salesPoint": "DPC Tulang Bawang"
   }
 ];
+
+export const mockSalesPoints: SalesPointMapping[] = baseSalesPoints.map((salesPoint) => ({
+  ...salesPoint,
+  ...boundCustomer,
+}));
+
+export function getSalesPointCustomerBinding(salesPointId: string) {
+  const salesPoint = mockSalesPoints.find((entry) => entry.wcode === salesPointId);
+
+  if (!salesPoint) {
+    return null;
+  }
+
+  return {
+    customerId: salesPoint.customerId,
+    customerName: salesPoint.customerName,
+    customerEntityName: salesPoint.customerEntityName,
+  };
+}
