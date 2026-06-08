@@ -9,6 +9,18 @@ import { getOrderRequestStatus } from "@/lib/orderStatus";
 export type ImportBatchStage = "Uploaded" | "Matched" | "Assignment in progress" | "Dispatched";
 export type ImportRowStatus = "parsed" | "matched" | "unresolved" | "unassigned" | "assigned" | "excluded" | "dispatched";
 export type DuplicateDecision = "pending" | "include" | "exclude";
+export type ImportValidationStatus = "blocked" | "ready_for_assignment" | "ready_for_import" | "importing" | "imported" | "failed";
+export type ImportJobStatus = "idle" | "importing" | "imported" | "failed";
+
+export const MANDATORY_IMPORT_FIELDS = [
+  "PO Number",
+  "PO Line",
+  "Wcode",
+  "Sales Point",
+  "Item Code",
+  "Item Name",
+  "Quantity",
+] as const;
 
 export interface ImportRowRaw {
   poNumber: string;
@@ -68,6 +80,7 @@ export interface ImportBatchRow {
   match: ImportRowMatch;
   possibleDuplicate: boolean;
   duplicateKey: string;
+  idempotencyKey: string;
   duplicateWith: string[];
   duplicateDecision: DuplicateDecision;
   assignment: ImportRowAssignment | null;
@@ -80,7 +93,21 @@ export interface DispatchRun {
   createdAt: string;
   createdBy: string;
   createdOrderIds: string[];
+  completedGroupKeys: string[];
   skippedRowIds: string[];
+  skippedExistingOrderIds: string[];
+}
+
+export interface ImportJob {
+  id: string;
+  status: ImportJobStatus;
+  progressPercent: number;
+  createdOrderIds: string[];
+  completedRowIds: string[];
+  failedRowIds: string[];
+  lastError: string | null;
+  retryCount: number;
+  updatedAt: string;
 }
 
 export interface ImportBatch {
@@ -92,6 +119,8 @@ export interface ImportBatch {
   uploadedAt: string;
   stage: ImportBatchStage;
   progressPercent: number;
+  validationStatus: ImportValidationStatus;
+  importJob: ImportJob | null;
   rows: ImportBatchRow[];
   dispatchRuns: DispatchRun[];
 }
@@ -99,6 +128,7 @@ export interface ImportBatch {
 export interface DispatchResult {
   createdOrders: StoredOrder[];
   createdOrderIds: string[];
+  skippedExistingOrderIds: string[];
   skippedRowIds: string[];
   unresolvedAssignedCount: number;
   pendingDuplicateCount: number;
@@ -107,8 +137,25 @@ export interface DispatchResult {
 
 const STORAGE_KEY = "va-trace-import-batches";
 const STORE_EVENT = "va-trace-import-batches:change";
-let cachedBatches: ImportBatch[] | null = null;
-let cachedStorageValue: string | null = null;
+const IMPORT_BATCH_DB_NAME = "va-trace-import-batches-db";
+const IMPORT_BATCH_STORE_NAME = "batches";
+const IMPORT_QUEUE_RESET_KEY = "va-trace-import-batches-reset";
+
+let cachedBatches: ImportBatch[] = [];
+let cacheHydrated = typeof window === "undefined";
+let hydrationPromise: Promise<void> | null = null;
+let databasePromise: Promise<IDBDatabase> | null = null;
+let writeQueue: Promise<void> = Promise.resolve();
+
+interface ImportStoreSnapshot {
+  batches: ImportBatch[];
+  isHydrating: boolean;
+}
+
+let cachedSnapshot: ImportStoreSnapshot = {
+  batches: cachedBatches,
+  isHydrating: !cacheHydrated,
+};
 
 const expectedHeaders = [
   "PO Number",
@@ -159,50 +206,225 @@ function toIsoDate(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
+function sortBatches(batches: ImportBatch[]) {
+  return [...batches].sort((left, right) => right.uploadedAt.localeCompare(left.uploadedAt));
+}
+
+function emitStoreChange() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(new Event(STORE_EVENT));
+}
+
+function updateSnapshotCache() {
+  cachedSnapshot = {
+    batches: cachedBatches,
+    isHydrating: !cacheHydrated,
+  };
+}
+
+function getSnapshot() {
+  return cachedSnapshot;
+}
+
+function openImportBatchDatabase() {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("IndexedDB is only available in the browser."));
+  }
+
+  if (databasePromise) {
+    return databasePromise;
+  }
+
+  databasePromise = new Promise((resolve, reject) => {
+    const request = window.indexedDB.open(IMPORT_BATCH_DB_NAME, 1);
+
+    request.onupgradeneeded = () => {
+      const database = request.result;
+
+      if (!database.objectStoreNames.contains(IMPORT_BATCH_STORE_NAME)) {
+        database.createObjectStore(IMPORT_BATCH_STORE_NAME, { keyPath: "id" });
+      }
+    };
+
+    request.onsuccess = () => {
+      const database = request.result;
+      database.onversionchange = () => {
+        database.close();
+        databasePromise = null;
+      };
+      resolve(database);
+    };
+    request.onerror = () => reject(request.error ?? new Error("Failed to open import batch database."));
+  });
+
+  return databasePromise;
+}
+
+function runTransaction<T>(
+  mode: IDBTransactionMode,
+  operation: (store: IDBObjectStore, resolve: (value: T) => void, reject: (reason?: unknown) => void) => void,
+) {
+  return openImportBatchDatabase().then(
+    (database) =>
+      new Promise<T>((resolve, reject) => {
+        const transaction = database.transaction(IMPORT_BATCH_STORE_NAME, mode);
+        const store = transaction.objectStore(IMPORT_BATCH_STORE_NAME);
+
+        transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB transaction failed."));
+        operation(store, resolve, reject);
+      }),
+  );
+}
+
+function readAllBatchesFromIndexedDb() {
+  return runTransaction<ImportBatch[]>("readonly", (store, resolve, reject) => {
+    const request = store.getAll();
+    request.onsuccess = () => resolve(sortBatches((request.result as ImportBatch[]) ?? []));
+    request.onerror = () => reject(request.error ?? new Error("Failed to read import batches."));
+  });
+}
+
+function putBatchIntoIndexedDb(batch: ImportBatch) {
+  return runTransaction<void>("readwrite", (store, resolve, reject) => {
+    const request = store.put(batch);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error ?? new Error("Failed to save import batch."));
+  });
+}
+
+function replaceIndexedDbBatches(nextBatches: ImportBatch[]) {
+  return runTransaction<void>("readwrite", (store, resolve, reject) => {
+    const clearRequest = store.clear();
+
+    clearRequest.onerror = () => reject(clearRequest.error ?? new Error("Failed to reset import batches."));
+    clearRequest.onsuccess = () => {
+      if (nextBatches.length === 0) {
+        resolve();
+        return;
+      }
+
+      let completed = 0;
+      let rejected = false;
+
+      nextBatches.forEach((batch) => {
+        const request = store.put(batch);
+        request.onerror = () => {
+          if (!rejected) {
+            rejected = true;
+            reject(request.error ?? new Error("Failed to write import batches."));
+          }
+        };
+        request.onsuccess = () => {
+          completed += 1;
+          if (!rejected && completed === nextBatches.length) {
+            resolve();
+          }
+        };
+      });
+    };
+  });
+}
+
+function readLegacyLocalStorageBatches() {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (!stored) {
+      return [];
+    }
+
+    const parsed = JSON.parse(stored) as ImportBatch[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function shouldSeedInitialBatches() {
+  if (typeof window === "undefined") {
+    return true;
+  }
+
+  return window.localStorage.getItem(IMPORT_QUEUE_RESET_KEY) !== "true";
+}
+
+function markImportQueueAsReset() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(IMPORT_QUEUE_RESET_KEY, "true");
+}
+
+async function migrateLegacyLocalStorageIfNeeded() {
+  const legacyBatches = readLegacyLocalStorageBatches();
+
+  if (legacyBatches.length === 0) {
+    return;
+  }
+
+  const currentBatches = await readAllBatchesFromIndexedDb();
+
+  if (currentBatches.length === 0) {
+    await replaceIndexedDbBatches(legacyBatches.map(syncBatch));
+  }
+
+  window.localStorage.removeItem(STORAGE_KEY);
+}
+
+async function hydrateImportBatchCache() {
+  if (typeof window === "undefined") {
+    cacheHydrated = true;
+    return;
+  }
+
+  try {
+    await migrateLegacyLocalStorageIfNeeded();
+    cachedBatches = await readAllBatchesFromIndexedDb();
+    if (cachedBatches.length === 0 && shouldSeedInitialBatches()) {
+      cachedBatches = initialSeedBatches;
+    }
+  } catch (error) {
+    console.error("Failed to hydrate import batches from IndexedDB.", error);
+    cachedBatches = shouldSeedInitialBatches() ? initialSeedBatches : [];
+  } finally {
+    cacheHydrated = true;
+    updateSnapshotCache();
+    emitStoreChange();
+  }
+}
+
+function ensureImportBatchCacheHydrated() {
+  if (cacheHydrated) {
+    return Promise.resolve();
+  }
+
+  if (!hydrationPromise) {
+    hydrationPromise = hydrateImportBatchCache();
+  }
+
+  return hydrationPromise;
+}
+
+function enqueueWrite(task: () => Promise<void>) {
+  const queuedTask = writeQueue.then(task, task);
+  writeQueue = queuedTask.catch(() => undefined);
+  return queuedTask;
+}
+
 function readStoredBatches(): ImportBatch[] {
   if (typeof window === "undefined") {
     return initialSeedBatches;
   }
 
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-
-    if (!stored) {
-      cachedBatches = initialSeedBatches;
-      cachedStorageValue = null;
-      return initialSeedBatches;
-    }
-
-    if (stored === cachedStorageValue && cachedBatches) {
-      return cachedBatches;
-    }
-
-    const parsed = JSON.parse(stored) as ImportBatch[];
-    if (!Array.isArray(parsed)) {
-      cachedBatches = initialSeedBatches;
-      cachedStorageValue = null;
-      return initialSeedBatches;
-    }
-
-    const legacySeedFileName = "Sampoerna-Jakarta-Dispatch.xlsx";
-    const legacySeedSheetName = "Item Vendor Tracking";
-    const legacySeedUploadedBy = "Customer Portal";
-
-    const filtered = parsed.filter(
-      (batch) =>
-        !(
-          batch.fileName === legacySeedFileName &&
-          batch.sourceSheetName === legacySeedSheetName &&
-          batch.uploadedBy === legacySeedUploadedBy
-        ),
-    );
-
-    cachedBatches = filtered;
-    cachedStorageValue = stored;
-    return filtered;
-  } catch {
-    return initialSeedBatches;
-  }
+  void ensureImportBatchCacheHydrated();
+  return cachedBatches;
 }
 
 function writeStoredBatches(nextBatches: ImportBatch[]) {
@@ -210,11 +432,9 @@ function writeStoredBatches(nextBatches: ImportBatch[]) {
     return;
   }
 
-  const serialized = JSON.stringify(nextBatches);
-  cachedBatches = nextBatches;
-  cachedStorageValue = serialized;
-  window.localStorage.setItem(STORAGE_KEY, serialized);
-  window.dispatchEvent(new Event(STORE_EVENT));
+  cachedBatches = sortBatches(nextBatches.map(syncBatch));
+  updateSnapshotCache();
+  emitStoreChange();
 }
 
 function subscribe(listener: () => void) {
@@ -222,19 +442,12 @@ function subscribe(listener: () => void) {
     return () => undefined;
   }
 
-  const handleStorage = (event: StorageEvent) => {
-    if (event.key === STORAGE_KEY) {
-      listener();
-    }
-  };
-
   const handleStoreEvent = () => listener();
 
-  window.addEventListener("storage", handleStorage);
   window.addEventListener(STORE_EVENT, handleStoreEvent);
+  void ensureImportBatchCacheHydrated();
 
   return () => {
-    window.removeEventListener("storage", handleStorage);
     window.removeEventListener(STORE_EVENT, handleStoreEvent);
   };
 }
@@ -245,6 +458,28 @@ function normalizeCellValue(value: unknown) {
   }
 
   return String(value).trim();
+}
+
+function normalizeKeyPart(value: string | number | null | undefined) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function buildMandatoryDuplicateKey(raw: ImportRowRaw, quantity: number) {
+  return [
+    raw.poNumber,
+    raw.poLine,
+    raw.wcode,
+    raw.salesPoint,
+    raw.itemCode,
+    raw.itemName,
+    quantity.toString(),
+  ]
+    .map(normalizeKeyPart)
+    .join("|");
+}
+
+function makeRowIdempotencyKey(batchId: string, row: Pick<ImportBatchRow, "duplicateKey" | "sheetRowNumber">) {
+  return [batchId, row.duplicateKey, row.sheetRowNumber.toString()].map(normalizeKeyPart).join("::");
 }
 
 function parseSheetRows(records: ParsedImportSheetRow[]) {
@@ -285,15 +520,7 @@ function buildImportRow(record: SheetRowRecord, sheetRowNumber: number): ImportB
 
   const quantity = Number(raw.quantity) || 0;
   const match = resolveRowMatch(raw, quantity);
-  const duplicateKey = [
-    raw.poNumber,
-    raw.poLine,
-    raw.wcode,
-    raw.itemCode,
-    quantity.toString(),
-  ]
-    .map((part) => part.trim().toLowerCase())
-    .join("|");
+  const duplicateKey = buildMandatoryDuplicateKey(raw, quantity);
   const hasIssues = match.issues.length > 0;
 
   return {
@@ -305,6 +532,7 @@ function buildImportRow(record: SheetRowRecord, sheetRowNumber: number): ImportB
     match,
     possibleDuplicate: false,
     duplicateKey,
+    idempotencyKey: "",
     duplicateWith: [],
     duplicateDecision: "pending",
     assignment: null,
@@ -352,17 +580,21 @@ function resolveRowMatch(raw: ImportRowRaw, quantity: number): ImportRowMatch {
 function applyDuplicateFlags(rows: ImportBatchRow[]) {
   const existingOrderKeys = new Set(
     getOrdersSnapshot().flatMap((order) =>
-      order.items.map((item) =>
-        [
+      order.items.map((item) => {
+        const salesPointName = mockSalesPoints.find((entry) => entry.wcode === order.salesPointId)?.salesPoint ?? order.salesPointId;
+
+        return [
           order.clientPO,
           item.poLineNumber,
           order.salesPointId,
+          salesPointName,
           item.productCode,
+          item.name,
           item.quantity.toString(),
         ]
-          .map((part) => part.trim().toLowerCase())
-          .join("|"),
-      ),
+          .map(normalizeKeyPart)
+          .join("|");
+      }),
     ),
   );
 
@@ -459,10 +691,15 @@ export function buildImportBatch(
   sourceHeaderRowNumber?: number,
 ): ImportBatch {
   const parsedRows = parseSheetRows(records);
-  const rows = applyDuplicateFlags(parsedRows);
+  const id = makeId("IMB");
+  const rows = applyDuplicateFlags(parsedRows).map((row) => ({
+    ...row,
+    idempotencyKey: makeRowIdempotencyKey(id, row),
+  }));
+  const hasBlockers = rows.some((row) => row.match.issues.length > 0 || (row.possibleDuplicate && row.duplicateDecision === "pending"));
 
   return {
-    id: makeId("IMB"),
+    id,
     fileName,
     sourceSheetName,
     sourceHeaderRowNumber,
@@ -470,13 +707,323 @@ export function buildImportBatch(
     uploadedAt: new Date().toISOString(),
     stage: "Assignment in progress",
     progressPercent: 100,
+    validationStatus: hasBlockers ? "blocked" : "ready_for_assignment",
+    importJob: null,
     rows,
     dispatchRuns: [],
   };
 }
 
-function buildInitialBatches() {
-  return [];
+function buildInitialBatches(): ImportBatch[] {
+  const uploadedAt = "2026-06-08T13:44:34.000Z";
+
+  return [
+    {
+      id: "IMB-DEMO-001",
+      fileName: "Sampling Data for System Demo (1).xlsx",
+      sourceSheetName: "Item Vendor Tracking",
+      sourceHeaderRowNumber: 3,
+      uploadedBy: "Operations Desk",
+      uploadedAt,
+      stage: "Assignment in progress",
+      progressPercent: 40,
+      validationStatus: "blocked",
+      importJob: null,
+      dispatchRuns: [],
+      rows: [
+        {
+          id: "IMR-001",
+          sheetRowNumber: 12,
+          raw: {
+            poNumber: "5701713444",
+            poLine: "1",
+            cycle: "Cycle 3",
+            year: "2026",
+            zone: "West",
+            region: "Jakarta Inner",
+            area: "Depok",
+            wcode: "WH059",
+            salesPoint: "Depok",
+            itemName: "TPOSM - Sunscreen Without Velcro - 0.5x1 m - Vinyl FF Frontlight 10 Oz - DPP12 20K",
+            category: "POSM",
+            itemCode: "TPOSM-SC-001",
+            brand: "Sunscreen",
+            brandSku: "SC-001",
+            brandNamePo: "DPP12 20K",
+            length: "0.5",
+            width: "1",
+            quantity: "10",
+            orderDate: "2026-06-02",
+            productionStartDate: "2026-06-06",
+            productionFinishDate: "2026-06-10",
+            shipmentDate: "2026-06-12",
+            estReceivedDate: "2026-06-14",
+            receivedDateBasedOnCpt: "",
+            dnNumber: "",
+            entity: "PT HM Sampoerna Tbk",
+          },
+          quantity: 10,
+          status: "unassigned",
+          match: {
+            productCode: "TPOSM-SC-001",
+            productName: "TPOSM - Sunscreen Without Velcro - 0.5x1 m - Vinyl FF Frontlight 10 Oz - DPP12 20K",
+            salesPointId: "WH059",
+            salesPointName: "Depok",
+            customerId: "CUST-001",
+            customerName: "Sampoerna",
+            customerEntityName: "PT HM Sampoerna Tbk",
+            brandName: "Sunscreen",
+            categoryName: "POSM",
+            issues: [],
+          },
+          possibleDuplicate: false,
+          duplicateKey: "5701713444|1|wh059|tposm-sc-001|10",
+          idempotencyKey: "imb-demo-001::5701713444|1|wh059|tposm-sc-001|10::12",
+          duplicateWith: [],
+          duplicateDecision: "include",
+          assignment: null,
+          excludedReason: null,
+          dispatchedOrderId: null,
+        },
+        {
+          id: "IMR-002",
+          sheetRowNumber: 13,
+          raw: {
+            poNumber: "5701713444",
+            poLine: "2",
+            cycle: "Cycle 3",
+            year: "2026",
+            zone: "West",
+            region: "Jakarta Inner",
+            area: "Depok",
+            wcode: "WH059",
+            salesPoint: "Depok",
+            itemName: "Shelf Strip Highlight",
+            category: "POSM",
+            itemCode: "TPOSM-AM-024",
+            brand: "A Mild",
+            brandSku: "AM-024",
+            brandNamePo: "A Mild",
+            length: "1",
+            width: "0.2",
+            quantity: "24",
+            orderDate: "2026-06-02",
+            productionStartDate: "2026-06-06",
+            productionFinishDate: "2026-06-10",
+            shipmentDate: "2026-06-12",
+            estReceivedDate: "2026-06-14",
+            receivedDateBasedOnCpt: "",
+            dnNumber: "",
+            entity: "PT HM Sampoerna Tbk",
+          },
+          quantity: 24,
+          status: "assigned",
+          match: {
+            productCode: "TPOSM-AM-024",
+            productName: "Shelf Strip Highlight",
+            salesPointId: "WH059",
+            salesPointName: "Depok",
+            customerId: "CUST-001",
+            customerName: "Sampoerna",
+            customerEntityName: "PT HM Sampoerna Tbk",
+            brandName: "A Mild",
+            categoryName: "POSM",
+            issues: [],
+          },
+          possibleDuplicate: false,
+          duplicateKey: "5701713444|2|wh059|tposm-am-024|24",
+          idempotencyKey: "imb-demo-001::5701713444|2|wh059|tposm-am-024|24::13",
+          duplicateWith: [],
+          duplicateDecision: "include",
+          assignment: {
+            vendorId: "SUP-001",
+            vendorName: "Jakarta Print Hub",
+            assignedAt: uploadedAt,
+            assignedBy: "Admin Dispatch Workspace",
+          },
+          excludedReason: null,
+          dispatchedOrderId: null,
+        },
+        {
+          id: "IMR-003",
+          sheetRowNumber: 14,
+          raw: {
+            poNumber: "5701713499",
+            poLine: "1",
+            cycle: "Cycle 3",
+            year: "2026",
+            zone: "West",
+            region: "Jakarta Outer",
+            area: "Bogor",
+            wcode: "WH021",
+            salesPoint: "Bogor",
+            itemName: "Counter Display Kit",
+            category: "Display",
+            itemCode: "TPOSM-CD-404",
+            brand: "Dji Sam Soe",
+            brandSku: "DSS-404",
+            brandNamePo: "Dji Sam Soe",
+            length: "1",
+            width: "1",
+            quantity: "6",
+            orderDate: "2026-06-03",
+            productionStartDate: "2026-06-07",
+            productionFinishDate: "2026-06-11",
+            shipmentDate: "2026-06-13",
+            estReceivedDate: "2026-06-15",
+            receivedDateBasedOnCpt: "",
+            dnNumber: "",
+            entity: "PT HM Sampoerna Tbk",
+          },
+          quantity: 6,
+          status: "unresolved",
+          match: {
+            productCode: null,
+            productName: null,
+            salesPointId: "WH021",
+            salesPointName: "Bogor",
+            customerId: "CUST-001",
+            customerName: "Sampoerna",
+            customerEntityName: "PT HM Sampoerna Tbk",
+            brandName: "Dji Sam Soe",
+            categoryName: "Display",
+            issues: ["Item code not found in product master", "Review vendor-ready substitute"],
+          },
+          possibleDuplicate: false,
+          duplicateKey: "5701713499|1|wh021|tposm-cd-404|6",
+          idempotencyKey: "imb-demo-001::5701713499|1|wh021|tposm-cd-404|6::14",
+          duplicateWith: [],
+          duplicateDecision: "include",
+          assignment: {
+            vendorId: "SUP-002",
+            vendorName: "RouteCraft Visual",
+            assignedAt: uploadedAt,
+            assignedBy: "Admin Dispatch Workspace",
+          },
+          excludedReason: null,
+          dispatchedOrderId: null,
+        },
+        {
+          id: "IMR-004",
+          sheetRowNumber: 15,
+          raw: {
+            poNumber: "5701713503",
+            poLine: "1",
+            cycle: "Cycle 3",
+            year: "2026",
+            zone: "West",
+            region: "Jakarta Inner",
+            area: "Menteng",
+            wcode: "WH001",
+            salesPoint: "Menteng",
+            itemName: "Hanging Mobile Banner",
+            category: "POSM",
+            itemCode: "TPOSM-HM-018",
+            brand: "Marlboro",
+            brandSku: "MB-018",
+            brandNamePo: "Marlboro",
+            length: "1",
+            width: "0.4",
+            quantity: "18",
+            orderDate: "2026-06-03",
+            productionStartDate: "2026-06-07",
+            productionFinishDate: "2026-06-11",
+            shipmentDate: "2026-06-13",
+            estReceivedDate: "2026-06-15",
+            receivedDateBasedOnCpt: "",
+            dnNumber: "",
+            entity: "PT HM Sampoerna Tbk",
+          },
+          quantity: 18,
+          status: "assigned",
+          match: {
+            productCode: "TPOSM-HM-018",
+            productName: "Hanging Mobile Banner",
+            salesPointId: "WH001",
+            salesPointName: "Menteng",
+            customerId: "CUST-001",
+            customerName: "Sampoerna",
+            customerEntityName: "PT HM Sampoerna Tbk",
+            brandName: "Marlboro",
+            categoryName: "POSM",
+            issues: [],
+          },
+          possibleDuplicate: true,
+          duplicateKey: "5701713503|1|wh001|tposm-hm-018|18",
+          idempotencyKey: "imb-demo-001::5701713503|1|wh001|tposm-hm-018|18::15",
+          duplicateWith: ["Existing order"],
+          duplicateDecision: "pending",
+          assignment: {
+            vendorId: "SUP-003",
+            vendorName: "Metro Printworks",
+            assignedAt: uploadedAt,
+            assignedBy: "Admin Dispatch Workspace",
+          },
+          excludedReason: null,
+          dispatchedOrderId: null,
+        },
+        {
+          id: "IMR-005",
+          sheetRowNumber: 16,
+          raw: {
+            poNumber: "5701713510",
+            poLine: "1",
+            cycle: "Cycle 3",
+            year: "2026",
+            zone: "Central",
+            region: "Bandung",
+            area: "Bandung",
+            wcode: "WH077",
+            salesPoint: "Bandung",
+            itemName: "Window Takeover Strip",
+            category: "POSM",
+            itemCode: "TPOSM-WT-014",
+            brand: "Sampoerna Kretek",
+            brandSku: "SK-014",
+            brandNamePo: "Sampoerna Kretek",
+            length: "2",
+            width: "0.3",
+            quantity: "14",
+            orderDate: "2026-06-04",
+            productionStartDate: "2026-06-08",
+            productionFinishDate: "2026-06-12",
+            shipmentDate: "2026-06-14",
+            estReceivedDate: "2026-06-16",
+            receivedDateBasedOnCpt: "",
+            dnNumber: "",
+            entity: "PT HM Sampoerna Tbk",
+          },
+          quantity: 14,
+          status: "dispatched",
+          match: {
+            productCode: "TPOSM-WT-014",
+            productName: "Window Takeover Strip",
+            salesPointId: "WH077",
+            salesPointName: "Bandung",
+            customerId: "CUST-001",
+            customerName: "Sampoerna",
+            customerEntityName: "PT HM Sampoerna Tbk",
+            brandName: "Sampoerna Kretek",
+            categoryName: "POSM",
+            issues: [],
+          },
+          possibleDuplicate: false,
+          duplicateKey: "5701713510|1|wh077|tposm-wt-014|14",
+          idempotencyKey: "imb-demo-001::5701713510|1|wh077|tposm-wt-014|14::16",
+          duplicateWith: [],
+          duplicateDecision: "include",
+          assignment: {
+            vendorId: "SUP-001",
+            vendorName: "Jakarta Print Hub",
+            assignedAt: uploadedAt,
+            assignedBy: "Admin Dispatch Workspace",
+          },
+          excludedReason: null,
+          dispatchedOrderId: "OR-2026-555555",
+        },
+      ],
+    },
+  ];
 }
 
 const initialSeedBatches = buildInitialBatches();
@@ -497,23 +1044,86 @@ function computeBatchStage(batch: ImportBatch): ImportBatchStage {
   return "Uploaded";
 }
 
-function syncBatch(batch: ImportBatch): ImportBatch {
+function computeValidationStatus(batch: ImportBatch): ImportValidationStatus {
+  if (batch.importJob?.status === "importing") {
+    return "importing";
+  }
+
+  if (batch.importJob?.status === "failed") {
+    return "failed";
+  }
+
+  const activeRows = batch.rows.filter((row) => row.status !== "excluded");
+  const unresolvedRows = activeRows.filter((row) => row.match.issues.length > 0 && row.status !== "dispatched");
+  const pendingDuplicateRows = activeRows.filter((row) => row.possibleDuplicate && row.duplicateDecision === "pending" && row.status !== "dispatched");
+  const remainingUnassignedRows = activeRows.filter((row) => row.status === "unassigned");
+  const assignedRows = activeRows.filter((row) => row.status === "assigned");
+
+  if (activeRows.length > 0 && activeRows.every((row) => row.status === "dispatched")) {
+    return "imported";
+  }
+
+  if (unresolvedRows.length > 0 || pendingDuplicateRows.length > 0) {
+    return "blocked";
+  }
+
+  if (remainingUnassignedRows.length === 0 && assignedRows.length > 0) {
+    return "ready_for_import";
+  }
+
+  return "ready_for_assignment";
+}
+
+function syncImportRow(batchId: string, row: ImportBatchRow): ImportBatchRow {
+  const duplicateKey = buildMandatoryDuplicateKey(row.raw, row.quantity);
+
   return {
+    ...row,
+    duplicateKey,
+    idempotencyKey: makeRowIdempotencyKey(batchId, { ...row, duplicateKey }),
+  };
+}
+
+function syncBatch(batch: ImportBatch): ImportBatch {
+  const rows = batch.rows.map((row) => syncImportRow(batch.id, row));
+  const normalizedBatch = {
     ...batch,
-    stage: computeBatchStage(batch),
+    rows,
+    importJob: batch.importJob ?? null,
+  };
+
+  return {
+    ...normalizedBatch,
+    stage: computeBatchStage(normalizedBatch),
     progressPercent:
-      batch.rows.length === 0
+      rows.length === 0
         ? 0
         : Math.round(
-            (batch.rows.filter((row) => row.status === "assigned" || row.status === "dispatched" || row.status === "excluded").length /
-              batch.rows.length) *
+            (rows.filter((row) => row.status === "assigned" || row.status === "dispatched" || row.status === "excluded").length /
+              rows.length) *
               100,
           ),
+    validationStatus: computeValidationStatus(normalizedBatch),
   };
 }
 
 function saveBatches(nextBatches: ImportBatch[]) {
   writeStoredBatches(nextBatches.map(syncBatch));
+  void enqueueWrite(() => replaceIndexedDbBatches(readStoredBatches()));
+}
+
+async function clearPersistedImportBatches() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  markImportQueueAsReset();
+  cachedBatches = [];
+  updateSnapshotCache();
+  emitStoreChange();
+  window.localStorage.removeItem(STORAGE_KEY);
+
+  await enqueueWrite(() => replaceIndexedDbBatches([]));
 }
 
 function updateBatchRows(
@@ -560,6 +1170,15 @@ export function getDispatchReadiness(batch: ImportBatch) {
     dispatchableRows,
     remainingUnassignedCount: batch.rows.filter((row) => row.status === "unassigned").length,
   };
+}
+
+function makeImportGroupKey(batch: ImportBatch, rows: ImportBatchRow[]) {
+  const firstRow = rows[0];
+  const salesPointId = firstRow.match.salesPointId ?? firstRow.raw.wcode;
+  const vendorId = firstRow.assignment?.vendorId ?? "";
+  const rowKeys = rows.map((row) => row.idempotencyKey).sort().join(",");
+
+  return [batch.id, firstRow.raw.poNumber, salesPointId, vendorId, rowKeys].map(normalizeKeyPart).join("::");
 }
 
 export function createOrdersFromDispatchableRows(batch: ImportBatch, dispatchableRows: ImportBatchRow[], dispatchRunId = "") {
@@ -624,6 +1243,7 @@ export function createOrdersFromDispatchableRows(batch: ImportBatch, dispatchabl
       sourceType: "bulk_po_import" as const,
       importBatchId: batch.id,
       importRowIds: rows.map((row) => row.id),
+      importGroupKey: makeImportGroupKey(batch, rows),
       assignedVendorId: vendor.vendorId,
       dispatchRunId,
       importPoNumbers: [sourcePoNumber],
@@ -639,6 +1259,7 @@ function dispatchAssignedRows(batchId: string): DispatchResult {
     return {
       createdOrders: [],
       createdOrderIds: [],
+      skippedExistingOrderIds: [],
       skippedRowIds: [],
       unresolvedAssignedCount: 0,
       pendingDuplicateCount: 0,
@@ -655,14 +1276,42 @@ function dispatchAssignedRows(batchId: string): DispatchResult {
     dispatchableRows,
     remainingUnassignedCount,
   } = getDispatchReadiness(batch);
-  const finalOrders = createOrdersFromDispatchableRows(batch, dispatchableRows, dispatchRunId);
-  appendOrders(finalOrders);
+  const candidateOrders = createOrdersFromDispatchableRows(batch, dispatchableRows, dispatchRunId);
+  const existingOrders = getOrdersSnapshot();
+  const existingImportedOrders = existingOrders.filter((order) =>
+    candidateOrders.some((candidate) => candidate.importGroupKey && candidate.importGroupKey === order.importGroupKey),
+  );
+  const existingGroupKeys = new Set(existingImportedOrders.map((order) => order.importGroupKey).filter((key): key is string => Boolean(key)));
+  const finalOrders = candidateOrders.filter((order) => !order.importGroupKey || !existingGroupKeys.has(order.importGroupKey));
 
-  const dispatchedRowIds = new Set(dispatchableRows.map((row) => row.id));
+  if (finalOrders.length > 0) {
+    appendOrders(finalOrders);
+  }
+
+  const completedOrders = [...finalOrders, ...existingImportedOrders];
+
+  const dispatchedRowIds = new Set(completedOrders.flatMap((order) => order.importRowIds ?? []));
   const skippedRowIds = [
     ...unresolvedAssignedRows.map((row) => row.id),
     ...pendingDuplicateRows.map((row) => row.id),
   ];
+  const completedRowIds = [...dispatchedRowIds];
+  const jobProgressPercent =
+    dispatchableRows.length === 0 ? 0 : Math.round((completedRowIds.length / dispatchableRows.length) * 100);
+  const nextImportJob: ImportJob = {
+    id: batch.importJob?.id ?? makeId("JOB"),
+    status: finalOrders.length > 0 || existingImportedOrders.length > 0 ? "imported" : "failed",
+    progressPercent: finalOrders.length > 0 || existingImportedOrders.length > 0 ? Math.max(jobProgressPercent, 100) : 0,
+    createdOrderIds: [...new Set([...(batch.importJob?.createdOrderIds ?? []), ...finalOrders.map((order) => order.id)])],
+    completedRowIds,
+    failedRowIds: skippedRowIds,
+    lastError:
+      finalOrders.length > 0 || existingImportedOrders.length > 0
+        ? null
+        : "No rows were eligible for OR creation. Resolve blockers or assign rows before retrying.",
+    retryCount: batch.importJob ? batch.importJob.retryCount + 1 : 0,
+    updatedAt: createdAt,
+  };
 
   const nextBatches = readStoredBatches().map((storedBatch) => {
     if (storedBatch.id !== batch.id) {
@@ -690,10 +1339,13 @@ function dispatchAssignedRows(batchId: string): DispatchResult {
           createdAt,
           createdBy,
           createdOrderIds: finalOrders.map((order) => order.id),
+          completedGroupKeys: completedOrders.map((order) => order.importGroupKey).filter((key): key is string => Boolean(key)),
           skippedRowIds,
+          skippedExistingOrderIds: existingImportedOrders.map((order) => order.id),
         },
         ...storedBatch.dispatchRuns,
       ],
+      importJob: nextImportJob,
     });
   });
 
@@ -702,6 +1354,7 @@ function dispatchAssignedRows(batchId: string): DispatchResult {
   return {
     createdOrders: finalOrders,
     createdOrderIds: finalOrders.map((order) => order.id),
+    skippedExistingOrderIds: existingImportedOrders.map((order) => order.id),
     skippedRowIds,
     unresolvedAssignedCount: unresolvedAssignedRows.length,
     pendingDuplicateCount: pendingDuplicateRows.length,
@@ -710,17 +1363,22 @@ function dispatchAssignedRows(batchId: string): DispatchResult {
 }
 
 export function getImportBatchesSnapshot() {
-  return readStoredBatches();
+  return getSnapshot();
 }
 
 export function useImportBatches() {
-  return useSyncExternalStore(subscribe, readStoredBatches, () => initialSeedBatches);
+  return useSyncExternalStore(subscribe, getSnapshot, () => ({
+    batches: initialSeedBatches,
+    isHydrating: false,
+  }));
 }
 
 export function useImportStore() {
-  const batches = useImportBatches();
+  const { batches, isHydrating } = useImportBatches();
 
   const uploadWorkbook = async (file: File, uploadedBy = "Customer Portal") => {
+    await ensureImportBatchCacheHydrated();
+
     const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
     const firstSheetName = workbook.SheetNames[0];
 
@@ -732,7 +1390,11 @@ export function useImportStore() {
     const parsedSheet = extractImportRecordsFromWorksheet(firstSheet);
     const nextBatch = buildImportBatch(file.name, firstSheetName, uploadedBy, parsedSheet.records, parsedSheet.headerRowNumber);
 
-    saveBatches([nextBatch, ...readStoredBatches()]);
+    await enqueueWrite(async () => {
+      await putBatchIntoIndexedDb(syncBatch(nextBatch));
+    });
+
+    writeStoredBatches([nextBatch, ...readStoredBatches()]);
     return nextBatch;
   };
 
@@ -745,7 +1407,13 @@ export function useImportStore() {
 
     updateBatchRows(batchId, (rows) =>
       rows.map((row) => {
-        if (!rowIds.includes(row.id) || row.status === "excluded" || row.status === "dispatched") {
+        if (
+          !rowIds.includes(row.id) ||
+          row.status === "excluded" ||
+          row.status === "dispatched" ||
+          row.match.issues.length > 0 ||
+          (row.possibleDuplicate && row.duplicateDecision === "pending")
+        ) {
           return row;
         }
 
@@ -820,26 +1488,39 @@ export function useImportStore() {
 
   const dispatchBatch = (batchId: string) => dispatchAssignedRows(batchId);
 
+  const clearImportBatches = async () => {
+    await ensureImportBatchCacheHydrated();
+    await clearPersistedImportBatches();
+  };
+
   return {
     batches,
+    isHydrating,
     uploadWorkbook,
     assignRowsToVendor,
     unassignRows,
     markDuplicateDecision,
     toggleExcluded,
     dispatchBatch,
+    clearImportBatches,
   };
 }
 
 export function getImportBatchSummary(batch: ImportBatch) {
   const rows = batch.rows;
+  const unresolvedRows = rows.filter((row) => row.match.issues.length > 0 && row.status !== "excluded" && row.status !== "dispatched").length;
+  const pendingDuplicateRows = rows.filter(
+    (row) => row.possibleDuplicate && row.duplicateDecision === "pending" && row.status !== "excluded" && row.status !== "dispatched",
+  ).length;
 
   return {
     totalRows: rows.length,
-    unresolvedRows: rows.filter((row) => row.match.issues.length > 0 && row.status !== "excluded" && row.status !== "dispatched").length,
+    unresolvedRows,
     unassignedRows: rows.filter((row) => row.status === "unassigned").length,
     assignedRows: rows.filter((row) => row.status === "assigned").length,
     duplicateRows: rows.filter((row) => row.possibleDuplicate && row.status !== "excluded").length,
+    pendingDuplicateRows,
+    blockerRows: unresolvedRows + pendingDuplicateRows,
     excludedRows: rows.filter((row) => row.status === "excluded").length,
     dispatchedRows: rows.filter((row) => row.status === "dispatched").length,
   };

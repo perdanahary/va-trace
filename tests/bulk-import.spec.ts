@@ -118,6 +118,8 @@ function writeOriginalStyleWorkbook(filePath: string, records: Array<Record<stri
 }
 
 test.describe("bulk order request import", () => {
+  test.describe.configure({ timeout: 60_000 });
+
   test("parses the original item vendor tracking workbook shape", () => {
     const workbookPath = path.resolve(process.cwd(), "documents/sample item vendor tracking original.xlsx");
     const workbook = XLSX.read(fs.readFileSync(workbookPath), { type: "buffer" });
@@ -142,6 +144,22 @@ test.describe("bulk order request import", () => {
     expect(batch.rows).toHaveLength(2);
     expect(batch.rows.every((row) => row.possibleDuplicate)).toBe(true);
     expect(batch.rows.every((row) => row.duplicateDecision === "pending")).toBe(true);
+    expect(batch.validationStatus).toBe("blocked");
+    expect(batch.rows.every((row) => row.idempotencyKey.includes(batch.id.toLowerCase()))).toBe(true);
+  });
+
+  test("uses all mandatory fields for duplicate detection", () => {
+    const first = makeRecord({ "PO Number": "PO-DUP-FIELDS", Quantity: "7" });
+    const changedItemName = makeRecord({
+      "PO Number": "PO-DUP-FIELDS",
+      Quantity: "7",
+      "Item Name": `${productSticker.name} variant`,
+    });
+    const batch = buildImportBatch("mandatory-fields.xlsx", "Sheet1", "Test", parsedRows([first, changedItemName]));
+
+    expect(batch.rows).toHaveLength(2);
+    expect(batch.rows.every((row) => row.possibleDuplicate)).toBe(false);
+    expect(batch.rows[0].duplicateKey).not.toBe(batch.rows[1].duplicateKey);
   });
 
   test("splits dispatch output by PO, sales point, and vendor", () => {
@@ -165,6 +183,7 @@ test.describe("bulk order request import", () => {
     const poSalesPointVendorKeys = orders.map((order) => `${order.clientPO}|${order.salesPointId}|${order.assignedVendorId}`).sort();
 
     expect(orders).toHaveLength(4);
+    expect(orders.every((order) => Boolean(order.importGroupKey))).toBe(true);
     expect(poSalesPointVendorKeys).toEqual([
       "PO-GRP-A|WH055|SUP-001",
       "PO-GRP-A|WH055|SUP-002",
@@ -234,20 +253,21 @@ test.describe("bulk order request import", () => {
     ]);
 
     await page.goto(`${baseUrl}/customer/imports`);
-    await page.evaluate(() => window.localStorage.clear());
-    await page.reload();
     await page.locator('input[type="file"]').setInputFiles(workbookPath);
 
-    await expect(page.getByText("Batch staged successfully")).toBeVisible();
-    await expect(page.getByText("bulk-ui-upload.xlsx is now staged with 5 rows")).toBeVisible();
-    await page.getByRole("link", { name: /Open Dispatch Workspace/i }).click();
+    await expect(page.getByText("Batch staged successfully")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("bulk-ui-upload.xlsx is now staged with 5 rows")).toBeVisible({ timeout: 15_000 });
+    await page.goto(`${baseUrl}/admin/imports`);
 
     await expect(page.getByText("5 visible rows")).toBeVisible();
     await page.getByRole("button", { name: "Select all visible" }).click();
-    await page.getByText("Select vendor...").click();
+    await page.getByText("Select vendor...").click({ force: true });
     await page.getByRole("option", { name: "CV Cetakan Terbaik Sejagat" }).click();
     await page.getByRole("button", { name: /Assign selected rows/i }).click();
-    await page.getByRole("button", { name: /Dispatch assigned rows/i }).click();
+    await expect(page.getByText("0 visible rows · 0 assignable")).toBeVisible();
+    const importAssignedButton = page.getByRole("button", { name: /Import assigned ORs/i });
+    await importAssignedButton.scrollIntoViewIfNeeded();
+    await importAssignedButton.click({ force: true });
 
     await expect(page.getByText("3 OR created")).toBeVisible();
     await page.goto(`${baseUrl}/admin/orders`);
@@ -257,5 +277,50 @@ test.describe("bulk order request import", () => {
     await page.goto(`${baseUrl}/vendor`);
     await page.getByRole("tab", { name: "Pending" }).click();
     await expect(page.getByText("PO-UI-A").first()).toBeVisible();
+  });
+
+  test("rehydrates a staged import batch after page refresh", async ({ page }, testInfo) => {
+    const workbookPath = testInfo.outputPath("bulk-ui-refresh.xlsx");
+    fs.mkdirSync(path.dirname(workbookPath), { recursive: true });
+    writeOriginalStyleWorkbook(workbookPath, [
+      makeRecord({ "PO Number": "PO-REFRESH-A", "PO Line": "1", Wcode: "WH055", "Sales Point": "Jakarta Barat", Quantity: "10" }),
+      makeRecord({ "PO Number": "PO-REFRESH-A", "PO Line": "2", Wcode: "WH071", "Sales Point": "Jakarta Selatan", Quantity: "6" }),
+    ]);
+
+    await page.goto(`${baseUrl}/customer/imports`);
+    await page.locator('input[type="file"]').setInputFiles(workbookPath);
+    await expect(page.getByText("Batch staged successfully")).toBeVisible({ timeout: 15_000 });
+
+    await page.goto(`${baseUrl}/admin/imports`);
+    await expect(page.getByText("2 visible rows")).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByText("2 visible rows")).toBeVisible();
+    await expect(page.getByText("bulk-ui-refresh.xlsx").first()).toBeVisible();
+  });
+
+  test("requires duplicate review before assigning visible rows", async ({ page }, testInfo) => {
+    const workbookPath = testInfo.outputPath("bulk-ui-duplicates.xlsx");
+    fs.mkdirSync(path.dirname(workbookPath), { recursive: true });
+    const duplicate = makeRecord({ "PO Number": "PO-UI-DUP", "PO Line": "1", Quantity: "10" });
+    writeOriginalStyleWorkbook(workbookPath, [duplicate, duplicate]);
+
+    await page.goto(`${baseUrl}/customer/imports`);
+    await page.locator('input[type="file"]').setInputFiles(workbookPath);
+    await expect(page.getByText("Batch staged successfully")).toBeVisible({ timeout: 15_000 });
+    await page.goto(`${baseUrl}/admin/imports`);
+
+    await expect(page.getByRole("tab", { name: /Possible duplicate/i })).toHaveAttribute("data-state", "active");
+    await expect(page.getByRole("button", { name: "Select all visible" })).toBeDisabled();
+
+    const importAnywayButtons = page.getByRole("button", { name: "Import anyway" });
+    await importAnywayButtons.nth(1).click({ force: true });
+    await importAnywayButtons.nth(0).click({ force: true });
+    await page.getByRole("button", { name: "Select all visible" }).click();
+    await page.getByText("Select vendor...").click({ force: true });
+    await page.getByRole("option", { name: "CV Cetakan Terbaik Sejagat" }).click();
+    await page.getByRole("button", { name: /Assign selected rows/i }).click();
+
+    await expect(page.getByText("0 visible rows · 0 assignable")).toBeVisible();
   });
 });

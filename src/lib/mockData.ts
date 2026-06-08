@@ -182,7 +182,7 @@ export const mockOrders: Order[] = mockOrderSeeds.map((order) => ({
 export interface Supplier {
   id: string;
   name: string;
-  type: "PT" | "CV";
+  type: "PT" | "CV" | "Personal";
   phone: string;
   picName: string;
   email: string;

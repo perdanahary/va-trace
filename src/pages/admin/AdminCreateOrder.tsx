@@ -1,7 +1,7 @@
-import { useMemo, useState, type PointerEvent, type ReactNode } from "react";
+import { useMemo, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, GripVertical, Info, Package, Plus, Trash2, AlertCircle } from "lucide-react";
+import { Calendar, CheckCircle, ChevronDown, ChevronUp, GripVertical, Info, Package, Plus, Trash2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
@@ -27,6 +27,7 @@ type OrderItem = { id: string; productCode: string; quantity: number; poLineNumb
 
 export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
   const navigate = useNavigate();
+  const exactDeadlineInputRef = useRef<HTMLInputElement>(null);
   const [items, setItems] = useState<OrderItem[]>([{ id: "item-1", productCode: "", quantity: 0, poLineNumber: "1" }]);
   const [clientPO, setClientPO] = useState("");
   const [campaignName, setCampaignName] = useState("");
@@ -92,7 +93,9 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
   );
 
   const deadlineLabel =
-    deadlinePreset === "custom" ? customDeadline : (deadlineOptions.find((option) => option.value === deadlinePreset)?.label ?? "");
+    deadlinePreset === "custom"
+      ? formatDeadlineDate(customDeadline)
+      : (deadlineOptions.find((option) => option.value === deadlinePreset)?.label ?? "");
 
   const validationErrors = useMemo(() => {
     const errors: string[] = [];
@@ -104,7 +107,7 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
     if (!picProgramEmail.trim()) errors.push("PIC Program Email is required.");
     if (!selectedSupplierRecord) errors.push("Supplier assignment is required.");
     if (!selectedSalesPoint) errors.push("Sales point is required.");
-    if (!deadlineLabel.trim()) errors.push("Deadline is required.");
+    if (deadlinePreset === "custom" ? !customDeadline.trim() : !deadlineLabel.trim()) errors.push("Deadline is required.");
 
     items.forEach((item, index) => {
       const product = mockProducts.find((entry) => entry.code === item.productCode);
@@ -115,7 +118,19 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
     });
 
     return errors;
-  }, [campaignName, clientPO, deadlineLabel, items, picProgramEmail, picProgramName, selectedSalesPoint, selectedSupplierRecord, soNumber]);
+  }, [
+    campaignName,
+    clientPO,
+    customDeadline,
+    deadlineLabel,
+    deadlinePreset,
+    items,
+    picProgramEmail,
+    picProgramName,
+    selectedSalesPoint,
+    selectedSupplierRecord,
+    soNumber,
+  ]);
 
   const addItem = () => {
     setItems((current) => [
@@ -175,6 +190,12 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
     setDropTargetId(null);
   };
 
+  const moveItem = (id: string, direction: -1 | 1) => {
+    setDraggedItemId(null);
+    setDropTargetId(null);
+    setItems((current) => reorderItemsByOffset(current, id, direction));
+  };
+
   const handleSubmit = () => {
     if (validationErrors.length > 0) {
       const message = "Fix the required fields before sending this order.";
@@ -211,6 +232,18 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
     addProject(campaignName);
     toast.success(`Order ${order.id} created.`);
     navigate(`/admin/orders/${order.id}`);
+  };
+
+  const openExactDeadlinePicker = () => {
+    const input = exactDeadlineInputRef.current;
+    if (!input) return;
+
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+
+    input.click();
   };
 
   return (
@@ -254,6 +287,9 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                     <FormField label="Customer PO Ref" required htmlFor="client-po">
                       <Input id="client-po" placeholder="e.g. 123928098" value={clientPO} onChange={(e) => setClientPO(e.target.value)} />
                     </FormField>
+                    <FormField label="SO Number" required htmlFor="so-number">
+                      <Input id="so-number" placeholder="e.g. SO123928" value={soNumber} onChange={(e) => setSoNumber(e.target.value)} />
+                    </FormField>
                     <FormField label="Project" required>
                       <SearchableCombobox
                         value={campaignName}
@@ -266,41 +302,6 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                         allowCreate
                         ariaLabel="Project"
                         createLabel="Create project"
-                      />
-                    </FormField>
-                    <FormField label="SO Number" required htmlFor="so-number">
-                      <Input id="so-number" placeholder="e.g. SO123928" value={soNumber} onChange={(e) => setSoNumber(e.target.value)} />
-                    </FormField>
-                    <FormField label="PIC Program Name" required htmlFor="pic-program-name">
-                      <Input id="pic-program-name" placeholder="e.g. Chandra Sadikin" value={picProgramName} onChange={(e) => setPicProgramName(e.target.value)} />
-                    </FormField>
-                    <FormField label="PIC Program Email" required htmlFor="pic-program-email">
-                      <Input
-                        id="pic-program-email"
-                        type="email"
-                        placeholder="e.g. chandra.sadikin@sampoerna.com"
-                        value={picProgramEmail}
-                        onChange={(e) => setPicProgramEmail(e.target.value)}
-                      />
-                    </FormField>
-                    <FormField label="Sales Point" required>
-                      <SearchableCombobox
-                        value={selectedSalesPoint}
-                        onValueChange={setSelectedSalesPoint}
-                        options={salesPointOptions}
-                        placeholder="Select a sales point..."
-                        searchPlaceholder="Search sales point, zone, region, or code..."
-                        emptyText="No sales points match your search."
-                      />
-                    </FormField>
-                    <FormField label="Assign Supplier" required>
-                      <SearchableCombobox
-                        value={selectedSupplier}
-                        onValueChange={setSelectedSupplier}
-                        options={supplierOptions}
-                        placeholder="Select a supplier..."
-                        searchPlaceholder="Search supplier, PIC, email, phone, or code..."
-                        emptyText="No suppliers match your search."
                       />
                     </FormField>
                     <FormField label="Deadline" required>
@@ -318,19 +319,66 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                       </Select>
                     </FormField>
                     {deadlinePreset === "custom" ? (
-                      <FormField label="Custom Deadline" required htmlFor="custom-deadline">
-                        <Input
-                          id="custom-deadline"
-                          type="date"
-                          value={customDeadline}
-                          onChange={(e) => setCustomDeadline(e.target.value)}
-                        />
+                      <FormField label="Exact Deadline" required htmlFor="custom-deadline">
+                        <div className="relative">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-between border-input bg-background px-3 py-2.5 text-left font-normal text-foreground shadow-none hover:bg-accent",
+                              !customDeadline && "text-muted-foreground",
+                            )}
+                            onClick={openExactDeadlinePicker}
+                          >
+                            <span>{customDeadline ? formatDeadlineDate(customDeadline) : "Pick a date"}</span>
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                          <Input
+                            ref={exactDeadlineInputRef}
+                            id="custom-deadline"
+                            type="date"
+                            value={customDeadline}
+                            onChange={(e) => setCustomDeadline(e.target.value)}
+                            className="sr-only"
+                            tabIndex={-1}
+                            aria-hidden="true"
+                          />
+                        </div>
                       </FormField>
                     ) : null}
+                    <FormField label="PIC Program Email" required htmlFor="pic-program-email">
+                      <Input
+                        id="pic-program-email"
+                        type="email"
+                        placeholder="e.g. chandra.sadikin@sampoerna.com"
+                        value={picProgramEmail}
+                        onChange={(e) => setPicProgramEmail(e.target.value)}
+                      />
+                    </FormField>
+                    <FormField label="PIC Program Name" required htmlFor="pic-program-name">
+                      <Input id="pic-program-name" placeholder="e.g. Chandra Sadikin" value={picProgramName} onChange={(e) => setPicProgramName(e.target.value)} />
+                    </FormField>
+                    <FormField label="Assign Supplier" required>
+                      <SearchableCombobox
+                        value={selectedSupplier}
+                        onValueChange={setSelectedSupplier}
+                        options={supplierOptions}
+                        placeholder="Select a supplier..."
+                        searchPlaceholder="Search supplier, PIC, email, phone, or code..."
+                        emptyText="No suppliers match your search."
+                      />
+                    </FormField>
+                    <FormField label="Sales Point" required>
+                      <SearchableCombobox
+                        value={selectedSalesPoint}
+                        onValueChange={setSelectedSalesPoint}
+                        options={salesPointOptions}
+                        placeholder="Select a sales point..."
+                        searchPlaceholder="Search sales point, zone, region, or code..."
+                        emptyText="No sales points match your search."
+                      />
+                    </FormField>
                   </div>
-                  <p className="mt-4 text-xs text-muted-foreground">
-                    Most order requests are short-horizon. Choose a relative due time first; use an exact date only when the year matters.
-                  </p>
                 </CardContent>
               </Card>
 
@@ -339,7 +387,7 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
                       <Package className="h-4 w-4 text-primary" />
-                      <CardTitle className="text-base">Item Specification</CardTitle>
+                      <CardTitle className="text-base">Items</CardTitle>
                     </div>
                     <Button variant="outline" size="sm" onClick={addItem}>
                       <Plus className="h-4 w-4" />
@@ -361,9 +409,13 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                         productOptions={productOptions}
                         quantity={item.quantity}
                         poLineNumber={item.poLineNumber}
+                        canMoveUp={index > 0}
+                        canMoveDown={index < items.length - 1}
                         onProductChange={(value) => updateItem(item.id, "productCode", value)}
                         onQuantityChange={(value) => updateItem(item.id, "quantity", value)}
                         onRemove={() => removeItem(item.id)}
+                        onMoveUp={() => moveItem(item.id, -1)}
+                        onMoveDown={() => moveItem(item.id, 1)}
                         onPointerDown={(event) => handlePointerDown(item.id, event)}
                         onPointerMove={handlePointerMove}
                         onPointerUp={handlePointerUp}
@@ -429,6 +481,23 @@ const deadlineOptions = [
   { value: "custom", label: "Pick exact date" },
 ];
 
+function formatDeadlineDate(value: string) {
+  if (!value.trim()) {
+    return "";
+  }
+
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 function FormField({
   label,
   required = false,
@@ -460,9 +529,13 @@ function ItemRow({
   productOptions,
   quantity,
   poLineNumber,
+  canMoveUp,
+  canMoveDown,
   onProductChange,
   onQuantityChange,
   onRemove,
+  onMoveUp,
+  onMoveDown,
   onPointerDown,
   onPointerMove,
   onPointerUp,
@@ -477,9 +550,13 @@ function ItemRow({
   productOptions: ComboboxOption[];
   quantity: number;
   poLineNumber: string;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
   onProductChange: (value: string) => void;
   onQuantityChange: (value: string) => void;
   onRemove: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
   onPointerDown: (event: PointerEvent<HTMLButtonElement>) => void;
   onPointerMove: (event: PointerEvent<HTMLButtonElement>) => void;
   onPointerUp: () => void;
@@ -514,7 +591,31 @@ function ItemRow({
       </div>
       <div className="space-y-2 md:col-span-2">
         {index === 0 ? <label className="text-xs font-medium">Line</label> : null}
-        <Input value={poLineNumber} readOnly tabIndex={-1} className="bg-muted/40" placeholder="1" />
+        <div className="flex items-stretch gap-2">
+          <Input value={poLineNumber} readOnly tabIndex={-1} className="h-10 bg-muted/40" placeholder="1" />
+          <div className="flex h-10 w-9 shrink-0 flex-col overflow-hidden rounded-md border border-input bg-background">
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-1/2 w-full rounded-none border-0 px-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+              onClick={onMoveUp}
+              disabled={!canMoveUp}
+              aria-label={`Move line ${poLineNumber} up`}
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-1/2 w-full rounded-none border-0 border-t border-input px-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+              onClick={onMoveDown}
+              disabled={!canMoveDown}
+              aria-label={`Move line ${poLineNumber} down`}
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
       </div>
       <div className="space-y-2 md:col-span-6">
         {index === 0 ? <label className="text-xs font-medium">Product</label> : null}
@@ -529,7 +630,13 @@ function ItemRow({
       </div>
       <div className="space-y-2 md:col-span-2">
         {index === 0 ? <label className="text-xs font-medium">Quantity</label> : null}
-        <Input type="number" placeholder="0" value={quantity || ""} onChange={(event) => onQuantityChange(event.target.value)} />
+        <Input
+          type="number"
+          placeholder="0"
+          value={quantity || ""}
+          onChange={(event) => onQuantityChange(event.target.value)}
+          className="h-10"
+        />
       </div>
       <div className="md:col-span-1 md:pb-0.5">
         <Button
@@ -565,6 +672,20 @@ function reorderItems(items: OrderItem[], sourceId: string, targetId: string) {
   const nextItems = [...items];
   const [movedItem] = nextItems.splice(sourceIndex, 1);
   nextItems.splice(targetIndex, 0, movedItem);
+  return renumberItems(nextItems);
+}
+
+function reorderItemsByOffset(items: OrderItem[], itemId: string, offset: -1 | 1) {
+  const currentIndex = items.findIndex((item) => item.id === itemId);
+  const nextIndex = currentIndex + offset;
+
+  if (currentIndex < 0 || nextIndex < 0 || nextIndex >= items.length) {
+    return items;
+  }
+
+  const nextItems = [...items];
+  const [movedItem] = nextItems.splice(currentIndex, 1);
+  nextItems.splice(nextIndex, 0, movedItem);
   return renumberItems(nextItems);
 }
 

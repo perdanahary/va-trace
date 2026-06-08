@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 export interface Supplier {
   id: string;
   name: string;
-  type: "PT" | "CV";
+  type: "PT" | "CV" | "Personal";
   phone: string;
   picName: string;
   email: string;

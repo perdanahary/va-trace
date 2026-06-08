@@ -19,7 +19,7 @@ interface ImportUploadPageProps {
 }
 
 export function ImportUploadPage({ role = "customer" }: ImportUploadPageProps) {
-  const { batches, uploadWorkbook } = useImportStore();
+  const { batches, isHydrating, uploadWorkbook } = useImportStore();
   const [dragActive, setDragActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -179,10 +179,18 @@ export function ImportUploadPage({ role = "customer" }: ImportUploadPageProps) {
                     <Inbox className="h-4 w-4 text-primary" />
                     <CardTitle className="text-base">Recent Import Batches</CardTitle>
                   </div>
-                  <CardDescription>Latest staged import jobs in local storage</CardDescription>
+                  <CardDescription>
+                    {isHydrating ? "Loading staged import jobs from browser storage" : "Latest staged import jobs in browser storage"}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3 p-6">
-                  {visibleBatches.map((batch) => {
+                  {isHydrating ? (
+                    <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                      Loading staged batches...
+                    </div>
+                  ) : null}
+
+                  {!isHydrating && visibleBatches.map((batch) => {
                     const summary = getImportBatchSummary(batch);
 
                     return (
@@ -206,6 +214,12 @@ export function ImportUploadPage({ role = "customer" }: ImportUploadPageProps) {
                       </Link>
                     );
                   })}
+
+                  {!isHydrating && visibleBatches.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                      No staged import batches yet.
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
             </motion.aside>

@@ -29,10 +29,7 @@ export function SupplierDetailModal({ isOpen, onClose, onEdit, supplier }: Suppl
           <ReadOnlyField label="Company Name" icon={Building2} value={supplier.name} />
           <ReadOnlyField label="Business Type" value={supplier.type} />
           <ReadOnlyField label="Supplier ID" value={supplier.id} />
-          <ReadOnlyField
-            label="Status"
-            value={<StatusBadge status={supplier.status === "ACTIVE" ? "Active" : "Inactive"} />}
-          />
+          <ReadOnlyField label="Status" value={<StatusBadge status={supplier.status === "ACTIVE" ? "Active" : "Inactive"} />} />
           <ReadOnlyField label="PIC Name" icon={User} value={supplier.picName} />
           <ReadOnlyField label="Phone Number" icon={Phone} value={supplier.phone} />
           <ReadOnlyField label="Email Address" icon={Mail} value={supplier.email} />

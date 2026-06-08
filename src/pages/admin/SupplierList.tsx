@@ -169,18 +169,14 @@ export function SupplierList() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => handleOpenDetailModal(supplier)}
-                            >
+                            <DropdownMenuItem onSelect={() => handleOpenDetailModal(supplier)}>
                               <Eye className="mr-2 h-4 w-4" />
                               View Detail
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleOpenEditModal(supplier)}
-                            >
+                            <DropdownMenuItem onSelect={() => handleOpenEditModal(supplier)}>
                               Edit Supplier
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDelete(supplier.id)} className="text-destructive focus:text-destructive">
+                            <DropdownMenuItem onSelect={() => handleDelete(supplier.id)} className="text-destructive focus:text-destructive">
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete Supplier
                             </DropdownMenuItem>
@@ -210,6 +206,7 @@ export function SupplierList() {
           setSelectedSupplier(null);
         }}
         onSave={handleSave}
+        onEdit={handleOpenEditModal}
         supplier={selectedSupplier}
       />
       <SupplierDetailModal

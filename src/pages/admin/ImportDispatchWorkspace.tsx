@@ -1,45 +1,51 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import {
-  AlertTriangle,
-  ArrowRight,
-  CheckCircle2,
-  ChevronsRight,
-  FileWarning,
-  Filter,
-  PackageOpen,
-  RotateCcw,
-  Search,
-  ShieldAlert,
-  Sparkles,
-  Truck,
-  XCircle,
-} from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowRight, CheckCircle2, ChevronsRight, CircleDot, Filter, ListChecks, PackageOpen, RotateCcw, Search, Send, Sparkles, XCircle } from "lucide-react";
 
 import { Header } from "@/components/layout/Header";
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ImportUploadPage } from "@/pages/shared/ImportUploadPage";
-import { getImportBatchSummary, type DuplicateDecision, type ImportBatchRow, useImportStore } from "@/lib/importStore";
+import { getDispatchReadiness, getImportBatchSummary, type DuplicateDecision, type ImportBatchRow, useImportStore } from "@/lib/importStore";
 import { useSupplierStore } from "@/lib/supplierStore";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface ImportDispatchWorkspaceProps {
   role?: UserRole;
 }
 
-type RowView = "Unassigned" | "Assigned" | "Possible duplicate" | "Excluded" | "Unresolved";
+type RowView = "Unassigned" | "Assigned" | "Possible duplicate" | "Excluded" | "Unresolved" | "Imported";
 
-const rowViews: RowView[] = ["Unassigned", "Assigned", "Possible duplicate", "Unresolved", "Excluded"];
+const rowViews: RowView[] = ["Possible duplicate", "Unresolved", "Unassigned", "Assigned", "Imported", "Excluded"];
+
+function getPriorityRowView(summary: ReturnType<typeof getImportBatchSummary>): RowView {
+  if (summary.pendingDuplicateRows > 0) return "Possible duplicate";
+  if (summary.unresolvedRows > 0) return "Unresolved";
+  return "Unassigned";
+}
 
 export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorkspaceProps) {
-  const { batches, assignRowsToVendor, unassignRows, markDuplicateDecision, toggleExcluded, dispatchBatch } = useImportStore();
+  const {
+    batches,
+    isHydrating,
+    assignRowsToVendor,
+    unassignRows,
+    markDuplicateDecision,
+    toggleExcluded,
+    dispatchBatch,
+    clearImportBatches,
+  } =
+    useImportStore();
   const { suppliers } = useSupplierStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedBatchId, setSelectedBatchId] = useState<string>("");
@@ -53,6 +59,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
   const [wcodeFilter, setWcodeFilter] = useState("All Sales Points");
   const [selectedVendorId, setSelectedVendorId] = useState("");
   const [dispatchResultMessage, setDispatchResultMessage] = useState<string | null>(null);
+  const priorityBatchId = useRef("");
 
   const batch = useMemo(
     () => batches.find((entry) => entry.id === selectedBatchId) ?? batches[0] ?? null,
@@ -77,6 +84,15 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
   }, [batch]);
 
   const summary = useMemo(() => (batch ? getImportBatchSummary(batch) : null), [batch]);
+
+  useEffect(() => {
+    if (!batch || !summary || priorityBatchId.current === batch.id) {
+      return;
+    }
+
+    priorityBatchId.current = batch.id;
+    setRowView(getPriorityRowView(summary));
+  }, [batch, summary]);
 
   const availableRegions = useMemo(
     () => ["All Regions", ...new Set((batch?.rows ?? []).map((row) => row.raw.region).filter(Boolean))],
@@ -110,8 +126,9 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
       const matchesRowView =
         (rowView === "Unassigned" && row.status === "unassigned") ||
         (rowView === "Assigned" && row.status === "assigned") ||
-        (rowView === "Possible duplicate" && row.possibleDuplicate && row.status !== "dispatched") ||
+        (rowView === "Possible duplicate" && row.possibleDuplicate && row.status !== "dispatched" && row.status !== "excluded") ||
         (rowView === "Excluded" && row.status === "excluded") ||
+        (rowView === "Imported" && row.status === "dispatched") ||
         (rowView === "Unresolved" && row.match.issues.length > 0 && row.status !== "excluded" && row.status !== "dispatched");
 
       const matchesSearch =
@@ -145,12 +162,25 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
     [filteredRows, selectedRowIds],
   );
 
+  const dispatchReadiness = useMemo(() => (batch ? getDispatchReadiness(batch) : null), [batch]);
+
+  const assignableFilteredRows = useMemo(
+    () =>
+      filteredRows.filter(
+        (row) =>
+          row.status === "unassigned" &&
+          row.match.issues.length === 0 &&
+          (!row.possibleDuplicate || row.duplicateDecision === "include"),
+      ),
+    [filteredRows],
+  );
+
   const selectedVendorName = useMemo(
     () => suppliers.find((supplier) => supplier.id === selectedVendorId)?.name ?? null,
     [selectedVendorId, suppliers],
   );
 
-  const previewGroups = useMemo(() => {
+  const assignmentPreviewGroups = useMemo(() => {
     return selectedRows.reduce<Record<string, number>>((accumulator, row) => {
       const vendorName = selectedVendorName ?? row.assignment?.vendorName ?? "Unassigned";
       const key = `${row.raw.poNumber} · ${row.raw.wcode} · ${vendorName}`;
@@ -159,7 +189,22 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
     }, {});
   }, [selectedRows, selectedVendorName]);
 
-  const previewEntries = useMemo(() => Object.entries(previewGroups), [previewGroups]);
+  const assignmentPreviewEntries = useMemo(() => Object.entries(assignmentPreviewGroups), [assignmentPreviewGroups]);
+
+  const importPreviewEntries = useMemo(() => {
+    return (dispatchReadiness?.dispatchableRows ?? []).reduce<Array<[string, number]>>((entries, row) => {
+      const key = `${row.raw.poNumber} · ${row.raw.wcode} · ${row.assignment?.vendorName ?? "Unassigned"}`;
+      const existing = entries.find(([entryKey]) => entryKey === key);
+
+      if (existing) {
+        existing[1] += 1;
+      } else {
+        entries.push([key, 1]);
+      }
+
+      return entries;
+    }, []);
+  }, [dispatchReadiness]);
 
   const activeFilterCount = [
     regionFilter !== "All Regions",
@@ -171,21 +216,37 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
   ].filter(Boolean).length;
 
   const visibleSelectedCount = selectedRows.length;
-  const nextActionLabel =
-    summary && summary.unresolvedRows > 0
-      ? `${summary.unresolvedRows} rows still need fixes`
-      : summary && summary.duplicateRows > 0
-        ? `${summary.duplicateRows} duplicates still need a decision`
-        : summary && summary.unassignedRows > 0
-          ? `${summary.unassignedRows} rows still need a vendor`
-          : "Batch is ready to dispatch";
+  const canImport = Boolean(
+    summary &&
+      dispatchReadiness &&
+      dispatchReadiness.dispatchableRows.length > 0 &&
+      summary.blockerRows === 0 &&
+      summary.unassignedRows === 0,
+  );
+  if (isHydrating) {
+    return (
+      <div className="flex min-h-[100dvh] overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(14,116,144,0.08),_transparent_28%),linear-gradient(180deg,_rgba(248,250,252,0.98),_rgba(241,245,249,0.78))]">
+        <Sidebar role={role} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Header title="Import Dispatch Workspace" showMobileMenu={false} />
+          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+            <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
+              <Card className="rounded-[2rem] border-white/80 bg-white/88 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.22)] backdrop-blur">
+                <CardContent className="p-6 text-sm text-slate-600">Loading staged import batches...</CardContent>
+              </Card>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   if (!batch || !summary) {
     return <ImportUploadPage role={role} />;
   }
 
   const handleSelectAllVisible = () => {
-    setSelectedRowIds(filteredRows.map((row) => row.id));
+    setSelectedRowIds(assignableFilteredRows.map((row) => row.id));
   };
 
   const handleAssign = () => {
@@ -196,7 +257,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
     assignRowsToVendor(batch.id, selectedRowIds, selectedVendorId);
     setDispatchResultMessage(null);
     setSelectedRowIds([]);
-    setRowView("Assigned");
+    setRowView("Unassigned");
   };
 
   const handleDispatch = () => {
@@ -205,6 +266,9 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
 
     if (result.createdOrderIds.length > 0) {
       parts.push(`${result.createdOrderIds.length} OR created`);
+    }
+    if (result.skippedExistingOrderIds.length > 0) {
+      parts.push(`${result.skippedExistingOrderIds.length} existing OR skipped`);
     }
     if (result.pendingDuplicateCount > 0) {
       parts.push(`${result.pendingDuplicateCount} duplicate row(s) still need a decision`);
@@ -218,280 +282,222 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
 
     setDispatchResultMessage(parts.join(" · ") || "No eligible rows were dispatched.");
     setSelectedRowIds([]);
-    setRowView("Assigned");
+    setRowView("Imported");
   };
 
+  const handleResetQueue = async () => {
+    const confirmed = window.confirm("Clear all staged import batches? You will return to the upload screen and can import a new file.");
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await clearImportBatches();
+      setSelectedBatchId("");
+      setSelectedRowIds([]);
+      setSearchTerm("");
+      setRowView("Unassigned");
+      setRegionFilter("All Regions");
+      setBrandFilter("All Brands");
+      setCategoryFilter("All Categories");
+      setVendorFilter("All Vendors");
+      setWcodeFilter("All Sales Points");
+      setSelectedVendorId("");
+      setDispatchResultMessage(null);
+      toast.success("Import queue cleared. Upload a new file to start over.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to clear import queue.");
+    }
+  };
+
+  const headerActions = (
+    <Button variant="destructive" onClick={() => void handleResetQueue()}>
+      <RotateCcw className="h-4 w-4" />
+      Clear queue and start over
+    </Button>
+  );
+
+  const rowViewCounts: Record<RowView, number> = {
+    "Possible duplicate": summary.pendingDuplicateRows,
+    Unresolved: summary.unresolvedRows,
+    Unassigned: summary.unassignedRows,
+    Assigned: summary.assignedRows,
+    Imported: summary.dispatchedRows,
+    Excluded: summary.excludedRows,
+  };
+  const assignmentProgressLabel = `${summary.assignedRows + summary.dispatchedRows + summary.excludedRows}/${summary.totalRows}`;
+
   return (
-    <div className="flex min-h-[100dvh] overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(14,116,144,0.08),_transparent_28%),linear-gradient(180deg,_rgba(248,250,252,0.98),_rgba(241,245,249,0.78))]">
+    <div className="flex min-h-[100dvh] overflow-x-hidden bg-[linear-gradient(180deg,_#f8fbfc_0%,_#eef3f6_100%)]">
       {sidebarOpen ? <Sidebar role={role} /> : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Header
           title="Import Dispatch Workspace"
           showMobileMenu={false}
+          actions={headerActions}
         />
 
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
-            <motion.section
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.32 }}
-              className="grid gap-4 xl:grid-cols-[1.4fr_0.92fr]"
-            >
-              <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white/88 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.28)] backdrop-blur">
-                <CardContent className="p-6 sm:p-7">
-                  <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
-                    <div className="space-y-5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge className="rounded-full bg-slate-950 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-white hover:bg-slate-950">
-                          {batch.stage}
-                        </Badge>
-                        <Badge variant="outline" className="rounded-full border-slate-200 bg-white/80 px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-slate-600">
-                          {batch.sourceSheetName}
-                        </Badge>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="space-y-2">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">Dispatch console</p>
-                          <h1 className="max-w-[12ch] text-4xl font-semibold tracking-[-0.06em] text-slate-950 md:text-5xl">
-                            Refine, assign, and release import rows without leaving the batch.
-                          </h1>
-                        </div>
-                        <p className="max-w-[62ch] text-sm leading-6 text-slate-600">
-                          Use the queue rail to switch between uploads, fix unresolved rows in place, and preview dispatch output before generating ORs.
-                        </p>
-                      </div>
-
-                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[1.2fr_0.9fr]">
-                        <StatTile
-                          label="Current checkpoint"
-                          value={nextActionLabel}
-                          supporting={`Viewing ${rowView.toLowerCase()} rows in ${batch.fileName}`}
-                          tone="ink"
-                        />
-                        <StatTile
-                          label="Selection"
-                          value={`${selectedRowIds.length} row${selectedRowIds.length === 1 ? "" : "s"}`}
-                          supporting={selectedVendorName ? `Target vendor: ${selectedVendorName}` : "Choose a vendor to prepare a bulk assignment"}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="rounded-[1.75rem] border border-slate-200/80 bg-slate-950 p-5 text-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Batch status</p>
-                          <h2 className="mt-2 text-lg font-semibold tracking-[-0.04em]">{batch.fileName}</h2>
-                          <p className="mt-1 text-xs text-slate-400">
-                            Uploaded by {batch.uploadedBy} · {new Date(batch.uploadedAt).toLocaleString()}
-                          </p>
-                        </div>
-                        <div className="min-w-[108px]">
-                          <div className="mb-2 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
-                            <span>Progress</span>
-                            <span>{batch.progressPercent}%</span>
-                          </div>
-                          <Progress value={Math.max(batch.progressPercent, 4)} className="h-2 bg-white/10" />
-                        </div>
-                      </div>
-
-                      <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                        <MetricPill label="Rows" value={summary.totalRows} />
-                        <MetricPill label="Assigned" value={summary.assignedRows} tone="success" />
-                        <MetricPill label="Unresolved" value={summary.unresolvedRows} tone="warning" />
-                        <MetricPill label="Duplicates" value={summary.duplicateRows} tone="warning" />
-                      </div>
-
-                      <div className="mt-5 grid gap-2">
-                        <GuideStrip
-                          step="01"
-                          title="Review conflicts"
-                          body={`${summary.unresolvedRows} unresolved row(s) and ${summary.duplicateRows} duplicate row(s) still block clean dispatch.`}
-                        />
-                        <GuideStrip
-                          step="02"
-                          title="Assign filtered rows"
-                          body="Use search and filter scopes to bulk route rows to a vendor without changing batch context."
-                        />
-                        <GuideStrip
-                          step="03"
-                          title="Release OR groups"
-                          body="Dispatch creates ORs by PO, vendor, and sales point after the selected rows are clean."
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="grid gap-4">
-                <Card className="rounded-[2rem] border-white/80 bg-white/88 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.22)] backdrop-blur">
-                  <CardContent className="grid gap-3 p-5 sm:grid-cols-[1.35fr_0.75fr_0.75fr]">
-                    <SummaryTile label="Unassigned" value={summary.unassignedRows} icon={RotateCcw} tone="warning" />
-                    <SummaryTile label="Dispatched" value={summary.dispatchedRows} icon={CheckCircle2} tone="success" />
-                    <SummaryTile label="Visible rows" value={filteredRows.length} icon={Filter} />
-                  </CardContent>
-                </Card>
-
-                <Card className="rounded-[2rem] border-white/80 bg-white/88 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.22)] backdrop-blur">
-                  <CardHeader className="pb-2">
-                    <CardDescription className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Workspace pulse</CardDescription>
-                    <CardTitle className="text-lg font-semibold tracking-[-0.04em] text-slate-950">
-                      Keep the table focused on the next decision.
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <PulseRow label="Current view" value={rowView} />
-                    <PulseRow label="Filters active" value={activeFilterCount} />
-                    <PulseRow label="Preview groups" value={previewEntries.length} />
-                  </CardContent>
-                </Card>
-              </div>
-            </motion.section>
-
-            <section className="grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
-              <motion.aside
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.32, delay: 0.04 }}
-                className="space-y-5 xl:sticky xl:top-24 xl:self-start"
-              >
-                <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white/88 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.22)] backdrop-blur">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <CardDescription className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Batch queue</CardDescription>
-                        <CardTitle className="mt-1 text-lg font-semibold tracking-[-0.04em] text-slate-950">Resumable uploads</CardTitle>
-                      </div>
-                      <Badge variant="outline" className="rounded-full border-slate-200 bg-white/80 text-[10px] uppercase tracking-[0.24em] text-slate-600">
-                        {batches.length} total
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {batches.map((entry) => {
-                      const cardSummary = getImportBatchSummary(entry);
-                      const isActive = entry.id === batch.id;
-
-                      return (
-                        <button
-                          key={entry.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedBatchId(entry.id);
-                            setSelectedRowIds([]);
-                            setDispatchResultMessage(null);
-                          }}
-                          className={cn(
-                            "w-full rounded-[1.5rem] border px-4 py-4 text-left transition-all duration-200",
-                            isActive
-                              ? "border-slate-950 bg-slate-950 text-white shadow-[0_20px_40px_-24px_rgba(15,23,42,0.8)]"
-                              : "border-slate-200/80 bg-white/70 text-slate-950 hover:-translate-y-[1px] hover:border-slate-300",
-                          )}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold tracking-[-0.02em]">{entry.fileName}</p>
-                              <p className={cn("mt-1 text-[10px] uppercase tracking-[0.24em]", isActive ? "text-slate-300" : "text-slate-500")}>
-                                {entry.stage} · {entry.rows.length} rows
-                              </p>
-                            </div>
-                            <div className={cn("rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.24em]", isActive ? "bg-white/10 text-white" : "bg-slate-100 text-slate-600")}>
-                              {entry.progressPercent}%
-                            </div>
-                          </div>
-
-                          <div className={cn("mt-4 grid grid-cols-2 gap-2 text-[11px]", isActive ? "text-slate-200" : "text-slate-600")}>
-                            <QueueStat label="Assigned" value={cardSummary.assignedRows} />
-                            <QueueStat label="Pending" value={cardSummary.unresolvedRows + cardSummary.duplicateRows} />
-                            <QueueStat label="Ready" value={cardSummary.dispatchedRows} />
-                            <QueueStat label="Open" value={cardSummary.unassignedRows} />
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
-
-                <Card className="rounded-[2rem] border-white/80 bg-white/88 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.22)] backdrop-blur">
-                  <CardHeader className="pb-3">
-                    <CardDescription className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Selection state</CardDescription>
-                    <CardTitle className="text-lg font-semibold tracking-[-0.04em] text-slate-950">Current focus</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <StateBlock label="Rows selected" value={`${selectedRowIds.length}`} />
-                    <StateBlock label="Visible selected" value={`${visibleSelectedCount}`} />
-                    <StateBlock label="Target vendor" value={selectedVendorName ?? "Not selected"} />
-                  </CardContent>
-                </Card>
-              </motion.aside>
-
+          <div className="mx-auto flex w-full max-w-[1720px] flex-col gap-5">
+            <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
               <motion.section
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.32, delay: 0.08 }}
-                className="grid gap-5 2xl:grid-cols-[minmax(0,1.55fr)_360px]"
+                className="min-w-0"
               >
-                <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white/92 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.22)] backdrop-blur">
+                <Card className="overflow-hidden rounded-[1.5rem] border-slate-200/70 bg-white/95 shadow-[0_22px_64px_-36px_rgba(15,23,42,0.22)]">
                   <CardContent className="p-0">
-                    <div className="border-b border-slate-200/80 px-5 py-5 sm:px-6">
-                      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-                        <div className="space-y-3">
-                          <div className="space-y-2">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">Row workspace</p>
-                            <h2 className="text-2xl font-semibold tracking-[-0.05em] text-slate-950">Search, isolate, and resolve rows in one pass.</h2>
+                    <div className="border-b border-slate-200/80 bg-slate-50/80 px-5 py-4 sm:px-6">
+                      <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
+                        <div className="min-w-0">
+                          <CardDescription className="text-xs normal-case tracking-normal text-slate-500">Active import batch</CardDescription>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <CardTitle className="max-w-[720px] truncate text-lg font-semibold tracking-[-0.04em] text-slate-950">
+                              {batch.fileName}
+                            </CardTitle>
+                            <Badge variant="outline" className="rounded-full border-slate-200 bg-white text-xs normal-case tracking-normal text-slate-600">
+                              {batches.length} upload{batches.length === 1 ? "" : "s"}
+                            </Badge>
+                            <Badge variant="outline" className="rounded-full border-slate-200 bg-white text-xs normal-case tracking-normal text-slate-600">
+                              {batch.validationStatus.replaceAll("_", " ")}
+                            </Badge>
                           </div>
-                          <div className="relative w-full max-w-xl">
-                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                            <Input
-                              value={searchTerm}
-                              onChange={(event) => setSearchTerm(event.target.value)}
-                              placeholder="Search item name, PO, item code, or brand"
-                              className="h-11 rounded-xl border-slate-200 bg-white pl-10 shadow-none"
-                            />
-                          </div>
+                          <p className="mt-1 text-xs font-medium normal-case tracking-normal text-slate-500">
+                            {batch.stage} · {summary.totalRows} rows · Assignment progress {assignmentProgressLabel}
+                          </p>
+
+                          {batches.length > 1 ? (
+                            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                              {batches.map((entry) => {
+                                const isActive = entry.id === batch.id;
+                                const entrySummary = getImportBatchSummary(entry);
+
+                                return (
+                                  <Button
+                                    key={entry.id}
+                                    type="button"
+                                    variant={isActive ? "default" : "outline"}
+                                    onClick={() => {
+                                      setSelectedBatchId(entry.id);
+                                      setSelectedRowIds([]);
+                                      setDispatchResultMessage(null);
+                                      priorityBatchId.current = "";
+                                    }}
+                                    className={cn(
+                                      "h-9 min-w-[220px] justify-between rounded-full px-3 text-xs font-semibold normal-case tracking-normal",
+                                      isActive
+                                        ? "border-slate-950 bg-slate-950 text-white hover:bg-slate-900"
+                                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-950",
+                                    )}
+                                  >
+                                    <span className="truncate">{entry.fileName}</span>
+                                    <span>{entrySummary.blockerRows} blockers</span>
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                          ) : null}
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
-                          {rowViews.map((view) => (
-                            <Button
-                              key={view}
-                              type="button"
-                              variant={rowView === view ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setRowView(view)}
-                              className={cn(
-                                "h-9 rounded-full px-3.5 text-[10px] font-semibold uppercase tracking-[0.24em]",
-                                rowView === view ? "bg-slate-950 text-white hover:bg-slate-900" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
-                              )}
-                            >
-                              {view}
-                            </Button>
-                          ))}
+                        <div className="grid min-w-[320px] gap-3 sm:grid-cols-3">
+                          <BatchMetric label="Progress" value={`${batch.progressPercent}%`} detail={assignmentProgressLabel} tone={batch.validationStatus === "blocked" ? "warning" : "default"} />
+                          <BatchMetric label="Blockers" value={`${summary.blockerRows}`} detail={`${summary.pendingDuplicateRows} dup · ${summary.unresolvedRows} unresolved`} tone={summary.blockerRows > 0 ? "danger" : "success"} />
+                          <BatchMetric label="Ready" value={`${dispatchReadiness?.dispatchableRows.length ?? 0}`} detail={`${summary.unassignedRows} unassigned`} tone={canImport ? "success" : "default"} />
                         </div>
                       </div>
 
-                      <div className="mt-5 grid gap-3 md:grid-cols-2 2xl:grid-cols-5">
-                        <FilterSelect label="Region" value={regionFilter} onChange={setRegionFilter} options={availableRegions} />
-                        <FilterSelect label="Brand" value={brandFilter} onChange={setBrandFilter} options={availableBrands} />
-                        <FilterSelect label="Category" value={categoryFilter} onChange={setCategoryFilter} options={availableCategories} />
-                        <FilterSelect label="Vendor" value={vendorFilter} onChange={setVendorFilter} options={availableVendors} />
-                        <FilterSelect label="Sales Point" value={wcodeFilter} onChange={setWcodeFilter} options={availableSalesPoints} />
+                      <div className="mt-4 grid gap-2 lg:grid-cols-3">
+                        <WorkflowStep
+                          icon={AlertCircle}
+                          label="1. Review blockers"
+                          value={summary.blockerRows === 0 ? "Clear" : `${summary.blockerRows} to review`}
+                          active={rowView === "Possible duplicate" || rowView === "Unresolved"}
+                          complete={summary.blockerRows === 0}
+                        />
+                        <WorkflowStep
+                          icon={ListChecks}
+                          label="2. Assign rows"
+                          value={summary.unassignedRows === 0 ? "No open rows" : `${summary.unassignedRows} remaining`}
+                          active={rowView === "Unassigned"}
+                          complete={summary.unassignedRows === 0 && summary.blockerRows === 0}
+                        />
+                        <WorkflowStep
+                          icon={Send}
+                          label="3. Import ORs"
+                          value={canImport ? "Ready to import" : `${dispatchReadiness?.dispatchableRows.length ?? 0} ready`}
+                          active={rowView === "Assigned" || rowView === "Imported"}
+                          complete={batch.validationStatus === "imported"}
+                        />
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-3 border-b border-slate-200/80 px-5 py-4 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                    <div className="border-b border-slate-200/80 px-5 py-4 sm:px-6">
+                      <div className="flex flex-col gap-5">
+                        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                          <div className="flex items-center gap-4">
+                            <Tabs value={rowView} onValueChange={(value) => setRowView(value as RowView)} className="w-auto">
+                              <TabsList>
+                                {rowViews.map((view) => (
+                                  <TabsTrigger key={view} value={view} className="px-4">
+                                    {view}
+                                    <span className="ml-2 rounded-full bg-white/70 px-1.5 py-0.5 text-[10px] text-slate-500">
+                                      {rowViewCounts[view]}
+                                    </span>
+                                  </TabsTrigger>
+                                ))}
+                              </TabsList>
+                            </Tabs>
+                          </div>
+
+                          <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center xl:justify-end">
+                            <div className="relative w-full max-w-2xl">
+                              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                              <Input
+                                value={searchTerm}
+                                onChange={(event) => setSearchTerm(event.target.value)}
+                                placeholder="Search item, PO, item code, customer, or brand"
+                                className="pl-9"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                          <FilterSelect label="Region" value={regionFilter} onChange={setRegionFilter} options={availableRegions} />
+                          <FilterSelect label="Brand" value={brandFilter} onChange={setBrandFilter} options={availableBrands} />
+                          <FilterSelect label="Category" value={categoryFilter} onChange={setCategoryFilter} options={availableCategories} />
+                          <FilterSelect label="Vendor" value={vendorFilter} onChange={setVendorFilter} options={availableVendors} />
+                          <FilterSelect label="Sales Point" value={wcodeFilter} onChange={setWcodeFilter} options={availableSalesPoints} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3 border-b border-slate-200/80 bg-slate-50/80 px-5 py-4 text-xs font-semibold normal-case tracking-normal text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                       <div className="flex flex-wrap items-center gap-3">
-                        <button type="button" onClick={handleSelectAllVisible} className="text-slate-950 transition-colors hover:text-cyan-700">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={assignableFilteredRows.length === 0}
+                          onClick={handleSelectAllVisible}
+                          className="h-auto px-0 text-xs font-semibold normal-case tracking-normal text-slate-950 hover:bg-transparent hover:text-cyan-700"
+                        >
                           Select all visible
-                        </button>
-                        <button type="button" onClick={() => setSelectedRowIds([])} className="transition-colors hover:text-slate-950">
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedRowIds([])}
+                          className="h-auto px-0 text-xs font-semibold normal-case tracking-normal hover:bg-transparent hover:text-slate-950"
+                        >
                           Clear selection
-                        </button>
+                        </Button>
                         {activeFilterCount > 0 ? (
-                          <Badge variant="outline" className="rounded-full border-cyan-200 bg-cyan-50 text-[10px] uppercase tracking-[0.24em] text-cyan-800">
+                          <Badge variant="outline" className="rounded-full border-cyan-200 bg-cyan-50 text-xs normal-case tracking-normal text-cyan-800">
                             {activeFilterCount} filter{activeFilterCount === 1 ? "" : "s"} active
                           </Badge>
                         ) : null}
@@ -499,161 +505,178 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
 
                       <div className="flex items-center gap-2 text-slate-500">
                         <Filter className="h-3.5 w-3.5" />
-                        {filteredRows.length} visible rows
+                        {filteredRows.length} visible rows · {assignableFilteredRows.length} assignable
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                      <table className="min-w-[1120px] w-full text-left">
-                        <thead className="sticky top-0 z-[1] bg-slate-50/95 text-[10px] uppercase tracking-[0.24em] text-slate-500 backdrop-blur">
-                          <tr>
-                            <th className="px-4 py-3 sm:px-6">Select</th>
-                            <th className="px-4 py-3">Item</th>
-                            <th className="px-4 py-3">PO / Line</th>
-                            <th className="px-4 py-3">Geo</th>
-                            <th className="px-4 py-3">Brand</th>
-                            <th className="px-4 py-3">Qty</th>
-                            <th className="px-4 py-3">Vendor</th>
-                            <th className="px-4 py-3">Flags</th>
-                            <th className="px-4 py-3 text-right sm:pr-6">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200/80">
-                          {filteredRows.length === 0 ? (
-                            <tr>
-                              <td colSpan={9} className="px-6 py-16">
-                                <EmptyTableState
-                                  title="No rows match the current scope"
-                                  body="Widen the filters or switch row views to bring more import rows back into the workspace."
-                                />
-                              </td>
-                            </tr>
-                          ) : (
-                            filteredRows.map((row) => (
-                              <ImportRowTableRow
-                                key={row.id}
-                                row={row}
-                                checked={selectedRowIds.includes(row.id)}
-                                onCheckedChange={(checked) =>
-                                  setSelectedRowIds((current) =>
-                                    checked ? [...new Set([...current, row.id])] : current.filter((id) => id !== row.id),
-                                  )
-                                }
-                                onDuplicateDecision={(decision) => markDuplicateDecision(batch.id, row.id, decision)}
-                                onExclude={(excluded) => toggleExcluded(batch.id, row.id, excluded)}
-                                onUnassign={() => unassignRows(batch.id, [row.id])}
+                    <Table className="min-w-[1120px] text-left">
+                      <TableHeader className="sticky top-0 z-[1] bg-white/95 text-xs normal-case tracking-normal text-slate-500 backdrop-blur">
+                        <TableRow>
+                          <TableHead className="px-4 py-3 sm:px-6">Select</TableHead>
+                          <TableHead className="px-4 py-3">Item</TableHead>
+                          <TableHead className="px-4 py-3">PO / Line</TableHead>
+                          <TableHead className="px-4 py-3">Geo</TableHead>
+                          <TableHead className="px-4 py-3">Brand</TableHead>
+                          <TableHead className="px-4 py-3">Qty</TableHead>
+                          <TableHead className="px-4 py-3">Vendor</TableHead>
+                          <TableHead className="px-4 py-3">Flags</TableHead>
+                          <TableHead className="px-4 py-3 text-right sm:pr-6">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-slate-200/80">
+                        {filteredRows.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={9} className="px-6 py-16">
+                              <EmptyTableState
+                                title="No rows match the current scope"
+                                body="Widen the filters or switch row views to bring more import rows back into the workspace."
                               />
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredRows.map((row) => (
+                            <ImportRowTableRow
+                              key={row.id}
+                              row={row}
+                              checked={selectedRowIds.includes(row.id)}
+                              onCheckedChange={(checked) =>
+                                setSelectedRowIds((current) =>
+                                  checked ? [...new Set([...current, row.id])] : current.filter((id) => id !== row.id),
+                                )
+                              }
+                              onDuplicateDecision={(decision) => markDuplicateDecision(batch.id, row.id, decision)}
+                              onExclude={(excluded) => toggleExcluded(batch.id, row.id, excluded)}
+                              onUnassign={() => unassignRows(batch.id, [row.id])}
+                            />
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
                   </CardContent>
                 </Card>
+              </motion.section>
 
-                <div className="space-y-5">
-                  <Card className="rounded-[2rem] border-white/80 bg-white/92 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.22)] backdrop-blur">
-                    <CardHeader className="pb-3">
-                      <CardDescription className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Bulk assignment</CardDescription>
-                      <CardTitle className="text-lg font-semibold tracking-[-0.04em] text-slate-950">Route selected rows to a vendor</CardTitle>
-                      <CardDescription className="text-sm leading-6 text-slate-600">
-                        Assigned rows leave the default queue immediately and remain available under the assigned view for a final dispatch check.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="rounded-[1.5rem] border border-slate-200/80 bg-slate-50 p-4">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">Selection</p>
-                        <p className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-950">{selectedRowIds.length}</p>
-                        <p className="mt-1 text-sm leading-6 text-slate-600">Rows selected across the current filtered scope.</p>
+              <motion.aside
+                initial={{ opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.32, delay: 0.04 }}
+                className="space-y-3 xl:sticky xl:top-24 xl:self-start"
+              >
+                <Card className="rounded-[1.4rem] border-slate-200/70 bg-white/95 shadow-[0_16px_48px_-30px_rgba(15,23,42,0.22)]">
+                  <CardHeader className="pb-3">
+                    <CardDescription className="text-xs normal-case tracking-normal text-slate-500">Operator action</CardDescription>
+                    <CardTitle className="text-base font-semibold tracking-[-0.04em] text-slate-950">Assign, then import ORs</CardTitle>
+                    <CardDescription className="text-sm leading-6 text-slate-600">
+                      Work from the filtered rows. Assigned rows leave the open queue.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-3.5 py-3">
+                      <div className="flex items-center justify-between gap-3 text-xs font-semibold normal-case tracking-normal text-slate-500">
+                        <span>{selectedRowIds.length} selected</span>
+                        <span>{visibleSelectedCount} visible</span>
+                      </div>
+                      <p className="mt-2 truncate text-sm font-semibold tracking-[-0.02em] text-slate-950">
+                        Vendor: {selectedVendorName ?? "Not selected"}
+                      </p>
+                    </div>
+
+                    <label className="grid gap-2 text-xs font-semibold normal-case tracking-normal text-slate-500">
+                      Assign vendor
+                      <Select value={selectedVendorId} onValueChange={setSelectedVendorId}>
+                        <SelectTrigger className="h-11 rounded-2xl border-slate-200 bg-slate-50 normal-case tracking-normal">
+                          <SelectValue placeholder="Select vendor..." className="normal-case tracking-normal" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {suppliers
+                            .filter((supplier) => supplier.status === "ACTIVE")
+                            .map((supplier) => (
+                              <SelectItem key={supplier.id} value={supplier.id} className="normal-case tracking-normal">
+                                {supplier.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </label>
+
+                    <Button
+                      onClick={handleAssign}
+                      disabled={!selectedVendorId || selectedRowIds.length === 0}
+                      className="h-11 w-full rounded-2xl bg-slate-950 text-white hover:bg-slate-900"
+                    >
+                      Assign selected rows
+                      <ChevronsRight className="h-3.5 w-3.5" />
+                    </Button>
+
+                    <div className="space-y-2 rounded-[1.1rem] border border-slate-200 bg-white p-3.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs font-semibold normal-case tracking-normal text-slate-500">Assignment OR preview</p>
+                        <Badge variant="outline" className="rounded-full border-slate-200 bg-slate-50 text-xs normal-case tracking-normal text-slate-600">
+                          {assignmentPreviewEntries.length} group{assignmentPreviewEntries.length === 1 ? "" : "s"}
+                        </Badge>
+                      </div>
+                      {assignmentPreviewEntries.length === 0 ? (
+                        <p className="text-xs leading-5 text-slate-500">Select assignable rows and a vendor to preview the OR groups that selection will feed.</p>
+                      ) : (
+                        <PreviewGroupList entries={assignmentPreviewEntries} />
+                      )}
+                    </div>
+
+                    <div className="space-y-3 rounded-[1.1rem] border border-slate-200 bg-slate-50 p-3.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-semibold normal-case tracking-normal text-slate-500">Import ORs</p>
+                          <p className="mt-1 text-sm font-semibold tracking-[-0.02em] text-slate-950">
+                            {dispatchReadiness?.dispatchableRows.length ?? 0} row(s) ready
+                          </p>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "rounded-full text-xs normal-case tracking-normal",
+                            canImport
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              : "border-amber-200 bg-amber-50 text-amber-700",
+                          )}
+                        >
+                          {canImport ? "Ready" : "Blocked"}
+                        </Badge>
                       </div>
 
-                      <label className="grid gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-                        Assign vendor
-                        <Select value={selectedVendorId} onValueChange={setSelectedVendorId}>
-                          <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white">
-                            <SelectValue placeholder="Select vendor..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {suppliers
-                              .filter((supplier) => supplier.status === "ACTIVE")
-                              .map((supplier) => (
-                                <SelectItem key={supplier.id} value={supplier.id}>
-                                  {supplier.name}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      </label>
+                      <Progress value={batch.importJob?.progressPercent ?? (summary.dispatchedRows > 0 ? batch.progressPercent : 0)} className="h-2 bg-white" />
+
+                      {importPreviewEntries.length > 0 ? <PreviewGroupList entries={importPreviewEntries} /> : null}
 
                       <Button
-                        onClick={handleAssign}
-                        disabled={!selectedVendorId || selectedRowIds.length === 0}
-                        className="h-11 w-full rounded-xl bg-slate-950 text-white hover:bg-slate-900"
+                        onClick={handleDispatch}
+                        disabled={!canImport}
+                        className="h-11 w-full rounded-2xl bg-slate-950 text-white hover:bg-slate-900"
                       >
-                        Assign selected rows
-                        <ChevronsRight className="h-3.5 w-3.5" />
-                      </Button>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="rounded-[2rem] border-white/80 bg-white/92 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.22)] backdrop-blur">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="flex items-center gap-2 text-lg font-semibold tracking-[-0.04em] text-slate-950">
-                        <Sparkles className="h-4 w-4 text-cyan-700" />
-                        Dispatch preview
-                      </CardTitle>
-                      <CardDescription className="text-sm leading-6 text-slate-600">
-                        Preview resulting OR groups by PO, vendor, and sales point before releasing the batch.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {previewEntries.length === 0 ? (
-                        <div className="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm leading-6 text-slate-600">
-                          Select rows to generate preview groups. The rail updates live as you change the vendor or scope.
-                        </div>
-                      ) : (
-                        previewEntries.map(([key, count]) => (
-                          <div key={key} className="rounded-[1.5rem] border border-slate-200/80 bg-slate-50 p-4">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-sm font-semibold leading-5 tracking-[-0.02em] text-slate-950">{key}</p>
-                                <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Dispatch output group</p>
-                              </div>
-                              <Badge variant="outline" className="rounded-full border-slate-200 bg-white text-[10px] uppercase tracking-[0.24em] text-slate-600">
-                                {count} row(s)
-                              </Badge>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </CardContent>
-                    <CardContent className="space-y-4 border-t border-slate-200/80 p-5">
-                      <Button onClick={handleDispatch} className="h-11 w-full rounded-xl bg-slate-950 text-white hover:bg-slate-900">
-                        Dispatch assigned rows
+                        {batch.importJob?.status === "failed" ? "Retry import ORs" : "Import assigned ORs"}
                         <ArrowRight className="h-3.5 w-3.5" />
                       </Button>
 
-                      <div className="space-y-2 text-sm leading-6 text-slate-600">
+                      <div className="space-y-2 text-xs leading-5 text-slate-600">
                         <p className="flex items-start gap-2">
-                          <AlertTriangle className="mt-1 h-4 w-4 text-amber-500" />
-                          Duplicate rows with pending decisions are held back from OR creation.
+                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-amber-500" />
+                          Review duplicates and unresolved rows before assignment.
                         </p>
                         <p className="flex items-start gap-2">
-                          <XCircle className="mt-1 h-4 w-4 text-rose-500" />
-                          Unresolved rows stay in the batch until fixed or explicitly excluded.
+                          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 text-emerald-600" />
+                          Retry skips OR groups that were already created.
                         </p>
                       </div>
 
                       {dispatchResultMessage ? (
-                        <Alert className="rounded-[1.5rem] border-cyan-200 bg-cyan-50 text-cyan-950">
-                          <AlertTitle>Dispatch result</AlertTitle>
+                        <Alert className="rounded-[1.1rem] border-cyan-200 bg-cyan-50 text-cyan-950">
+                          <AlertTitle>Import result</AlertTitle>
                           <AlertDescription>{dispatchResultMessage}</AlertDescription>
                         </Alert>
                       ) : null}
-                    </CardContent>
-                  </Card>
-                </div>
-              </motion.section>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.aside>
             </section>
           </div>
         </main>
@@ -662,65 +685,84 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
   );
 }
 
-function GuideStrip({ step, title, body }: { step: string; title: string; body: string }) {
-  return (
-    <div className="rounded-[1.25rem] border border-white/10 bg-white/5 p-3.5">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-400">Step {step}</span>
-        <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">{title}</span>
-      </div>
-      <p className="mt-2 text-sm leading-6 text-slate-300">{body}</p>
-    </div>
-  );
-}
-
-function MetricPill({
+function BatchMetric({
   label,
   value,
-  tone = "default",
-}: {
-  label: string;
-  value: number;
-  tone?: "default" | "warning" | "success";
-}) {
-  const toneClass =
-    tone === "warning"
-      ? "border-amber-400/20 bg-amber-400/10 text-amber-200"
-      : tone === "success"
-        ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
-        : "border-white/10 bg-white/5 text-slate-100";
-
-  return (
-    <div className={cn("rounded-[1.25rem] border p-3.5", toneClass)}>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.24em]">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tracking-[-0.04em]">{value}</p>
-    </div>
-  );
-}
-
-function StatTile({
-  label,
-  value,
-  supporting,
+  detail,
   tone = "default",
 }: {
   label: string;
   value: string;
-  supporting: string;
-  tone?: "default" | "ink";
+  detail: string;
+  tone?: "default" | "warning" | "success" | "danger";
+}) {
+  const classes =
+    tone === "warning"
+      ? "border-amber-200 bg-amber-50 text-amber-800"
+      : tone === "success"
+        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+        : tone === "danger"
+          ? "border-rose-200 bg-rose-50 text-rose-800"
+          : "border-slate-200 bg-white text-slate-700";
+
+  return (
+    <div className={cn("rounded-[1rem] border px-3 py-2.5", classes)}>
+      <p className="text-[11px] font-semibold normal-case tracking-normal opacity-75">{label}</p>
+      <p className="mt-1 text-lg font-semibold leading-none tracking-[-0.04em]">{value}</p>
+      <p className="mt-1 text-[11px] font-semibold normal-case tracking-normal opacity-75">{detail}</p>
+    </div>
+  );
+}
+
+function WorkflowStep({
+  icon: Icon,
+  label,
+  value,
+  active,
+  complete,
+}: {
+  icon: typeof CircleDot;
+  label: string;
+  value: string;
+  active: boolean;
+  complete: boolean;
 }) {
   return (
     <div
       className={cn(
-        "rounded-[1.5rem] border p-4",
-        tone === "ink"
-          ? "border-slate-950 bg-slate-950 text-white shadow-[0_20px_40px_-24px_rgba(15,23,42,0.72)]"
-          : "border-slate-200/80 bg-slate-50 text-slate-950",
+        "flex items-center gap-3 rounded-[1rem] border px-3.5 py-3 text-sm",
+        complete
+          ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+          : active
+            ? "border-cyan-200 bg-cyan-50 text-cyan-950"
+            : "border-slate-200 bg-white text-slate-700",
       )}
     >
-      <p className={cn("text-[11px] font-semibold uppercase tracking-[0.28em]", tone === "ink" ? "text-slate-300" : "text-slate-500")}>{label}</p>
-      <p className="mt-3 text-lg font-semibold tracking-[-0.04em]">{value}</p>
-      <p className={cn("mt-2 text-sm leading-6", tone === "ink" ? "text-slate-300" : "text-slate-600")}>{supporting}</p>
+      <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", complete ? "bg-emerald-100 text-emerald-700" : active ? "bg-cyan-100 text-cyan-800" : "bg-slate-100 text-slate-500")}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="truncate font-semibold tracking-[-0.02em]">{label}</p>
+        <p className="mt-0.5 text-xs font-medium normal-case tracking-normal opacity-70">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function PreviewGroupList({ entries }: { entries: Array<[string, number]> }) {
+  return (
+    <div className="space-y-2">
+      {entries.slice(0, 4).map(([key, count]) => (
+        <div key={key} className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
+          <p className="min-w-0 text-xs font-semibold leading-5 tracking-[-0.01em] text-slate-700">{key}</p>
+          <Badge variant="outline" className="shrink-0 rounded-full border-slate-200 bg-slate-50 text-[11px] normal-case tracking-normal text-slate-600">
+            {count}
+          </Badge>
+        </div>
+      ))}
+      {entries.length > 4 ? (
+        <p className="text-xs font-medium normal-case tracking-normal text-slate-500">+{entries.length - 4} more group(s)</p>
+      ) : null}
     </div>
   );
 }
@@ -744,24 +786,24 @@ function SummaryTile({
         : "bg-cyan-100 text-cyan-800";
 
   return (
-    <div className="rounded-[1.5rem] border border-slate-200/80 bg-white p-4">
-      <div className="flex items-center justify-between gap-4">
+    <Card className="gap-0 py-0 border-slate-200/80 bg-white/90 shadow-sm">
+      <CardContent className="flex items-center justify-between gap-2 px-3.5 py-2.5">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">{label}</p>
-          <p className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-950">{value}</p>
+          <p className="text-[11px] font-semibold normal-case tracking-normal text-slate-500">{label}</p>
+          <p className="mt-0.5 text-xl font-semibold leading-none tracking-[-0.04em] text-slate-950">{value}</p>
         </div>
-        <div className={cn("flex h-11 w-11 items-center justify-center rounded-full", toneClass)}>
-          <Icon className="h-5 w-5" />
+        <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", toneClass)}>
+          <Icon className="h-3.5 w-3.5" />
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
 function PulseRow({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-[1.25rem] border border-slate-200/80 bg-slate-50 px-4 py-3">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">{label}</span>
+    <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-slate-50 px-4 py-2.5">
+      <span className="text-xs font-semibold normal-case tracking-normal text-slate-500">{label}</span>
       <span className="text-sm font-semibold tracking-[-0.02em] text-slate-950">{value}</span>
     </div>
   );
@@ -770,7 +812,7 @@ function PulseRow({ label, value }: { label: string; value: string | number }) {
 function QueueStat({ label, value }: { label: string; value: number }) {
   return (
     <div>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] opacity-70">{label}</p>
+      <p className="text-xs font-semibold normal-case tracking-normal opacity-70">{label}</p>
       <p className="mt-1 text-sm font-semibold tracking-[-0.02em]">{value}</p>
     </div>
   );
@@ -779,7 +821,7 @@ function QueueStat({ label, value }: { label: string; value: number }) {
 function StateBlock({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[1.25rem] border border-slate-200/80 bg-slate-50 p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">{label}</p>
+      <p className="text-xs font-semibold normal-case tracking-normal text-slate-500">{label}</p>
       <p className="mt-2 text-lg font-semibold tracking-[-0.03em] text-slate-950">{value}</p>
     </div>
   );
@@ -797,15 +839,15 @@ function FilterSelect({
   options: string[];
 }) {
   return (
-    <label className="grid gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+    <label className="grid gap-2 text-xs font-semibold normal-case tracking-normal text-slate-500">
       {label}
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white">
-          <SelectValue />
+        <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white normal-case tracking-normal">
+          <SelectValue className="normal-case tracking-normal" />
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (
-            <SelectItem key={option} value={option}>
+            <SelectItem key={option} value={option} className="normal-case tracking-normal">
               {option}
             </SelectItem>
           ))}
@@ -845,57 +887,57 @@ function ImportRowTableRow({
   onUnassign: () => void;
 }) {
   const isFrozen = row.status === "dispatched";
+  const isSelectable =
+    row.status === "unassigned" &&
+    row.match.issues.length === 0 &&
+    (!row.possibleDuplicate || row.duplicateDecision === "include");
 
   return (
-    <tr className={cn("align-top text-xs transition-colors", checked && "bg-cyan-50/70", isFrozen && "opacity-60")}>
-      <td className="px-4 py-4 sm:px-6">
-        <input
-          type="checkbox"
-          checked={checked}
-          disabled={isFrozen}
-          onChange={(event) => onCheckedChange(event.target.checked)}
-          className="h-4 w-4 rounded border-slate-300 text-slate-950 focus:ring-slate-950"
-        />
-      </td>
-      <td className="px-4 py-4">
+    <TableRow className={cn("align-top text-xs transition-colors", checked && "bg-cyan-50/70", isFrozen && "opacity-60")}>
+      <TableCell className="px-4 py-4 sm:px-6">
+        <Checkbox checked={checked} disabled={!isSelectable} onCheckedChange={(value) => onCheckedChange(value === true)} />
+      </TableCell>
+      <TableCell className="px-4 py-4">
         <p className="max-w-[340px] font-semibold leading-5 tracking-[-0.02em] text-slate-950">{row.raw.itemName}</p>
-        <p className="mt-1 font-mono text-[10px] text-slate-500">{row.raw.itemCode}</p>
+        <p className="mt-1 font-mono text-xs text-slate-500">{row.raw.itemCode}</p>
         {row.match.productName && row.match.productName !== row.raw.itemName ? (
-          <p className="mt-2 text-[10px] leading-5 text-slate-500">Matched to: {row.match.productName}</p>
+          <p className="mt-2 text-xs leading-5 text-slate-500">Matched to: {row.match.productName}</p>
         ) : null}
-      </td>
-      <td className="px-4 py-4">
+      </TableCell>
+      <TableCell className="px-4 py-4">
         <p className="font-mono text-sm font-semibold text-slate-950">{row.raw.poNumber}</p>
-        <p className="mt-1 text-[10px] uppercase tracking-[0.24em] text-slate-500">Line {row.raw.poLine}</p>
-      </td>
-      <td className="px-4 py-4">
-        <p className="font-medium text-slate-950">{row.raw.wcode} · {row.raw.salesPoint}</p>
-        <p className="mt-1 text-[10px] leading-5 text-slate-500">{row.raw.region} · {row.raw.area}</p>
+        <p className="mt-1 text-xs normal-case tracking-normal text-slate-500">Line {row.raw.poLine}</p>
+      </TableCell>
+      <TableCell className="px-4 py-4">
+        <p className="font-medium text-slate-950">
+          {row.raw.wcode} · {row.raw.salesPoint}
+        </p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">{row.raw.region} · {row.raw.area}</p>
         {row.match.customerName ? (
-          <p className="mt-2 text-[10px] leading-5 text-slate-500">
+          <p className="mt-2 text-xs leading-5 text-slate-500">
             Customer: {row.match.customerName} · {row.match.customerEntityName}
           </p>
         ) : null}
-      </td>
-      <td className="px-4 py-4">
+      </TableCell>
+      <TableCell className="px-4 py-4">
         <p className="font-medium text-slate-950">{row.raw.brandNamePo || row.raw.brand || "-"}</p>
-        <p className="mt-1 text-[10px] leading-5 text-slate-500">{row.raw.category || row.match.categoryName || "-"}</p>
-      </td>
-      <td className="px-4 py-4 font-semibold text-slate-950">{row.quantity}</td>
-      <td className="px-4 py-4">
+        <p className="mt-1 text-xs leading-5 text-slate-500">{row.raw.category || row.match.categoryName || "-"}</p>
+      </TableCell>
+      <TableCell className="px-4 py-4 font-semibold text-slate-950">{row.quantity}</TableCell>
+      <TableCell className="px-4 py-4">
         <p className={cn("font-medium", row.assignment ? "text-slate-950" : "italic text-slate-500")}>{row.assignment?.vendorName ?? "Not assigned"}</p>
-      </td>
-      <td className="px-4 py-4">
+      </TableCell>
+      <TableCell className="px-4 py-4">
         <div className="flex flex-wrap gap-2">
           <FlagBadge label={row.status} tone={statusTone(row)} />
           {row.possibleDuplicate ? <FlagBadge label={`Duplicate · ${row.duplicateDecision}`} tone="warning" /> : null}
           {row.match.issues.length > 0 ? <FlagBadge label={`${row.match.issues.length} issue(s)`} tone="danger" /> : null}
         </div>
         {row.match.issues.length > 0 ? (
-          <p className="mt-2 max-w-[220px] text-[10px] leading-5 text-slate-500">{row.match.issues.join(". ")}</p>
+          <p className="mt-2 max-w-[220px] text-xs leading-5 text-slate-500">{row.match.issues.join(". ")}</p>
         ) : null}
-      </td>
-      <td className="px-4 py-4 sm:pr-6">
+      </TableCell>
+      <TableCell className="px-4 py-4 sm:pr-6">
         <div className="flex flex-col items-end gap-2">
           {row.possibleDuplicate && row.status !== "dispatched" ? (
             <div className="flex flex-wrap justify-end gap-2">
@@ -920,8 +962,8 @@ function ImportRowTableRow({
             />
           ) : null}
         </div>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -949,7 +991,11 @@ function FlagBadge({
           ? "bg-rose-100 text-rose-800"
           : "bg-slate-100 text-slate-600";
 
-  return <span className={cn("rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.24em]", classes)}>{label}</span>;
+  return (
+    <Badge variant="outline" className={cn("rounded-full px-2.5 py-1 text-xs font-semibold normal-case tracking-normal", classes)}>
+      {label}
+    </Badge>
+  );
 }
 
 function MiniAction({
@@ -969,15 +1015,17 @@ function MiniAction({
         : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950";
 
   return (
-    <button
+    <Button
       type="button"
+      variant={tone === "danger" ? "destructive" : tone === "primary" ? "secondary" : "outline"}
+      size="xs"
       onClick={onClick}
       className={cn(
-        "rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.24em] transition-all active:translate-y-px",
+        "rounded-full px-2.5 text-xs font-semibold normal-case tracking-normal transition-all active:translate-y-px",
         classes,
       )}
     >
       {label}
-    </button>
+    </Button>
   );
 }

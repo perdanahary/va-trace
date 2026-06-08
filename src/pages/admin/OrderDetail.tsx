@@ -1,19 +1,16 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
+  ArrowUpRight,
   Calendar,
-  Clock,
   ClipboardList,
   CheckCircle2,
   Edit3,
-  FileText,
-  MapPin,
   Package,
   Printer,
   Send,
   Trash2,
   XCircle,
-  User,
   ChevronDown,
   AlertTriangle,
 } from "lucide-react";
@@ -27,10 +24,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { generateDeliveryNote } from "@/lib/deliveryNote";
 import { getBaseOrderStatus } from "@/lib/orderStatus";
 import { raiseQuantityComplaint, useOrders } from "@/lib/orderStore";
@@ -201,12 +196,12 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
           actions={headerActions}
         />
 
-        <main className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <div className="space-y-6 lg:col-span-2">
+        <main className="mx-auto max-w-[1280px] space-y-6 p-4 sm:p-6 lg:p-8">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_389px]">
+            <div className="space-y-6">
               <Card className="border-border/70 shadow-sm">
                 <CardHeader className="flex flex-row items-start justify-between space-y-0 border-b bg-muted/20">
-                  <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge status={order.status} />
                     <Badge variant="outline" className="rounded-full font-mono text-[10px] uppercase tracking-[0.24em]">
                       OR Reference: {order.id}
@@ -217,24 +212,9 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
                     Created: {order.createdDate}
                   </div>
                 </CardHeader>
-                <CardContent className="grid gap-6 p-6 md:grid-cols-2 xl:grid-cols-4">
-                  <InfoItem label="Supplier" value={order.supplier} icon={User} />
-                  <InfoItem label="Customer PO Ref" value={order.clientPO} icon={FileText} />
-                  <InfoItem label="Destination" value={`${deliverySnapshot.wcode} · ${deliverySnapshot.deliveryLocationName}`} icon={MapPin} />
-                  <InfoItem label="Deadline" value={order.deadline} icon={Clock} color={order.deadline === "Overdue" ? "text-destructive" : "text-foreground"} />
-                </CardContent>
-              </Card>
-
-              <Tabs defaultValue="alignment" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="alignment">Alignment</TabsTrigger>
-                  <TabsTrigger value="items">Line Items</TabsTrigger>
-                  <TabsTrigger value="timeline">Timeline</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="alignment">
-                  <Card className="border-border/70 shadow-sm">
-                    <CardHeader className="flex flex-row items-start justify-between space-y-0 border-b bg-muted/20">
+                <CardContent className="p-0">
+                  <div className="flex items-start justify-between gap-4 px-6 py-6">
+                    <div className="flex items-center justify-between gap-3">
                       <div>
                         <CardTitle className="text-base">Order to Delivery Alignment</CardTitle>
                         <CardDescription>Values below are derived from the same data used by the delivery note.</CardDescription>
@@ -248,170 +228,163 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
                           Ready for print
                         </Badge>
                       )}
-                    </CardHeader>
-                    <CardContent className="space-y-6 p-6">
-                      {deliveryNote.missingRequiredFields.length > 0 ? (
-                        <Alert className="border-warning/30 bg-warning/10">
-                          <AlertTitle>Missing data before print</AlertTitle>
-                          <AlertDescription>Complete: {deliveryNote.missingRequiredFields.join(", ")}.</AlertDescription>
-                        </Alert>
-                      ) : null}
+                    </div>
+                  </div>
 
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <AlignmentItem label="Program" value={deliveryNote.programName} note="Mapped from campaign name on create form" />
-                        <AlignmentItem label="SO Number" value={deliveryNote.soNumber} note="Used by the delivery note" />
-                        <AlignmentItem label="PIC Program" value={deliveryNote.picProgram} note="Entered alongside the order request" />
-                        <AlignmentItem label="Deliver to" value={deliverySnapshot.deliveryCompanyName} note={deliverySnapshot.deliveryLocationName} />
-                        <AlignmentItem label="Address" value={deliverySnapshot.address} note={deliverySnapshot.phone} />
-                        <AlignmentItem label="PIC Client" value={deliverySnapshot.picClient} note={deliverySnapshot.wcode} />
-                      </div>
+                  {deliveryNote.missingRequiredFields.length > 0 ? (
+                    <div className="border-t border-border/70 px-6 py-4">
+                      <Alert className="border-warning/30 bg-warning/10">
+                        <AlertTitle>Missing data before print</AlertTitle>
+                        <AlertDescription>Complete: {deliveryNote.missingRequiredFields.join(", ")}.</AlertDescription>
+                      </Alert>
+                    </div>
+                  ) : null}
 
-                      <Separator />
+                  <div className="border-t border-border/70 divide-y divide-border/70">
+                    <DetailRow label="Supplier" value={<span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">{order.supplier}<ArrowUpRight className="h-3.5 w-3.5 text-primary" /></span>} />
+                    <DetailRow label="Customer PO Ref" value={<span className="text-sm font-medium text-foreground">{order.clientPO}</span>} />
+                    <DetailRow label="Destination" value={<span className="text-sm font-medium text-foreground">{`${deliverySnapshot.wcode} · ${deliverySnapshot.deliveryLocationName}`}</span>} />
+                    <DetailRow label="Deadline" value={<span className={cn("text-sm font-medium", order.deadline === "Overdue" ? "text-destructive" : "text-foreground")}>{order.deadline}</span>} />
+                    <DetailRow label="Program" value={<span className="text-sm font-medium text-foreground">{deliveryNote.programName}</span>} note="Mapped from campaign name on create form" />
+                    <DetailRow label="SO Number" value={<span className="text-sm font-medium text-foreground">{deliveryNote.soNumber}</span>} note="Used by the delivery note" />
+                    <DetailRow label="PIC Program" value={<span className="text-sm font-medium text-foreground">{deliveryNote.picProgram}</span>} note="Entered alongside the order request" />
+                    <DetailRow label="Deliver to" value={<span className="text-sm font-medium text-foreground">{deliverySnapshot.deliveryCompanyName}</span>} note={deliverySnapshot.deliveryLocationName} />
+                    <DetailRow label="Address" value={<span className="text-sm font-medium text-foreground">{deliverySnapshot.address}</span>} note={deliverySnapshot.phone} />
+                    <DetailRow label="PIC Client" value={<span className="text-sm font-medium text-foreground">{deliverySnapshot.picClient}</span>} note={deliverySnapshot.wcode} />
+                  </div>
 
-                      <div className="grid gap-4 md:grid-cols-3">
-                        <AlignmentStat label="Ordered Qty" value={`${totalOrdered} pcs`} />
-                        <AlignmentStat label="Delivered Qty" value={`${totalDelivered} pcs`} />
-                        <AlignmentStat label="Outstanding Qty" value={`${totalOutstanding} pcs`} />
-                      </div>
+                  <div className="border-t border-border/70 px-6 py-4">
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <AlignmentStat label="Ordered Qty" value={`${totalOrdered} pcs`} />
+                      <AlignmentStat label="Delivered Qty" value={`${totalDelivered} pcs`} />
+                      <AlignmentStat label="Outstanding Qty" value={`${totalOutstanding} pcs`} />
+                    </div>
+                  </div>
 
-                      {complaint ? (
-                        <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Complaint Revision</p>
-                              <p className="mt-1 text-sm font-medium text-foreground">{complaint.id}</p>
-                            </div>
-                            <StatusChip status={complaint.status} />
-                          </div>
-                          <div className="mt-4 grid gap-3 md:grid-cols-3">
-                            <AlignmentStat label="Requested Qty" value={`${complaintSummary?.totalRequested ?? 0} pcs`} />
-                            <AlignmentStat label="Actual Received" value={`${complaintSummary?.totalActual ?? 0} pcs`} />
-                            <AlignmentStat label="Delta" value={`${complaintSummary?.totalDelta ?? 0} pcs`} />
-                          </div>
-                          <p className="mt-3 text-sm text-muted-foreground">{complaint.remarks}</p>
+                  {complaint ? (
+                    <div className="border-t border-border/70 bg-muted/20 px-6 py-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Complaint Revision</p>
+                          <p className="mt-1 text-sm font-medium text-foreground">{complaint.id}</p>
                         </div>
-                      ) : null}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="items">
-                  <Card className="border-border/70 shadow-sm">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b bg-muted/20">
-                      <div>
-                        <CardTitle className="text-base">Line Items</CardTitle>
-                        <CardDescription>Item quantities and delivery status</CardDescription>
+                        <StatusChip status={complaint.status} />
                       </div>
-                      <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.24em]">
-                        Total Qty: {totalOrdered}
-                      </Badge>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Product Name</TableHead>
-                            <TableHead>PO Line</TableHead>
-                            <TableHead>Quantity</TableHead>
-                            <TableHead>Delivered</TableHead>
-                            <TableHead>Outstanding</TableHead>
-                            <TableHead>Status</TableHead>
+                      <div className="mt-4 grid gap-3 md:grid-cols-3">
+                        <AlignmentStat label="Requested Qty" value={`${complaintSummary?.totalRequested ?? 0} pcs`} />
+                        <AlignmentStat label="Actual Received" value={`${complaintSummary?.totalActual ?? 0} pcs`} />
+                        <AlignmentStat label="Delta" value={`${complaintSummary?.totalDelta ?? 0} pcs`} />
+                      </div>
+                      <p className="mt-3 text-sm text-muted-foreground">{complaint.remarks}</p>
+                    </div>
+                  ) : null}
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/70 shadow-sm">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b bg-muted/20">
+                  <div>
+                    <CardTitle className="text-base">Line Items</CardTitle>
+                    <CardDescription>Item quantities and delivery status</CardDescription>
+                  </div>
+                  <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.24em]">
+                    Total Qty: {totalOrdered}
+                  </Badge>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Product Name</TableHead>
+                        <TableHead>PO Line</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead>Delivered</TableHead>
+                        <TableHead>Outstanding</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {order.items.map((item) => {
+                        const deliveryLine = deliveryNote.lines.find((line) => line.id === item.id);
+                        return (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              <div>
+                                <p className="text-sm font-medium">{item.name}</p>
+                                <p className="mt-1 font-mono text-[10px] text-muted-foreground">{item.productCode}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">{item.poLineNumber}</TableCell>
+                            <TableCell className="text-sm">{item.quantity} Qty</TableCell>
+                            <TableCell className="text-sm">{deliveryLine?.deliveredQty ?? 0} Qty</TableCell>
+                            <TableCell className="text-sm">{deliveryLine?.outstandingQty ?? item.quantity} Qty</TableCell>
+                            <TableCell className="text-sm font-medium">{item.status}</TableCell>
                           </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {order.items.map((item) => {
-                            const deliveryLine = deliveryNote.lines.find((line) => line.id === item.id);
-                            return (
-                              <TableRow key={item.id}>
-                                <TableCell>
-                                  <div>
-                                    <p className="text-sm font-medium">{item.name}</p>
-                                    <p className="mt-1 font-mono text-[10px] text-muted-foreground">{item.productCode}</p>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="font-mono text-sm">{item.poLineNumber}</TableCell>
-                                <TableCell className="text-sm">{item.quantity} Qty</TableCell>
-                                <TableCell className="text-sm">{deliveryLine?.deliveredQty ?? 0} Qty</TableCell>
-                                <TableCell className="text-sm">{deliveryLine?.outstandingQty ?? item.quantity} Qty</TableCell>
-                                <TableCell className="text-sm font-medium">{item.status}</TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </CardContent>
-                    {(fulfillmentStatus === "In Production" || fulfillmentStatus === "Ready to Ship" || fulfillmentStatus === "Overdue") ? (
-                      <CardContent className="border-t bg-muted/20 p-6">
-                        <div className="mb-4 flex items-center justify-between">
-                          <h4 className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Fulfillment Progress</h4>
-                          <Button variant="ghost" size="sm" className="gap-1 px-0">
-                            <ChevronDown className="h-4 w-4" />
-                            8 Progress Logs
-                          </Button>
-                        </div>
-                        <div className="space-y-4">
-                          <ProgressRow label="Production" current={200} total={750} />
-                          <ProgressRow label="Ready to Ship" current={100} total={750} />
-                          <ProgressRow label="On Delivery" current={0} total={750} opacity />
-                          <ProgressRow label="Delivered" current={0} total={750} opacity />
-                        </div>
-                      </CardContent>
-                    ) : null}
-                  </Card>
-                </TabsContent>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+                {(fulfillmentStatus === "In Production" || fulfillmentStatus === "Ready to Ship" || fulfillmentStatus === "Overdue") ? (
+                  <CardContent className="border-t bg-muted/20 p-6">
+                    <div className="mb-4 flex items-center justify-between">
+                      <h4 className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Fulfillment Progress</h4>
+                      <Button variant="ghost" size="sm" className="gap-1 px-0">
+                        <ChevronDown className="h-4 w-4" />
+                        8 Progress Logs
+                      </Button>
+                    </div>
+                    <div className="space-y-4">
+                      <ProgressRow label="Production" current={200} total={750} />
+                      <ProgressRow label="Ready to Ship" current={100} total={750} />
+                      <ProgressRow label="On Delivery" current={0} total={750} opacity />
+                      <ProgressRow label="Delivered" current={0} total={750} opacity />
+                    </div>
+                  </CardContent>
+                ) : null}
+              </Card>
 
-                <TabsContent value="timeline">
-                  <Card className="border-border/70 shadow-sm">
-                    <CardHeader className="border-b bg-muted/20">
-                      <CardTitle className="text-base">Timeline Tracking</CardTitle>
-                      <CardDescription>Workflow events for this order request</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6 p-6">
-                      <TimelineItem status="Created" actor="CUSTOMER (Brand Manager)" date="June 01, 2026" time="14:30" isLast />
-                      <TimelineItem status="Assigned" actor="ADMIN (Procurement Manager)" date="June 02, 2026" time="09:15" />
-                      <TimelineItem status="Accepted" actor="VENDOR (Supplier)" date="June 02, 2026" time="11:45" />
-                      {complaintTimeline.map((entry, index) => (
-                        <TimelineItem
-                          key={`${entry.status}-${index}`}
-                          status={entry.status}
-                          actor={entry.actor}
-                          date={entry.date}
-                          time={entry.time}
-                          note={entry.note}
-                          active={entry.active}
-                        />
-                      ))}
-                      {fulfillmentStatus === "Ready to Ship" ? (
-                        <TimelineItem
-                          status="Ready to Ship"
-                          actor="VENDOR"
-                          date="June 05, 2026"
-                          time="10:00"
-                          note="Auto-advanced (partial progress)"
-                          active
-                        />
-                      ) : null}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            </div>
-
-            <div className="space-y-6">
               <Card className="border-border/70 shadow-sm">
                 <CardHeader className="border-b bg-muted/20">
-                  <CardTitle className="text-base">Order Summary</CardTitle>
-                  <CardDescription>Quick context and note snapshot</CardDescription>
+                  <CardTitle className="text-base">Timeline Tracking</CardTitle>
+                  <CardDescription>Workflow events for this order request</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4 p-6">
-                  <AlignmentStat label="Order Status" value={fulfillmentStatus} />
-                  <AlignmentStat label="Assigned Vendor" value={order.supplier} />
-                  <AlignmentStat label="Sales Point" value={deliverySnapshot.wcode} />
-                  {complaint ? <AlignmentStat label="Complaint Status" value={complaint.status} /> : null}
-                  <div className="rounded-lg border bg-muted/20 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Internal Notes</p>
-                    <p className="mt-2 text-sm italic text-muted-foreground">{deliveryNote.note}</p>
-                  </div>
+                <CardContent className="space-y-6 p-6">
+                  <TimelineItem status="Created" actor="CUSTOMER (Brand Manager)" date="June 01, 2026" time="14:30" isLast />
+                  <TimelineItem status="Assigned" actor="ADMIN (Procurement Manager)" date="June 02, 2026" time="09:15" />
+                  <TimelineItem status="Accepted" actor="VENDOR (Supplier)" date="June 02, 2026" time="11:45" />
+                  {complaintTimeline.map((entry, index) => (
+                    <TimelineItem
+                      key={`${entry.status}-${index}`}
+                      status={entry.status}
+                      actor={entry.actor}
+                      date={entry.date}
+                      time={entry.time}
+                      note={entry.note}
+                      active={entry.active}
+                    />
+                  ))}
+                  {fulfillmentStatus === "Ready to Ship" ? (
+                    <TimelineItem
+                      status="Ready to Ship"
+                      actor="VENDOR"
+                      date="June 05, 2026"
+                      time="10:00"
+                      note="Auto-advanced (partial progress)"
+                      active
+                    />
+                  ) : null}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
+              <Card className="border-border/70 shadow-sm">
+                <CardHeader className="border-b bg-muted/20">
+                  <CardTitle className="text-base">Internal Notes</CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <p className="text-sm italic leading-6 text-muted-foreground">{deliveryNote.note}</p>
                 </CardContent>
               </Card>
 
@@ -601,24 +574,14 @@ function formatTimeLabel(value: string) {
   });
 }
 
-function InfoItem({ label, value, icon: Icon, color = "text-foreground" }: { label: string; value: string; icon: any; color?: string }) {
+function DetailRow({ label, value, note }: { label: string; value: ReactNode; note?: ReactNode }) {
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5">
-        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{label}</span>
+    <div className="grid gap-2 px-6 py-3 sm:grid-cols-[160px_minmax(0,1fr)] sm:items-start">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <div className="space-y-1">
+        <div>{value}</div>
+        {note ? <p className="text-sm text-muted-foreground">{note}</p> : null}
       </div>
-      <p className={cn("truncate text-sm font-medium", color)}>{value}</p>
-    </div>
-  );
-}
-
-function AlignmentItem({ label, value, note }: { label: string; value: string; note?: string }) {
-  return (
-    <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{label}</p>
-      <p className="mt-2 break-words text-sm font-medium">{value}</p>
-      {note ? <p className="mt-1 break-words text-xs text-muted-foreground">{note}</p> : null}
     </div>
   );
 }

@@ -22,6 +22,7 @@ export interface StoredOrder extends Omit<Order, "items"> {
   sourceType?: "manual" | "bulk_po_import";
   importBatchId?: string;
   importRowIds?: string[];
+  importGroupKey?: string;
   assignedVendorId?: string;
   dispatchRunId?: string;
   importPoNumbers?: string[];

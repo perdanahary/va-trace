@@ -77,7 +77,7 @@ export function AdminDashboard({ role = "admin" }: AdminDashboardProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Order ID</TableHead>
-                    <TableHead>Campaign</TableHead>
+                    <TableHead>Project</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Deadline</TableHead>
