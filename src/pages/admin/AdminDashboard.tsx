@@ -1,124 +1,120 @@
-import { Sidebar, UserRole } from "@/components/layout/Sidebar";
+import {
+  ArrowUpRight,
+  MoreHorizontal,
+} from "lucide-react";
+
+import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { ArrowUpRight, MoreHorizontal } from "lucide-react";
-import { useOrders } from "@/lib/orderStore";
+import { adminMetrics, mockOrders } from "@/lib/mockData";
 
 interface AdminDashboardProps {
   role?: UserRole;
 }
 
 export function AdminDashboard({ role = "admin" }: AdminDashboardProps) {
-  const orders = useOrders();
   const getHeaderTitle = () => {
-    switch(role) {
-      case 'analyst': return "Insights & Reports";
-      case 'operator': return "Order Management";
-      default: return "Procurement Dashboard";
+    switch (role) {
+      case "analyst":
+        return "Insights & Reports";
+      case "operator":
+        return "Order Management";
+      default:
+        return "Procurement Dashboard";
     }
   };
 
-  const metrics = [
-    { label: "Active Orders", value: `${orders.filter((order) => order.status !== "Completed").length}`, change: "Live order count", color: "text-primary" },
-    { label: "Urgent Orders", value: `${orders.filter((order) => order.deadline.includes("3 days") || order.deadline === "Overdue").length}`, change: "Deadline <= 3 days", color: "text-destructive" },
-    { label: "Completed", value: `${orders.filter((order) => order.status === "Completed").length}`, change: "Current finished orders", color: "text-success" },
-    { label: "Work Volume This Month", value: `${orders.reduce((total, order) => total + getOrderQuantity(order), 0)}`, change: "Ordered quantity total", color: "text-primary" },
-  ];
-
   return (
-    <div className="flex min-h-screen bg-canvas-white">
+    <div className="flex min-h-screen bg-background">
       <Sidebar role={role} />
       <div className="flex-1">
         <Header title={getHeaderTitle()} />
-        
-        <main className="p-8 space-y-8">
-          {/* Metrics Grid */}
-          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {metrics.map((metric, index) => (
-              <div 
-                key={metric.label}
-                className="bg-white p-6 rounded-lg border border-border animate-in-smart group hover:border-primary/50 transition-colors"
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                <div className="flex justify-between items-start">
-                  <p className="text-sm font-medium text-muted-foreground">{metric.label}</p>
-                  <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                </div>
-                <div className="mt-4 flex items-baseline gap-2">
-                  <h3 className={`text-2xl font-bold tracking-tight ${metric.color}`}>{metric.value}</h3>
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-1">{metric.change}</p>
-              </div>
+
+        <main className="space-y-8 p-4 sm:p-6 lg:p-8">
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {adminMetrics.map((metric, index) => (
+              <Card key={metric.label} className="group border-border/70 shadow-sm transition-colors hover:border-primary/40">
+                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+                  <div>
+                    <CardDescription>{metric.label}</CardDescription>
+                    <CardTitle className={`text-3xl ${metric.color}`}>{metric.value}</CardTitle>
+                  </div>
+                  <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+                </CardHeader>
+                <CardContent className="flex items-center justify-between pt-0">
+                  <p className="text-xs text-muted-foreground">{metric.change}</p>
+                  <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.24em]">
+                    #{String(index + 1).padStart(2, "0")}
+                  </Badge>
+                </CardContent>
+              </Card>
             ))}
           </section>
 
-          {/* Recent Orders Table */}
-          <section className="bg-white rounded-lg border border-border overflow-hidden animate-in-smart" style={{ animationDelay: '250ms' }}>
-            <div className="p-6 border-b border-border flex items-center justify-between">
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b bg-muted/15">
               <div>
-                <h2 className="text-sm font-bold tracking-tight">Recent Orders</h2>
-                <p className="text-xs text-muted-foreground mt-1">Overview of latest procurement activities</p>
+                <CardTitle className="text-base">Recent Orders</CardTitle>
+                <CardDescription>Latest procurement activity across the workspace</CardDescription>
               </div>
-              <button className="text-xs font-bold text-primary hover:underline btn-press">View All</button>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-accent/30 text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
-                    <th className="px-6 py-3">Order ID</th>
-                    <th className="px-6 py-3">Campaign Name</th>
-                    <th className="px-6 py-3">Status</th>
-                    <th className="px-6 py-3">Created Date</th>
-                    <th className="px-6 py-3">Deadline</th>
-                    <th className="px-6 py-3 text-right">Total Qty</th>
-                    <th className="px-6 py-3 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {orders.map((order, index) => (
-                    <tr 
-                      key={order.id} 
-                      className="hover:bg-accent/20 transition-colors group animate-in-smart"
-                      style={{ animationDelay: `${300 + (index * 30)}ms` }}
-                    >
-                      <td className="px-6 py-4">
-                        <span className="text-xs font-mono font-bold">{order.id}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-xs font-medium">{order.campaign}</span>
-                      </td>
-                      <td className="px-6 py-4">
+              <Button variant="ghost" size="sm">
+                View all
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order ID</TableHead>
+                    <TableHead>Campaign</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Deadline</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {mockOrders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-mono text-xs font-medium">{order.id}</TableCell>
+                      <TableCell className="max-w-[260px] truncate text-sm">{order.campaign}</TableCell>
+                      <TableCell>
                         <StatusBadge status={order.status} />
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-xs text-muted-foreground">{order.createdDate}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`text-[11px] font-medium ${order.deadline === 'Overdue' ? 'text-destructive' : 'text-muted-foreground'}`}>
-                          {order.deadline}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-xs font-bold">{getOrderQuantity(order)} Qty</span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <button className="p-1.5 hover:bg-accent rounded-md transition-colors btn-press">
-                          <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                        </button>
-                      </td>
-                    </tr>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{order.createdDate}</TableCell>
+                      <TableCell className={order.deadline === "Overdue" ? "text-destructive" : "text-sm text-muted-foreground"}>
+                        {order.deadline}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">{getOrderQuantity(order)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </main>
       </div>
     </div>
   );
 }
 
-function getOrderQuantity(order: { items: Array<{ quantity: number }> }) {
+function getOrderQuantity(order: (typeof mockOrders)[number]) {
   return order.items.reduce((total, item) => total + item.quantity, 0);
 }

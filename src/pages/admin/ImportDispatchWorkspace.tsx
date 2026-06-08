@@ -17,6 +17,13 @@ import {
 } from "lucide-react";
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { getImportBatchSummary, type ImportBatchRow, type DuplicateDecision, useImportStore } from "@/lib/importStore";
 import { useSupplierStore } from "@/lib/supplierStore";
@@ -143,14 +150,14 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
 
   if (!batch || !summary) {
     return (
-      <div className="flex min-h-screen bg-canvas-white">
+      <div className="flex min-h-screen bg-background">
         <Sidebar role={role} />
         <div className="flex-1">
           <Header title="Import Dispatch Workspace" />
           <main className="p-8">
-            <div className="rounded-xl border border-border bg-white p-10 text-center text-sm text-muted-foreground">
-              No import batches available yet.
-            </div>
+            <Card className="mx-auto max-w-xl border-border/70 shadow-sm">
+              <CardContent className="p-10 text-center text-sm text-muted-foreground">No import batches available yet.</CardContent>
+            </Card>
           </main>
         </div>
       </div>
@@ -195,7 +202,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
   };
 
   return (
-    <div className="flex min-h-screen bg-canvas-white">
+    <div className="flex min-h-screen bg-background">
       <Sidebar role={role} />
       <div className="flex-1">
         <Header title="Import Dispatch Workspace" />
@@ -203,18 +210,17 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
         <main className="space-y-6 p-8">
           <section className="grid gap-4 xl:grid-cols-[0.9fr_2.1fr]">
             <motion.aside initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-              <div className="rounded-xl border border-border bg-white p-5 shadow-sm">
-                <div className="flex items-center justify-between">
+              <Card className="border-border/70 shadow-sm">
+                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-4">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-primary">Open Batches</p>
-                    <h2 className="mt-2 text-sm font-bold tracking-tight text-foreground">Resumable working space</h2>
+                    <CardDescription>Open batches</CardDescription>
+                    <CardTitle className="mt-2 text-base">Resumable working space</CardTitle>
                   </div>
-                  <div className="rounded-full bg-accent px-2 py-1 text-[10px] font-bold text-muted-foreground">
+                  <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.24em]">
                     {batches.length} total
-                  </div>
-                </div>
-
-                <div className="mt-4 space-y-3">
+                  </Badge>
+                </CardHeader>
+                <CardContent className="space-y-3">
                   {batches.map((entry) => {
                     const cardSummary = getImportBatchSummary(entry);
 
@@ -228,9 +234,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                         }}
                         className={cn(
                           "w-full rounded-lg border p-4 text-left transition-colors",
-                          entry.id === batch.id
-                            ? "border-primary bg-primary/5"
-                            : "border-border bg-canvas-white hover:border-primary/30",
+                          entry.id === batch.id ? "border-primary bg-primary/5" : "border-border bg-background hover:border-primary/30",
                         )}
                       >
                         <p className="truncate text-xs font-bold text-foreground">{entry.fileName}</p>
@@ -246,22 +250,27 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                       </button>
                     );
                   })}
-                </div>
-              </div>
+                </CardContent>
+              </Card>
 
-              <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
-                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-primary">Dispatch Rule</p>
-                <p className="mt-3 text-sm font-medium text-foreground">
-                  One dispatch creates <span className="font-bold">1 OR per vendor per sales point (`Wcode`)</span>.
-                </p>
-                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                  Assigned rows stay in this batch until they are dispatched. Unassigned, unresolved, or pending-duplicate rows stay visible for follow-up.
-                </p>
-              </div>
+              <Card className="border-primary/20 bg-primary/5 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Dispatch Rule</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm text-muted-foreground">
+                  <p>
+                    One dispatch creates <span className="font-semibold text-foreground">1 OR per vendor per sales point (`Wcode`)</span>.
+                  </p>
+                  <p>
+                    Assigned rows stay in this batch until they are dispatched. Unassigned, unresolved, or pending-duplicate rows stay visible for follow-up.
+                  </p>
+                </CardContent>
+              </Card>
             </motion.aside>
 
             <motion.section initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-              <div className="rounded-xl border border-border bg-white p-5 shadow-sm">
+              <Card className="border-border/70 shadow-sm">
+                <CardContent className="p-5">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-primary">{batch.sourceSheetName}</p>
@@ -271,17 +280,15 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="rounded-full bg-accent px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.24em]">
                       {batch.stage}
-                    </div>
+                    </Badge>
                     <div className="w-40">
                       <div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                         <span>Progress</span>
                         <span>{batch.progressPercent}%</span>
                       </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-accent">
-                        <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(batch.progressPercent, 4)}%` }} />
-                      </div>
+                      <Progress value={Math.max(batch.progressPercent, 4)} className="h-2" />
                     </div>
                   </div>
                 </div>
@@ -294,34 +301,36 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                   <SummaryTile label="Duplicates" value={summary.duplicateRows} icon={FileWarning} tone="warning" />
                   <SummaryTile label="Dispatched" value={summary.dispatchedRows} icon={CheckCircle2} tone="success" />
                 </div>
-              </div>
+                </CardContent>
+              </Card>
 
               <div className="grid gap-4 xl:grid-cols-[1.75fr_0.85fr]">
-                <div className="rounded-xl border border-border bg-white shadow-sm">
+                <Card className="border-border/70 shadow-sm">
+                  <CardContent className="p-0">
                   <div className="border-b border-border p-5">
                     <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                       <div className="relative w-full xl:max-w-sm">
                         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <input
+                        <Input
                           value={searchTerm}
                           onChange={(event) => setSearchTerm(event.target.value)}
                           placeholder="Search item name, PO, item code, or brand"
-                          className="w-full rounded-md border border-border bg-white py-2 pl-9 pr-3 text-xs outline-none transition-colors focus:border-primary"
+                          className="pl-9"
                         />
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
                         {(["Unassigned", "Assigned", "Possible duplicate", "Unresolved", "Excluded"] as RowView[]).map((view) => (
-                          <button
+                          <Button
                             key={view}
+                            type="button"
+                            variant={rowView === view ? "default" : "outline"}
+                            size="sm"
                             onClick={() => setRowView(view)}
-                            className={cn(
-                              "rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest transition-colors",
-                              rowView === view ? "bg-primary text-white" : "bg-accent text-muted-foreground hover:text-foreground",
-                            )}
+                            className="h-8 rounded-full px-3 text-[10px] font-bold uppercase tracking-widest"
                           >
                             {view}
-                          </button>
+                          </Button>
                         ))}
                       </div>
                     </div>
@@ -337,10 +346,10 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
 
                   <div className="flex items-center justify-between border-b border-border px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                     <div className="flex items-center gap-3">
-                      <button onClick={handleSelectAllVisible} className="text-primary hover:underline">
+                      <button type="button" onClick={handleSelectAllVisible} className="text-primary hover:underline">
                         Select all visible
                       </button>
-                      <button onClick={() => setSelectedRowIds([])} className="hover:text-foreground">
+                      <button type="button" onClick={() => setSelectedRowIds([])} className="hover:text-foreground">
                         Clear selection
                       </button>
                     </div>
@@ -392,102 +401,103 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                       </tbody>
                     </table>
                   </div>
-                </div>
+                  </CardContent>
+                </Card>
 
                 <div className="space-y-4">
-                  <div className="rounded-xl border border-border bg-white p-5 shadow-sm">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-primary">Bulk assignment</p>
-                    <h3 className="mt-2 text-sm font-bold tracking-tight text-foreground">Assign filtered rows to vendor</h3>
-                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                      Selected rows are assigned in place and leave the default `Unassigned` view. They remain available under `Assigned`.
-                    </p>
+                  <Card className="border-border/70 shadow-sm">
+                    <CardHeader className="pb-3">
+                      <CardDescription>Bulk assignment</CardDescription>
+                      <CardTitle className="text-base">Assign filtered rows to vendor</CardTitle>
+                      <CardDescription>
+                        Selected rows are assigned in place and leave the default `Unassigned` view. They remain available under `Assigned`.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="rounded-lg border border-border bg-muted/20 p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Selection</p>
+                        <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{selectedRowIds.length}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">rows selected across the current filtered view</p>
+                      </div>
 
-                    <div className="mt-4 rounded-lg border border-border bg-canvas-white p-4">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Selection</p>
-                      <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{selectedRowIds.length}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">rows selected across the current filtered view</p>
-                    </div>
+                      <div className="space-y-3">
+                        <label className="space-y-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                          Assign vendor
+                          <Select value={selectedVendorId} onValueChange={setSelectedVendorId}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select vendor..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {suppliers
+                                .filter((supplier) => supplier.status === "ACTIVE")
+                                .map((supplier) => (
+                                  <SelectItem key={supplier.id} value={supplier.id}>
+                                    {supplier.name}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </label>
+                        <Button onClick={handleAssign} disabled={!selectedVendorId || selectedRowIds.length === 0} className="w-full">
+                          Assign selected rows
+                          <ChevronsRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-                    <div className="mt-4 space-y-3">
-                      <label className="space-y-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                        Assign vendor
-                        <select
-                          value={selectedVendorId}
-                          onChange={(event) => setSelectedVendorId(event.target.value)}
-                          className="w-full rounded-md border border-border bg-white px-3 py-2 text-xs text-foreground outline-none focus:border-primary"
-                        >
-                          <option value="">Select vendor...</option>
-                          {suppliers
-                            .filter((supplier) => supplier.status === "ACTIVE")
-                            .map((supplier) => (
-                              <option key={supplier.id} value={supplier.id}>
-                                {supplier.name}
-                              </option>
-                            ))}
-                        </select>
-                      </label>
-                      <button
-                        onClick={handleAssign}
-                        disabled={!selectedVendorId || selectedRowIds.length === 0}
-                        className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-primary/30"
-                      >
-                        Assign selected rows
-                        <ChevronsRight className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-border bg-white p-5 shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      <h3 className="text-sm font-bold tracking-tight text-foreground">Dispatch preview</h3>
-                    </div>
-
-                    <div className="mt-4 space-y-3">
+                  <Card className="border-border/70 shadow-sm">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        Dispatch preview
+                      </CardTitle>
+                      <CardDescription>Preview resulting OR groups by vendor and sales point.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
                       {Object.keys(previewGroups).length === 0 ? (
-                        <div className="rounded-lg border border-border bg-canvas-white p-4 text-xs text-muted-foreground">
+                        <div className="rounded-lg border border-border bg-muted/20 p-4 text-xs text-muted-foreground">
                           Select rows to preview resulting OR groups by vendor and sales point.
                         </div>
                       ) : (
                         Object.entries(previewGroups).map(([key, count]) => (
-                          <div key={key} className="flex items-center justify-between rounded-lg border border-border bg-canvas-white p-4">
+                          <div key={key} className="flex items-center justify-between rounded-lg border border-border bg-background p-4">
                             <div>
-                              <p className="text-xs font-bold text-foreground">{key}</p>
+                              <p className="text-xs font-semibold text-foreground">{key}</p>
                               <p className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">Dispatch output group</p>
                             </div>
-                            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary">
+                            <Badge variant="secondary" className="rounded-full text-[10px] uppercase tracking-[0.24em]">
                               {count} row(s)
-                            </span>
+                            </Badge>
                           </div>
                         ))
                       )}
-                    </div>
+                    </CardContent>
+                    <CardContent className="space-y-4 border-t p-5">
+                      <Button onClick={handleDispatch} className="w-full bg-foreground text-white hover:bg-foreground/90">
+                        Dispatch assigned rows
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Button>
 
-                    <button
-                      onClick={handleDispatch}
-                      className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-foreground px-4 py-2.5 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-foreground/90"
-                    >
-                      Dispatch assigned rows
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </button>
-
-                    <div className="mt-4 space-y-2 text-xs text-muted-foreground">
-                      <p className="flex items-start gap-2">
-                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-warning" />
-                        Duplicate rows with pending decisions are held back.
-                      </p>
-                      <p className="flex items-start gap-2">
-                        <XCircle className="mt-0.5 h-3.5 w-3.5 text-destructive" />
-                        Unresolved rows stay in the batch until fixed or excluded.
-                      </p>
-                    </div>
-
-                    {dispatchResultMessage && (
-                      <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 p-4 text-xs text-foreground">
-                        {dispatchResultMessage}
+                      <div className="space-y-2 text-xs text-muted-foreground">
+                        <p className="flex items-start gap-2">
+                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-warning" />
+                          Duplicate rows with pending decisions are held back.
+                        </p>
+                        <p className="flex items-start gap-2">
+                          <XCircle className="mt-0.5 h-3.5 w-3.5 text-destructive" />
+                          Unresolved rows stay in the batch until fixed or excluded.
+                        </p>
                       </div>
-                    )}
-                  </div>
+
+                      {dispatchResultMessage ? (
+                        <Alert className="border-primary/20 bg-primary/5">
+                          <AlertTitle>Dispatch result</AlertTitle>
+                          <AlertDescription>{dispatchResultMessage}</AlertDescription>
+                        </Alert>
+                      ) : null}
+                    </CardContent>
+                  </Card>
                 </div>
               </div>
             </motion.section>
@@ -517,7 +527,7 @@ function SummaryTile({
         : "bg-primary/10 text-primary";
 
   return (
-    <div className="rounded-lg border border-border bg-canvas-white p-4">
+    <div className="rounded-lg border border-border bg-background p-4">
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-muted-foreground">{label}</p>
         <div className={cn("flex h-8 w-8 items-center justify-center rounded-full", toneClass)}>
@@ -543,17 +553,18 @@ function FilterSelect({
   return (
     <label className="space-y-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
       {label}
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-md border border-border bg-white px-3 py-2 text-xs text-foreground outline-none focus:border-primary"
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option} value={option}>
+              {option}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </label>
   );
 }

@@ -6,6 +6,40 @@ export interface OrderLine extends OrderItemProgress {
   deliveredQuantity?: number;
 }
 
+export type ComplaintStatus = "pending" | "approved" | "rejected";
+
+export interface ComplaintLineItem {
+  lineId: string;
+  productCode: string;
+  productName: string;
+  poLineNumber: string;
+  orderedQty: number;
+  systemDeliveredQty: number;
+  actualReceivedQty: number;
+  deltaQty: number;
+}
+
+export interface ComplaintHistoryEntry {
+  id: string;
+  action: "created" | "approved" | "rejected" | "quantity-adjusted";
+  actor: string;
+  timestamp: string;
+  note?: string;
+}
+
+export interface OrderComplaint {
+  id: string;
+  status: ComplaintStatus;
+  remarks: string;
+  createdAt: string;
+  createdBy: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  reviewNote?: string;
+  items: ComplaintLineItem[];
+  history: ComplaintHistoryEntry[];
+}
+
 export interface Order {
   id: string;
   campaign: string;
@@ -21,6 +55,9 @@ export interface Order {
     email: string;
   };
   items: OrderLine[];
+  complaint?: OrderComplaint;
+  complaintStatus?: ComplaintStatus;
+  revisionStatus?: ComplaintStatus;
 }
 
 const mockOrderSeeds: Omit<Order, "status">[] = [

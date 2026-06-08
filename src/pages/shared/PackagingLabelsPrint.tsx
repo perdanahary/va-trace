@@ -1,10 +1,14 @@
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Package, Printer, AlertTriangle } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Package, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+
 import { Header } from "@/components/layout/Header";
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
-import { mockOrders } from "@/lib/mockData";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { generatePackagingLabels, type PackagingLabel } from "@/lib/deliveryNote";
+import { useOrders } from "@/lib/orderStore";
 
 interface PackagingLabelsPrintProps {
   role?: UserRole;
@@ -12,60 +16,53 @@ interface PackagingLabelsPrintProps {
 
 export function PackagingLabelsPrint({ role = "admin" }: PackagingLabelsPrintProps) {
   const { id } = useParams();
-  const order = mockOrders.find((entry) => entry.id === id) ?? mockOrders[0];
+  const orders = useOrders();
+  const order = orders.find((entry) => entry.id === id) ?? orders[0];
   const labelsDocument = generatePackagingLabels(order);
   const backPath = role === "admin" ? `/admin/orders/${order.id}` : `/${role}/orders/${order.id}`;
 
   return (
-    <div className="flex min-h-screen bg-canvas-white packaging-label-shell">
-      <div className="packaging-label-chrome">
-        <Sidebar role={role} />
-      </div>
+    <div className="flex min-h-screen bg-background">
+      <Sidebar role={role} />
       <div className="flex-1">
-        <div className="packaging-label-chrome">
-          <Header title={`Packaging Labels: ${labelsDocument.doNumber}`} />
-        </div>
+        <Header title={`Packaging Labels: ${labelsDocument.doNumber}`} />
 
-        <main className="p-8 space-y-5 packaging-label-main">
-          <section className="packaging-label-chrome mx-auto flex max-w-[1080px] items-center justify-between">
-            <Link to={backPath} className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-primary transition-colors">
-              <ArrowLeft className="w-4 h-4" />
-              Back to Order
-            </Link>
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-xs font-bold text-white shadow-md transition-colors hover:bg-primary/90 btn-press"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              Print Packaging Labels
-            </button>
-          </section>
+        <main className="space-y-5 p-4 sm:p-6 lg:p-8">
+          <Card className="mx-auto max-w-[1080px] border-border/70 shadow-sm">
+            <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <Button asChild variant="ghost" className="w-fit justify-start gap-2 px-0">
+                <Link to={backPath}>
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Order
+                </Link>
+              </Button>
+              <Button onClick={() => window.print()} className="gap-2">
+                <Printer className="h-4 w-4" />
+                Print Packaging Labels
+              </Button>
+            </CardContent>
+          </Card>
 
-          {labelsDocument.missingRequiredFields.length > 0 && (
-            <section className="packaging-label-chrome mx-auto max-w-[1080px] rounded-lg border border-warning/30 bg-warning/10 p-4 text-xs text-foreground">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-                <div>
-                  <p className="font-bold">Missing data before print</p>
-                  <p className="mt-1 text-muted-foreground">
-                    Complete: {labelsDocument.missingRequiredFields.join(", ")}.
-                  </p>
-                </div>
-              </div>
-            </section>
-          )}
+          {labelsDocument.missingRequiredFields.length > 0 ? (
+            <Alert className="mx-auto max-w-[1080px] border-warning/30 bg-warning/10">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <AlertTitle>Missing data before print</AlertTitle>
+              <AlertDescription>Complete: {labelsDocument.missingRequiredFields.join(", ")}.</AlertDescription>
+            </Alert>
+          ) : null}
 
           {labelsDocument.labels.length === 0 ? (
-            <section className="packaging-label-chrome mx-auto max-w-[1080px] rounded-2xl border border-dashed border-border bg-white p-8 text-center shadow-sm">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent text-muted-foreground">
-                <Package className="h-5 w-5" />
-              </div>
-              <h2 className="mt-4 text-lg font-bold tracking-tight text-foreground">No delivered items available for labeling</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Packaging labels are created only for lines with delivered quantity greater than zero.
-              </p>
-            </section>
+            <Card className="mx-auto max-w-[1080px] border-dashed border-border bg-background shadow-sm">
+              <CardContent className="space-y-3 p-8 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <Package className="h-5 w-5" />
+                </div>
+                <h2 className="text-lg font-semibold tracking-tight text-foreground">No delivered items available for labeling</h2>
+                <p className="text-sm text-muted-foreground">
+                  Packaging labels are created only for lines with delivered quantity greater than zero.
+                </p>
+              </CardContent>
+            </Card>
           ) : (
             <article className="packaging-label-sheet mx-auto max-w-[1080px]">
               {labelsDocument.labels.map((label) => (
@@ -128,10 +125,7 @@ function VisualBarcode({ value }: { value: string }) {
   return (
     <div className="packaging-label-barcode" aria-label={`Barcode ${value}`}>
       {Array.from(value).map((character, index) => (
-        <span
-          key={`${character}-${index}`}
-          style={{ width: `${(character.charCodeAt(0) % 4) + 1}px` }}
-        />
+        <span key={`${character}-${index}`} style={{ width: `${(character.charCodeAt(0) % 4) + 1}px` }} />
       ))}
     </div>
   );

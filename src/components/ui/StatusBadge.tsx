@@ -1,34 +1,35 @@
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { OrderRequestStatus } from "@/lib/orderStatus";
 
-export type OrderStatus = 
-  | 'Created' 
-  | 'Accepted' 
-  | 'In Production' 
-  | 'Ready to Ship' 
-  | 'On Delivery' 
-  | 'Delivered' 
-  | 'Completed'
-  | 'Overdue'
-  | 'Urgent'
-  | 'Waiting';
+export type OrderStatus =
+  | "Created"
+  | "Accepted"
+  | "In Production"
+  | "Ready to Ship"
+  | "On Delivery"
+  | "Delivered"
+  | "Completed"
+  | "Overdue"
+  | "Urgent"
+  | "Waiting";
 
 interface StatusBadgeProps {
   status: OrderStatus | OrderRequestStatus;
   className?: string;
 }
 
-const statusStyles: Record<OrderStatus, string> = {
-  'Created': 'bg-slate-100 text-slate-700',
-  'Accepted': 'bg-success/10 text-success',
-  'In Production': 'bg-processing/10 text-processing',
-  'Ready to Ship': 'bg-primary/10 text-primary',
-  'On Delivery': 'bg-processing/10 text-processing',
-  'Delivered': 'bg-success/10 text-success',
-  'Completed': 'bg-success/10 text-success',
-  'Overdue': 'bg-destructive/10 text-destructive font-bold',
-  'Urgent': 'bg-destructive/10 text-destructive font-bold',
-  'Waiting': 'bg-warning/10 text-warning',
+const statusVariants: Record<OrderStatus, "success" | "processing" | "warning" | "destructive" | "secondary"> = {
+  Created: "secondary",
+  Accepted: "success",
+  "In Production": "processing",
+  "Ready to Ship": "processing",
+  "On Delivery": "processing",
+  Delivered: "success",
+  Completed: "success",
+  Overdue: "destructive",
+  Urgent: "destructive",
+  Waiting: "warning",
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
@@ -36,32 +37,22 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
     const baseStatus = status.replace("Partial ", "") as OrderStatus;
 
     return (
-      <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap", className)}>
-        <span className={cn(
-          "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium tracking-wide",
-          "bg-warning/10 text-warning",
-          className
-        )}>
+      <span className={className}>
+        <Badge variant="warning" className="mr-1 rounded-full uppercase tracking-[0.18em]">
           Partial
-        </span>
-        <span className={cn(
-          "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium tracking-wide uppercase",
-          statusStyles[baseStatus],
-          className
-        )}>
+        </Badge>
+        <Badge variant={statusVariants[baseStatus]} className="rounded-full uppercase tracking-[0.18em]">
           {baseStatus}
-        </span>
+        </Badge>
       </span>
     );
   }
 
+  const variant = statusVariants[status as OrderStatus] ?? "secondary";
+
   return (
-    <span className={cn(
-      "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium tracking-wide uppercase whitespace-nowrap",
-      statusStyles[status as OrderStatus],
-      className
-    )}>
+    <Badge variant={variant} className={cn("rounded-full uppercase tracking-[0.18em]", className)}>
       {status}
-    </span>
+    </Badge>
   );
 }

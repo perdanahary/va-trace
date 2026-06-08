@@ -1,9 +1,17 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+import { ArrowUpDown, ChevronDown, ChevronUp, Download, Filter, MapPin, MoreHorizontal, Plus, Search, X } from "lucide-react";
+
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
-import { Search, Plus, MoreVertical, MapPin, Download, Filter, X, ChevronUp, ChevronDown, ArrowUpDown } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { mockSalesPoints, type SalesPointMapping } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
-import { mockSalesPoints, SalesPointMapping } from "@/lib/mockData";
 
 type SortField = keyof SalesPointMapping;
 type SortDirection = "asc" | "desc";
@@ -17,30 +25,25 @@ export function SalesPointList() {
   const [sortField, setSortField] = useState<SortField>("zone");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
-  // Dynamic filter options based on parent selection
-  const zones = useMemo(() => ["All Zones", ...Array.from(new Set(mockSalesPoints.map(sp => sp.zone)))], []);
-  
+  const zones = useMemo(() => ["All Zones", ...Array.from(new Set(mockSalesPoints.map((sp) => sp.zone)))], []);
   const regions = useMemo(() => {
-    const filtered = selectedZone === "All Zones" 
-      ? mockSalesPoints 
-      : mockSalesPoints.filter(sp => sp.zone === selectedZone);
-    return ["All Regions", ...Array.from(new Set(filtered.map(sp => sp.region)))];
+    const filtered = selectedZone === "All Zones" ? mockSalesPoints : mockSalesPoints.filter((sp) => sp.zone === selectedZone);
+    return ["All Regions", ...Array.from(new Set(filtered.map((sp) => sp.region)))];
   }, [selectedZone]);
-  
   const areas = useMemo(() => {
     let filtered = mockSalesPoints;
-    if (selectedZone !== "All Zones") filtered = filtered.filter(sp => sp.zone === selectedZone);
-    if (selectedRegion !== "All Regions") filtered = filtered.filter(sp => sp.region === selectedRegion);
-    return ["All Areas", ...Array.from(new Set(filtered.map(sp => sp.area)))];
-  }, [selectedZone, selectedRegion]);
+    if (selectedZone !== "All Zones") filtered = filtered.filter((sp) => sp.zone === selectedZone);
+    if (selectedRegion !== "All Regions") filtered = filtered.filter((sp) => sp.region === selectedRegion);
+    return ["All Areas", ...Array.from(new Set(filtered.map((sp) => sp.area)))];
+  }, [selectedRegion, selectedZone]);
 
   const filteredData = useMemo(() => {
-    const result = mockSalesPoints.filter(sp => {
-      const matchesSearch = 
+    const result = mockSalesPoints.filter((sp) => {
+      const matchesSearch =
         sp.salesPoint.toLowerCase().includes(searchQuery.toLowerCase()) ||
         sp.wcode.toLowerCase().includes(searchQuery.toLowerCase()) ||
         sp.area.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       const matchesZone = selectedZone === "All Zones" || sp.zone === selectedZone;
       const matchesRegion = selectedRegion === "All Regions" || sp.region === selectedRegion;
       const matchesArea = selectedArea === "All Areas" || sp.area === selectedArea;
@@ -48,16 +51,21 @@ export function SalesPointList() {
       return matchesSearch && matchesZone && matchesRegion && matchesArea;
     });
 
-    // Apply Sorting
     return [...result].sort((a, b) => {
       const aValue = String(a[sortField] ?? "").toLowerCase();
       const bValue = String(b[sortField] ?? "").toLowerCase();
-      
       if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
       if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
       return 0;
     });
   }, [searchQuery, selectedZone, selectedRegion, selectedArea, sortField, sortDirection]);
+
+  const resetFilters = () => {
+    setSelectedZone("All Zones");
+    setSelectedRegion("All Regions");
+    setSelectedArea("All Areas");
+    setSearchQuery("");
+  };
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -68,232 +76,234 @@ export function SalesPointList() {
     }
   };
 
-  const SortIndicator = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <ArrowUpDown className="w-3 h-3 ml-1 opacity-20 group-hover:opacity-50 transition-opacity" />;
-    return sortDirection === "asc" 
-      ? <ChevronUp className="w-3 h-3 ml-1 text-primary" /> 
-      : <ChevronDown className="w-3 h-3 ml-1 text-primary" />;
-  };
-
-  const resetFilters = () => {
-    setSelectedZone("All Zones");
-    setSelectedRegion("All Regions");
-    setSelectedArea("All Areas");
-    setSearchQuery("");
-  };
-
   return (
-    <div className="flex min-h-screen bg-canvas-white font-sans">
+    <div className="flex min-h-screen bg-background">
       <Sidebar role="admin" />
       <div className="flex-1">
         <Header title="Sales Point Mapping" />
-        
-        <main className="p-8 space-y-6">
-          <section className="space-y-4 animate-in-smart">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4 flex-1">
-                <div className="relative w-96 group">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                  <input 
-                    type="text" 
-                    placeholder="Search by Sales Point, WCode, or Area..." 
+
+        <main className="space-y-6 p-4 sm:p-6 lg:p-8">
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader className="space-y-2">
+              <CardTitle className="text-base">Sales Point Directory</CardTitle>
+              <CardDescription>Search, filter, and sort the mapping data used by import and delivery workflows.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                <div className="relative w-full xl:max-w-xl">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-white border border-border rounded-md text-sm focus:ring-1 focus:ring-primary outline-none transition-all shadow-sm"
+                    placeholder="Search by Sales Point, WCode, or Area..."
+                    className="pl-9 pr-10"
                   />
-                  {searchQuery && (
-                    <button 
+                  {searchQuery ? (
+                    <button
                       onClick={() => setSearchQuery("")}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     >
-                      <X className="w-3 h-3" />
+                      <X className="h-3.5 w-3.5" />
                     </button>
-                  )}
+                  ) : null}
                 </div>
-                <button 
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2 border rounded-md text-xs font-medium transition-all btn-press shadow-sm",
-                    showFilters || selectedZone !== "All Zones" || selectedRegion !== "All Regions" || selectedArea !== "All Areas"
-                      ? "bg-primary/10 border-primary text-primary"
-                      : "bg-white border-border text-muted-foreground hover:bg-accent hover:text-foreground"
-                  )}
-                >
-                  <Filter className="w-3.5 h-3.5" />
-                  Filters
-                  {(selectedZone !== "All Zones" || selectedRegion !== "All Regions" || selectedArea !== "All Areas") && (
-                    <span className="w-2 h-2 rounded-full bg-primary" />
-                  )}
-                </button>
-                <button className="flex items-center gap-2 px-3 py-2 bg-white border border-border rounded-md text-xs font-medium hover:bg-accent transition-all btn-press shadow-sm">
-                  <Download className="w-3.5 h-3.5 text-muted-foreground" />
-                  Export CSV
-                </button>
-              </div>
-              <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md text-xs font-bold hover:bg-primary/90 transition-all btn-press shadow-md">
-                <Plus className="w-3.5 h-3.5" />
-                Add New Mapping
-              </button>
-            </div>
 
-            {showFilters && (
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 p-4 bg-white border border-border rounded-lg shadow-sm animate-in-smart">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">Zone</label>
-                  <select 
-                    value={selectedZone}
-                    onChange={(e) => {
-                      setSelectedZone(e.target.value);
-                      setSelectedRegion("All Regions");
-                      setSelectedArea("All Areas");
-                    }}
-                    className="w-full px-3 py-2 bg-canvas-white border border-border rounded text-xs focus:ring-1 focus:ring-primary outline-none"
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant={showFilters || selectedZone !== "All Zones" || selectedRegion !== "All Regions" || selectedArea !== "All Areas" ? "secondary" : "outline"}
+                    onClick={() => setShowFilters((value) => !value)}
                   >
-                    {zones.map(z => <option key={z} value={z}>{z}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">Region</label>
-                  <select 
-                    value={selectedRegion}
-                    onChange={(e) => {
-                      setSelectedRegion(e.target.value);
-                      setSelectedArea("All Areas");
-                    }}
-                    className="w-full px-3 py-2 bg-canvas-white border border-border rounded text-xs focus:ring-1 focus:ring-primary outline-none"
-                  >
-                    {regions.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">Area</label>
-                  <select 
-                    value={selectedArea}
-                    onChange={(e) => setSelectedArea(e.target.value)}
-                    className="w-full px-3 py-2 bg-canvas-white border border-border rounded text-xs focus:ring-1 focus:ring-primary outline-none"
-                  >
-                    {areas.map(a => <option key={a} value={a}>{a}</option>)}
-                  </select>
-                </div>
-                <div className="flex items-end pb-0.5">
-                  <button 
-                    onClick={resetFilters}
-                    className="text-[10px] font-bold text-primary hover:underline px-1"
-                  >
-                    Reset all filters
-                  </button>
+                    <Filter className="h-4 w-4" />
+                    Filters
+                  </Button>
+                  <Button variant="outline">
+                    <Download className="h-4 w-4" />
+                    Export CSV
+                  </Button>
+                  <Button>
+                    <Plus className="h-4 w-4" />
+                    Add New Mapping
+                  </Button>
                 </div>
               </div>
-            )}
-          </section>
 
-          <section className="bg-white rounded-lg border border-border overflow-hidden shadow-sm animate-in-smart" style={{ animationDelay: '100ms' }}>
-            <div className="overflow-x-auto max-h-[calc(100vh-250px)] overflow-y-auto">
-              <table className="w-full text-left">
-                <thead className="sticky top-0 z-10 bg-white shadow-sm">
-                  <tr className="bg-accent/30 text-[10px] uppercase tracking-wider text-muted-foreground font-bold border-b border-border">
-                    <th 
-                      className="px-6 py-4 cursor-pointer hover:bg-accent/50 transition-colors group select-none"
-                      onClick={() => handleSort("zone")}
+              {showFilters ? (
+                <div className="grid gap-4 rounded-xl border bg-muted/20 p-4 md:grid-cols-3 xl:grid-cols-4">
+                  <Field label="Zone">
+                    <Select
+                      value={selectedZone}
+                      onValueChange={(value) => {
+                        setSelectedZone(value);
+                        setSelectedRegion("All Regions");
+                        setSelectedArea("All Areas");
+                      }}
                     >
-                      <div className="flex items-center">
-                        Zone <SortIndicator field="zone" />
-                      </div>
-                    </th>
-                    <th 
-                      className="px-6 py-4 cursor-pointer hover:bg-accent/50 transition-colors group select-none"
-                      onClick={() => handleSort("region")}
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {zones.map((zone) => (
+                          <SelectItem key={zone} value={zone}>
+                            {zone}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Region">
+                    <Select
+                      value={selectedRegion}
+                      onValueChange={(value) => {
+                        setSelectedRegion(value);
+                        setSelectedArea("All Areas");
+                      }}
                     >
-                      <div className="flex items-center">
-                        Region <SortIndicator field="region" />
-                      </div>
-                    </th>
-                    <th 
-                      className="px-6 py-4 cursor-pointer hover:bg-accent/50 transition-colors group select-none"
-                      onClick={() => handleSort("area")}
-                    >
-                      <div className="flex items-center">
-                        Area <SortIndicator field="area" />
-                      </div>
-                    </th>
-                    <th 
-                      className="px-6 py-4 cursor-pointer hover:bg-accent/50 transition-colors group select-none"
-                      onClick={() => handleSort("wcode")}
-                    >
-                      <div className="flex items-center">
-                        WCode <SortIndicator field="wcode" />
-                      </div>
-                    </th>
-                    <th 
-                      className="px-6 py-4 cursor-pointer hover:bg-accent/50 transition-colors group select-none"
-                      onClick={() => handleSort("salesPoint")}
-                    >
-                      <div className="flex items-center">
-                        Sales Point <SortIndicator field="salesPoint" />
-                      </div>
-                    </th>
-                    <th className="px-6 py-4 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {regions.map((region) => (
+                          <SelectItem key={region} value={region}>
+                            {region}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Area">
+                    <Select value={selectedArea} onValueChange={setSelectedArea}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {areas.map((area) => (
+                          <SelectItem key={area} value={area}>
+                            {area}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <div className="flex items-end">
+                    <Button variant="ghost" onClick={resetFilters} className="px-0">
+                      Reset all filters
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b bg-muted/20">
+              <div>
+                <CardTitle className="text-base">Mappings</CardTitle>
+                <CardDescription>
+                  Showing {filteredData.length} of {mockSalesPoints.length} total entries
+                </CardDescription>
+              </div>
+              <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.24em]">
+                Sorted by {sortField}
+              </Badge>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <SortableHead field="zone" currentField={sortField} direction={sortDirection} onSort={handleSort} label="Zone" />
+                    <SortableHead field="region" currentField={sortField} direction={sortDirection} onSort={handleSort} label="Region" />
+                    <SortableHead field="area" currentField={sortField} direction={sortDirection} onSort={handleSort} label="Area" />
+                    <SortableHead field="wcode" currentField={sortField} direction={sortDirection} onSort={handleSort} label="WCode" />
+                    <SortableHead field="salesPoint" currentField={sortField} direction={sortDirection} onSort={handleSort} label="Sales Point" />
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filteredData.length > 0 ? (
                     filteredData.map((sp, index) => (
-                      <tr 
-                        key={`${sp.wcode}-${sp.salesPoint}-${index}`} 
-                        className="hover:bg-accent/5 transition-colors group"
-                      >
-                        <td className="px-6 py-4 text-xs font-medium text-foreground">{sp.zone}</td>
-                        <td className="px-6 py-4 text-xs text-muted-foreground">{sp.region}</td>
-                        <td className="px-6 py-4 text-xs text-muted-foreground">{sp.area}</td>
-                        <td className="px-6 py-4">
-                          <span className="font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-bold border border-slate-200">
+                      <TableRow key={`${sp.wcode}-${sp.salesPoint}-${index}`}>
+                        <TableCell className="text-sm">{sp.zone}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{sp.region}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{sp.area}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="rounded-full font-mono text-[10px] uppercase tracking-[0.18em]">
                             {sp.wcode}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
                           <div className="flex items-center gap-2">
-                            <MapPin className="w-3 h-3 text-primary/70" />
-                            <span className="text-xs font-bold text-foreground">{sp.salesPoint}</span>
+                            <MapPin className="h-3.5 w-3.5 text-primary/70" />
+                            <span className="text-sm font-medium">{sp.salesPoint}</span>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <button className="p-1.5 hover:bg-accent rounded-md transition-colors btn-press">
-                            <MoreVertical className="w-4 h-4 text-muted-foreground" />
-                          </button>
-                        </td>
-                      </tr>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>Open mapping</DropdownMenuItem>
+                              <DropdownMenuItem>Edit mapping</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
                     ))
                   ) : (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-20 text-center">
-                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                          <Filter className="w-8 h-8 opacity-20" />
+                    <TableRow>
+                      <TableCell colSpan={6} className="py-16 text-center">
+                        <div className="mx-auto flex max-w-sm flex-col items-center gap-2 text-muted-foreground">
+                          <Filter className="h-8 w-8 opacity-20" />
                           <p className="text-sm font-medium">No sales points match your filters</p>
-                          <button 
-                            onClick={resetFilters}
-                            className="text-xs text-primary hover:underline font-bold mt-2"
-                          >
+                          <Button variant="ghost" onClick={resetFilters} className="mt-2 px-0">
                             Clear all filters
-                          </button>
+                          </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )}
-                </tbody>
-              </table>
-            </div>
-            <div className="p-4 bg-accent/10 border-t border-border flex items-center justify-between">
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
-                Showing {filteredData.length} of {mockSalesPoints.length} total entries
-              </span>
-              <div className="flex items-center gap-2">
-                <button className="px-3 py-1 bg-white border border-border rounded text-[10px] font-bold text-muted-foreground hover:bg-accent disabled:opacity-50" disabled>Previous</button>
-                <button className="px-3 py-1 bg-white border border-border rounded text-[10px] font-bold text-primary hover:bg-accent">Next</button>
-              </div>
-            </div>
-          </section>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </main>
       </div>
     </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function SortableHead({
+  field,
+  currentField,
+  direction,
+  onSort,
+  label,
+}: {
+  field: SortField;
+  currentField: SortField;
+  direction: SortDirection;
+  onSort: (field: SortField) => void;
+  label: string;
+}) {
+  const isActive = currentField === field;
+
+  return (
+    <TableHead>
+      <button onClick={() => onSort(field)} className="inline-flex items-center gap-1.5 font-medium text-muted-foreground hover:text-foreground">
+        {label}
+        {isActive ? direction === "asc" ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" /> : <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />}
+      </button>
+    </TableHead>
   );
 }

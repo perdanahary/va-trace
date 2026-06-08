@@ -1,126 +1,157 @@
+import { AlertCircle, CheckCircle2, Clock, Package, Truck, ChevronRight } from "lucide-react";
+
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { AlertCircle, Clock, Package, Truck, CheckCircle2, ChevronRight } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { mockOrders } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
-import { Link } from "react-router-dom";
-import { useOrders } from "@/lib/orderStore";
 
 export function ClientDashboard() {
-  const orders = useOrders();
   const metrics = [
-    { label: "WAITING", value: "05", icon: Clock, color: "text-warning", bg: "bg-warning/10" },
-    { label: "IN PRODUCTION", value: "12", icon: Package, color: "text-processing", bg: "bg-processing/10" },
-    { label: "DELIVERY", value: "03", icon: Truck, color: "text-primary", bg: "bg-primary/10" },
-    { label: "COMPLETED", value: "48", icon: CheckCircle2, color: "text-success", bg: "bg-success/10" },
+    { label: "Waiting", value: "05", icon: Clock, tone: "warning" as const },
+    { label: "In production", value: "12", icon: Package, tone: "processing" as const },
+    { label: "Delivery", value: "03", icon: Truck, tone: "processing" as const },
+    { label: "Completed", value: "48", icon: CheckCircle2, tone: "success" as const },
   ];
 
   return (
-    <div className="flex min-h-screen bg-canvas-white">
+    <div className="flex min-h-screen bg-background">
       <Sidebar role="customer" />
       <div className="flex-1">
         <Header title="Customer Dashboard" />
-        
-        <main className="p-8 space-y-8 max-w-7xl mx-auto">
-          {/* Read-Only Notice (as per design docs) */}
-          <section className="bg-primary/5 border border-primary/20 p-4 rounded-lg flex items-start gap-3 animate-in-smart">
-            <AlertCircle className="w-5 h-5 text-primary mt-0.5" />
-            <div>
-              <h3 className="text-sm font-bold text-primary">Customer Viewer</h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                Upload bulk PO workbooks here so operations can stage them for vendor dispatch. Order assignment and dispatch happen in the internal workspace.
-              </p>
-              <Link to="/customer/imports" className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline">
-                Open PO import upload <ChevronRight className="h-3 w-3" />
-              </Link>
-            </div>
-          </section>
 
-          {/* Metrics Grid */}
-          <section className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-            {metrics.map((metric, index) => (
-              <div 
-                key={metric.label}
-                className="bg-white p-6 rounded-lg border border-border shadow-sm animate-in-smart group hover:border-primary/50 transition-colors"
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                <div className="flex justify-between items-center mb-4">
-                  <div className={cn("p-2 rounded-md", metric.bg)}>
-                    <metric.icon className={cn("w-4 h-4", metric.color)} />
+        <main className="space-y-8 p-4 sm:p-6 lg:p-8">
+          <Alert className="border-primary/20 bg-primary/5">
+            <AlertCircle className="h-4 w-4 text-primary" />
+            <AlertTitle>Customer Viewer</AlertTitle>
+            <AlertDescription>
+              Your current account has viewer permissions. You can monitor progress and view order details, but cannot initiate new requests.
+            </AlertDescription>
+          </Alert>
+
+          <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+            {metrics.map((metric) => (
+              <Card key={metric.label} className="border-border/70 shadow-sm">
+                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+                  <div>
+                    <CardDescription className="uppercase tracking-[0.24em]">{metric.label}</CardDescription>
+                    <CardTitle className={cn("text-3xl", metric.tone === "warning" && "text-warning", metric.tone === "processing" && "text-processing", metric.tone === "success" && "text-success")}>
+                      {metric.value}
+                    </CardTitle>
                   </div>
-                  <span className="text-[10px] font-bold text-muted-foreground tracking-widest">{metric.label}</span>
-                </div>
-                <h3 className="text-3xl font-bold tracking-tighter">{metric.value}</h3>
-              </div>
+                  <div className={cn("rounded-md p-2", metric.tone === "warning" && "bg-warning/10", metric.tone === "processing" && "bg-processing/10", metric.tone === "success" && "bg-success/10")}>
+                    <metric.icon className={cn("h-4 w-4", metric.tone === "warning" && "text-warning", metric.tone === "processing" && "text-processing", metric.tone === "success" && "text-success")} />
+                  </div>
+                </CardHeader>
+              </Card>
             ))}
           </section>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Overview by PO Table */}
-            <section className="bg-white rounded-lg border border-border shadow-sm overflow-hidden animate-in-smart" style={{ animationDelay: '250ms' }}>
-              <div className="p-5 border-b border-border flex items-center justify-between">
-                <h2 className="text-sm font-bold tracking-tight">Overview by Customer Ref PO</h2>
-                <button className="text-[10px] font-bold text-primary uppercase flex items-center gap-1 group">
-                  View All <ChevronRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
-                </button>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="bg-accent/30 text-[9px] uppercase tracking-wider text-muted-foreground font-bold border-b border-border">
-                      <th className="px-5 py-3 text-foreground">Customer PO Ref</th>
-                      <th className="px-5 py-3 text-center">WT</th>
-                      <th className="px-5 py-3 text-center">PR</th>
-                      <th className="px-5 py-3 text-center">DL</th>
-                      <th className="px-5 py-3 text-center">CP</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {orders.slice(0, 4).map((order) => (
-                      <tr key={order.clientPO} className="hover:bg-accent/10 transition-colors">
-                        <td className="px-5 py-4 text-xs font-mono font-bold text-muted-foreground">{order.clientPO}</td>
-                        <td className="px-5 py-4 text-center text-xs">1</td>
-                        <td className="px-5 py-4 text-center text-xs">0</td>
-                        <td className="px-5 py-4 text-center text-xs">0</td>
-                        <td className="px-5 py-4 text-center text-xs">0</td>
-                      </tr>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card className="border-border/70 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <div>
+                  <CardTitle className="text-base">Overview by Customer Ref PO</CardTitle>
+                  <CardDescription>Current portfolio summary by PO reference</CardDescription>
+                </div>
+                <Button variant="ghost" size="sm" className="gap-1">
+                  View all
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Customer PO Ref</TableHead>
+                      <TableHead className="text-center">WT</TableHead>
+                      <TableHead className="text-center">PR</TableHead>
+                      <TableHead className="text-center">DL</TableHead>
+                      <TableHead className="text-center">CP</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {mockOrders.slice(0, 4).map((order) => (
+                      <TableRow key={order.clientPO}>
+                        <TableCell className="font-mono text-xs font-semibold text-muted-foreground">{order.clientPO}</TableCell>
+                        <TableCell className="text-center text-sm">1</TableCell>
+                        <TableCell className="text-center text-sm">0</TableCell>
+                        <TableCell className="text-center text-sm">0</TableCell>
+                        <TableCell className="text-center text-sm">0</TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
 
-            {/* Breakdown by Zone Table */}
-            <section className="bg-white rounded-lg border border-border shadow-sm overflow-hidden animate-in-smart" style={{ animationDelay: '350ms' }}>
-              <div className="p-5 border-b border-border">
-                <h2 className="text-sm font-bold tracking-tight">Breakdown by Zone</h2>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="bg-accent/30 text-[9px] uppercase tracking-wider text-muted-foreground font-bold border-b border-border">
-                      <th className="px-5 py-3 text-foreground">Zone</th>
-                      <th className="px-5 py-3 text-center">WT</th>
-                      <th className="px-5 py-3 text-center">PR</th>
-                      <th className="px-5 py-3 text-center">DL</th>
-                      <th className="px-5 py-3 text-center">CP</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {['Jakarta', 'North Sumatera', 'South Sumatera', 'West Java'].map((zone) => (
-                      <tr key={zone} className="hover:bg-accent/10 transition-colors">
-                        <td className="px-5 py-4 text-xs font-medium">{zone}</td>
-                        <td className="px-5 py-4 text-center text-xs">5</td>
-                        <td className="px-5 py-4 text-center text-xs">3</td>
-                        <td className="px-5 py-4 text-center text-xs">2</td>
-                        <td className="px-5 py-4 text-center text-xs">10</td>
-                      </tr>
+            <Card className="border-border/70 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base">Breakdown by Zone</CardTitle>
+                <CardDescription>Distribution of active requests</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Zone</TableHead>
+                      <TableHead className="text-center">WT</TableHead>
+                      <TableHead className="text-center">PR</TableHead>
+                      <TableHead className="text-center">DL</TableHead>
+                      <TableHead className="text-center">CP</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {["Jakarta", "North Sumatera", "South Sumatera", "West Java"].map((zone) => (
+                      <TableRow key={zone}>
+                        <TableCell className="text-sm font-medium">{zone}</TableCell>
+                        <TableCell className="text-center text-sm">5</TableCell>
+                        <TableCell className="text-center text-sm">3</TableCell>
+                        <TableCell className="text-center text-sm">2</TableCell>
+                        <TableCell className="text-center text-sm">10</TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           </div>
+
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base">Recent Visible Orders</CardTitle>
+              <CardDescription>Read-only view of the latest orders in your portfolio</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order</TableHead>
+                    <TableHead>Campaign</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Deadline</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {mockOrders.slice(0, 3).map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-mono text-xs font-medium">{order.id}</TableCell>
+                      <TableCell className="text-sm">{order.campaign}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={order.status} />
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{order.deadline}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </main>
       </div>
     </div>

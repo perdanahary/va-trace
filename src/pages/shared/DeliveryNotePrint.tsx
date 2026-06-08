@@ -1,8 +1,13 @@
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Printer, AlertTriangle } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+
 import { Header } from "@/components/layout/Header";
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { generateDeliveryNote, type DeliveryNoteLine } from "@/lib/deliveryNote";
 import { useOrders } from "@/lib/orderStore";
 
@@ -19,44 +24,34 @@ export function DeliveryNotePrint({ role = "admin" }: DeliveryNotePrintProps) {
   const qrTarget = `${window.location.origin}${role === "admin" ? `/admin/orders/${order.id}/delivery-note` : `/${role}/orders/${order.id}/delivery-note`}`;
 
   return (
-    <div className="flex min-h-screen bg-canvas-white delivery-note-shell">
-      <div className="delivery-note-chrome">
-        <Sidebar role={role} />
-      </div>
+    <div className="flex min-h-screen bg-background">
+      <Sidebar role={role} />
       <div className="flex-1">
-        <div className="delivery-note-chrome">
-          <Header title={`Delivery Note: ${deliveryNote.doNumber}`} />
-        </div>
+        <Header title={`Delivery Note: ${deliveryNote.doNumber}`} />
 
-        <main className="p-8 space-y-5 delivery-note-main">
-          <section className="delivery-note-chrome mx-auto flex max-w-[980px] items-center justify-between">
-            <Link to={backPath} className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-primary transition-colors">
-              <ArrowLeft className="w-4 h-4" />
-              Back to Order
-            </Link>
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-xs font-bold text-white shadow-md transition-colors hover:bg-primary/90 btn-press"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              Print Delivery Note
-            </button>
-          </section>
+        <main className="space-y-5 p-4 sm:p-6 lg:p-8">
+          <Card className="mx-auto max-w-[980px] border-border/70 shadow-sm">
+            <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <Button asChild variant="ghost" className="w-fit justify-start gap-2 px-0">
+                <Link to={backPath}>
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Order
+                </Link>
+              </Button>
+              <Button onClick={() => window.print()} className="gap-2">
+                <Printer className="h-4 w-4" />
+                Print Delivery Note
+              </Button>
+            </CardContent>
+          </Card>
 
-          {deliveryNote.missingRequiredFields.length > 0 && (
-            <section className="delivery-note-chrome mx-auto max-w-[980px] rounded-lg border border-warning/30 bg-warning/10 p-4 text-xs text-foreground">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-                <div>
-                  <p className="font-bold">Missing data before print</p>
-                  <p className="mt-1 text-muted-foreground">
-                    Complete: {deliveryNote.missingRequiredFields.join(", ")}.
-                  </p>
-                </div>
-              </div>
-            </section>
-          )}
+          {deliveryNote.missingRequiredFields.length > 0 ? (
+            <Alert className="mx-auto max-w-[980px] border-warning/30 bg-warning/10">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <AlertTitle>Missing data before print</AlertTitle>
+              <AlertDescription>Complete: {deliveryNote.missingRequiredFields.join(", ")}.</AlertDescription>
+            </Alert>
+          ) : null}
 
           <article className="delivery-note-page mx-auto bg-white text-black shadow-xl">
             <header className="delivery-note-header">
@@ -88,14 +83,8 @@ export function DeliveryNotePrint({ role = "admin" }: DeliveryNotePrintProps) {
               </div>
 
               <div className="delivery-note-recipient">
-                <KeyValue
-                  label="HH Global PIC"
-                  value={deliveryNote.hhGlobalContacts.map((contact) => `${contact.name}(${contact.label})`).join(" / ")}
-                />
-                <KeyValue
-                  label="Email & Phone"
-                  value={deliveryNote.hhGlobalContacts.map((contact) => `${contact.email}/${contact.phone}`).join("\n")}
-                />
+                <KeyValue label="HH Global PIC" value={deliveryNote.hhGlobalContacts.map((contact) => `${contact.name}(${contact.label})`).join(" / ")} />
+                <KeyValue label="Email & Phone" value={deliveryNote.hhGlobalContacts.map((contact) => `${contact.email}/${contact.phone}`).join("\n")} />
                 <div className="h-4" />
                 <KeyValue label="Deliver to" value={deliveryNote.deliverySnapshot.deliveryCompanyName} />
                 <KeyValue label="Company" value={deliveryNote.deliverySnapshot.deliveryLocationName} />
@@ -127,7 +116,9 @@ export function DeliveryNotePrint({ role = "admin" }: DeliveryNotePrintProps) {
                 {deliveryNote.lines.map((line) => (
                   <tr key={line.id}>
                     <td>{line.poLineNumber}</td>
-                    <td className="font-bold">{formatMaterialCode(line.materialCode)}</td>
+                    <td className="font-bold">
+                      {formatMaterialCode(line.materialCode)}
+                    </td>
                     <td className="text-left">{line.description}</td>
                     <QuantityCell line={line} type="ordered" />
                     <QuantityCell line={line} type="delivered" />
@@ -175,8 +166,11 @@ function QuantityCell({ line, type }: { line: DeliveryNoteLine; type: "ordered" 
 
   return (
     <td>
-      <p>{quantity}{line.uom}</p>
-      {areaText && <p>({areaText})</p>}
+      <p>
+        {quantity}
+        {line.uom}
+      </p>
+      {areaText ? <p>({areaText})</p> : null}
     </td>
   );
 }
@@ -214,10 +208,7 @@ function Barcode({ value }: { value: string }) {
   return (
     <div className="delivery-note-barcode" aria-label={`Barcode ${value}`}>
       {Array.from(value).map((character, index) => (
-        <span
-          key={`${character}-${index}`}
-          style={{ width: `${(character.charCodeAt(0) % 4) + 1}px` }}
-        />
+        <span key={`${character}-${index}`} style={{ width: `${(character.charCodeAt(0) % 4) + 1}px` }} />
       ))}
     </div>
   );

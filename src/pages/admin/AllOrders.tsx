@@ -1,18 +1,34 @@
-import { Sidebar, UserRole } from "@/components/layout/Sidebar";
-import { Header } from "@/components/layout/Header";
-import { StatusBadge } from "@/components/ui/StatusBadge";
-import { getBaseOrderStatus } from "@/lib/orderStatus";
-import { cn } from "@/lib/utils";
-import { Filter, Search, Download, MoreVertical, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Download, Filter, MoreHorizontal, Plus, Search } from "lucide-react";
+
+import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
+import { Header } from "@/components/layout/Header";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
+import { getBaseOrderStatus } from "@/lib/orderStatus";
 import { useOrders } from "@/lib/orderStore";
+import type { Order } from "@/lib/mockData";
 
 interface AllOrdersProps {
   role?: UserRole;
 }
 
-export function AllOrders({ role = 'admin' }: AllOrdersProps) {
+export function AllOrders({ role = "admin" }: AllOrdersProps) {
   const orders = useOrders();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
@@ -20,36 +36,25 @@ export function AllOrders({ role = 'admin' }: AllOrdersProps) {
   const [selectedStatus, setSelectedStatus] = useState("All Statuses");
   const [selectedVendor, setSelectedVendor] = useState("All Vendors");
   const [currentPage, setCurrentPage] = useState(1);
-  const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
-  const detailPath = (id: string) => role === 'admin' ? `/admin/orders/${id}` : `/${role}/orders/${id}`;
+  const detailPath = (id: string) => (role === "admin" ? `/admin/orders/${id}` : `/${role}/orders/${id}`);
   const createPath = role === "admin" ? "/admin/create" : role === "operator" ? "/operator/create" : "/admin/create";
   const showVendorColumn = role !== "vendor";
-  const pageSize = 4;
+  const pageSize = 5;
 
-  const statusOptions = useMemo(() => {
-    return ["All Statuses", ...Array.from(new Set(orders.map((order) => order.status))).sort()];
-  }, [orders]);
-
-  const vendorOptions = useMemo(() => {
-    return ["All Vendors", ...Array.from(new Set(orders.map((order) => order.supplier))).sort()];
-  }, [orders]);
+  const statusOptions = useMemo(() => ["All Statuses", ...Array.from(new Set(orders.map((order) => order.status))).sort()], [orders]);
+  const vendorOptions = useMemo(() => ["All Vendors", ...Array.from(new Set(orders.map((order) => order.supplier))).sort()], [orders]);
 
   const filteredOrders = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
 
     return orders.filter((order) => {
-      const matchesSearch = !query || [
-        order.id,
-        order.clientPO,
-        order.campaign,
-        order.supplier,
-        formatCreatedDate(order.createdDate),
-        order.deadline,
-      ].some((value) => value.toLowerCase().includes(query));
-
+      const matchesSearch =
+        !query ||
+        [order.id, order.clientPO, order.campaign, order.supplier, formatCreatedDate(order.createdDate), order.deadline].some((value) =>
+          value.toLowerCase().includes(query),
+        );
       const matchesStatus = selectedStatus === "All Statuses" || order.status === selectedStatus;
       const matchesVendor = selectedVendor === "All Vendors" || order.supplier === selectedVendor;
-
       return matchesSearch && matchesStatus && matchesVendor;
     });
   }, [orders, searchTerm, selectedStatus, selectedVendor]);
@@ -70,18 +75,6 @@ export function AllOrders({ role = 'admin' }: AllOrdersProps) {
     setCurrentPage(1);
   }, [searchTerm, selectedStatus, selectedVendor]);
 
-  useEffect(() => {
-    const handleDocumentClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest("[data-order-action-menu]") && !target.closest("[data-order-action-button]")) {
-        setOpenActionMenuId(null);
-      }
-    };
-
-    document.addEventListener("click", handleDocumentClick);
-    return () => document.removeEventListener("click", handleDocumentClick);
-  }, []);
-
   const clearFilters = () => {
     setSelectedStatus("All Statuses");
     setSelectedVendor("All Vendors");
@@ -89,337 +82,217 @@ export function AllOrders({ role = 'admin' }: AllOrdersProps) {
   };
 
   return (
-    <div className="flex min-h-screen bg-canvas-white">
+    <div className="flex min-h-screen bg-background">
       <Sidebar role={role} />
       <div className="flex-1">
         <Header title="All Order Requests" />
-        
-        <main className="p-8 space-y-6">
-          {/* Controls Bar */}
-          <section className="flex flex-col md:flex-row gap-4 items-center justify-between animate-in-smart">
-            <div className="relative w-full md:w-96 group">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
-              <input 
-                type="text" 
+
+        <main className="space-y-6 p-4 sm:p-6 lg:p-8">
+          <section className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="relative w-full xl:max-w-xl">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search by vendor name, order ID, or client PO..." 
-                className="w-full pl-9 pr-4 py-2 bg-white border border-border rounded-md text-sm focus:ring-1 focus:ring-primary outline-none transition-all shadow-sm"
+                placeholder="Search by vendor name, order ID, or client PO..."
+                className="pl-9"
               />
             </div>
-            
-            <div className="flex items-center gap-2 w-full md:w-auto">
-              <button
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant={showFilters || selectedStatus !== "All Statuses" || selectedVendor !== "All Vendors" ? "secondary" : "outline"}
                 onClick={() => setShowFilters((value) => !value)}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 border rounded-md text-xs font-bold transition-colors btn-press",
-                  showFilters || selectedStatus !== "All Statuses" || selectedVendor !== "All Vendors"
-                    ? "bg-primary/10 border-primary text-primary"
-                    : "bg-white border-border hover:bg-accent text-foreground"
-                )}
               >
-                <Filter className="w-3.5 h-3.5" />
-                <span>Filters</span>
-              </button>
-              <button className="flex items-center gap-2 px-3 py-2 bg-white border border-border rounded-md text-xs font-bold hover:bg-accent transition-colors btn-press">
-                <Download className="w-3.5 h-3.5" />
-                <span>Export CSV</span>
-              </button>
-              <div className="w-px h-8 bg-border mx-1"></div>
-              <button
-                onClick={() => navigate(createPath)}
-                className="px-4 py-2 bg-primary text-white rounded-md text-xs font-bold hover:bg-primary/90 transition-colors btn-press shadow-md"
-              >
+                <Filter className="h-4 w-4" />
+                Filters
+              </Button>
+              <Button variant="outline">
+                <Download className="h-4 w-4" />
+                Export CSV
+              </Button>
+              <Button onClick={() => navigate(createPath)}>
+                <Plus className="h-4 w-4" />
                 Create New OR
-              </button>
+              </Button>
             </div>
           </section>
 
-          {showFilters && (
-            <section className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-white border border-border rounded-lg shadow-sm animate-in-smart">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">Status</label>
-                <select
-                  value={selectedStatus}
-                  onChange={(event) => setSelectedStatus(event.target.value)}
-                  className="w-full px-3 py-2 bg-canvas-white border border-border rounded text-xs focus:ring-1 focus:ring-primary outline-none"
-                >
-                  {statusOptions.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">Vendor</label>
-                <select
-                  value={selectedVendor}
-                  onChange={(event) => setSelectedVendor(event.target.value)}
-                  className="w-full px-3 py-2 bg-canvas-white border border-border rounded text-xs focus:ring-1 focus:ring-primary outline-none"
-                >
-                  {vendorOptions.map((vendor) => (
-                    <option key={vendor} value={vendor}>
-                      {vendor}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-end justify-between gap-3 pb-0.5">
-                <button
-                  onClick={clearFilters}
-                  className="text-[10px] font-bold text-primary hover:underline px-1"
-                >
-                  Reset all filters
-                </button>
-                <button
-                  onClick={() => setShowFilters(false)}
-                  className="text-[10px] font-bold text-muted-foreground hover:text-foreground px-1"
-                >
-                  Hide filters
-                </button>
-              </div>
-            </section>
-          )}
-
-          {/* Main Data List */}
-          <section className="bg-white rounded-lg border border-border overflow-hidden shadow-sm animate-in-smart" style={{ animationDelay: '100ms' }}>
-            <div className="overflow-x-auto">
-              <div className="min-w-[980px]">
-                <div
-                  className={cn(
-                    "grid gap-4 px-5 py-3 bg-accent/30 border-b border-border text-[10px] uppercase tracking-wider font-bold text-muted-foreground",
-                  showVendorColumn ? "grid-cols-[1.2fr_1fr_1.7fr_0.9fr_1.1fr_0.85fr_auto]" : "grid-cols-[1.3fr_1fr_1.2fr_1.2fr_0.9fr_auto]"
-                  )}
-                >
-                  <div>Order Request</div>
-                  <div>Client PO</div>
-                  {showVendorColumn && <div>Vendor</div>}
-                  <div>Date Created</div>
-                  <div>Deadline</div>
-                  <div>Status</div>
-                  <div className="text-center">Action</div>
+          {showFilters ? (
+            <Card className="border-border/70 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-base">Filters</CardTitle>
+                <CardDescription>Refine by status and vendor.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Status</p>
+                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Vendor</p>
+                  <Select value={selectedVendor} onValueChange={setSelectedVendor}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select vendor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vendorOptions.map((vendor) => (
+                        <SelectItem key={vendor} value={vendor}>
+                          {vendor}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end justify-between gap-3">
+                  <Button variant="ghost" onClick={clearFilters} className="px-0">
+                    Reset all filters
+                  </Button>
+                  <Button variant="ghost" onClick={() => setShowFilters(false)} className="px-0 text-muted-foreground">
+                    Hide filters
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
 
-                <div className="divide-y divide-border">
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-base">Order Requests</CardTitle>
+                <CardDescription>{filteredOrders.length} matching records</CardDescription>
+              </div>
+              <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.24em]">
+                {selectedStatus !== "All Statuses" || selectedVendor !== "All Vendors" ? "Filtered" : "All"}
+              </Badge>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order Request</TableHead>
+                    <TableHead>Client PO</TableHead>
+                    {showVendorColumn ? <TableHead>Vendor</TableHead> : null}
+                    <TableHead>Date Created</TableHead>
+                    <TableHead>Deadline</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {visibleOrders.length === 0 ? (
-                    <div className="px-6 py-12 text-center">
-                      <p className="text-sm font-bold text-foreground">No order requests found</p>
-                      <p className="text-xs text-muted-foreground mt-1">Try a different vendor name, order ID, or client PO.</p>
-                    </div>
+                    <TableRow>
+                      <TableCell colSpan={showVendorColumn ? 7 : 6} className="py-16 text-center">
+                        <div className="mx-auto max-w-sm space-y-2">
+                          <p className="text-sm font-medium">No order requests found</p>
+                          <p className="text-sm text-muted-foreground">Try a different vendor name, order ID, or client PO.</p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   ) : (
-                    visibleOrders.map((order, index) => {
-                      const tone = getOrderTone(order);
+                    visibleOrders.map((order) => {
                       const deadlineInfo = getDeadlineInfo(order.deadline);
+                      const tone = getOrderTone(order);
 
                       return (
-                        <div
+                        <TableRow
                           key={order.id}
                           className={cn(
-                            "relative grid gap-4 px-5 py-4 items-center transition-colors group animate-in-smart",
-                            showVendorColumn ? "grid-cols-[1.2fr_1fr_1.7fr_0.9fr_1.1fr_0.85fr_auto]" : "grid-cols-[1.3fr_1fr_1.2fr_1.2fr_0.9fr_auto]",
-                            tone === "warning" && "bg-warning/10 hover:bg-warning/15",
-                            tone === "danger" && "bg-destructive/10 hover:bg-destructive/15",
-                            tone === "default" && "hover:bg-accent/10"
+                            tone === "warning" && "bg-warning/10",
+                            tone === "danger" && "bg-destructive/10",
                           )}
-                          style={{ animationDelay: `${150 + (index * 20)}ms` }}
                         >
-                          <div className="min-w-0">
-                            <Link to={detailPath(order.id)} className="block text-xs font-mono font-bold text-primary hover:underline underline-offset-4 truncate">
+                          <TableCell>
+                            <Link to={detailPath(order.id)} className="font-mono text-xs font-semibold text-primary hover:underline">
                               {order.id}
                             </Link>
-                          </div>
-
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium text-foreground truncate">{order.clientPO}</p>
-                          </div>
-
-                          {showVendorColumn && (
-                            <div className="min-w-0">
-                              <p className={cn("text-xs font-medium truncate", order.supplier === "Pending" ? "text-destructive italic" : "text-foreground")}>
-                                {order.supplier}
-                              </p>
-                            </div>
-                          )}
-
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 text-xs text-foreground">
-                              <span className="truncate">{formatCreatedDate(order.createdDate)}</span>
-                            </div>
-                          </div>
-
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 text-xs font-medium">
-                              <span className={cn("truncate", deadlineInfo.isOverdue ? "text-destructive font-bold" : deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3 ? "text-warning font-bold" : "text-foreground")}>
-                                {deadlineInfo.label}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div>
-                            <StatusBadge status={order.status} className="whitespace-nowrap" />
-                          </div>
-
-                          <div className="flex items-center justify-center">
-                            <div className="relative">
-                              <button
-                                data-order-action-button
-                                onClick={() => setOpenActionMenuId((current) => current === order.id ? null : order.id)}
-                                className="p-1.5 hover:bg-white/70 rounded-md transition-colors btn-press"
-                                aria-haspopup="menu"
-                                aria-expanded={openActionMenuId === order.id}
-                                aria-label={`Open actions for ${order.id}`}
-                              >
-                                <MoreVertical className="w-4 h-4 text-muted-foreground" />
-                              </button>
-
-                              {openActionMenuId === order.id && (
-                                <div
-                                  data-order-action-menu
-                                  className="absolute right-0 top-full mt-2 w-44 rounded-md border border-border bg-white shadow-lg z-20 overflow-hidden"
-                                >
-                                  <button
-                                    onClick={() => {
-                                      navigate(detailPath(order.id));
-                                      setOpenActionMenuId(null);
-                                    }}
-                                    className="w-full px-3 py-2 text-left text-xs font-medium hover:bg-accent transition-colors"
-                                  >
-                                    View details
-                                  </button>
-                                  <button
-                                    onClick={async () => {
-                                      try {
-                                        await navigator.clipboard.writeText(order.id);
-                                      } catch {
-                                        // Clipboard access can fail in some environments; the action still closes cleanly.
-                                      }
-                                      setOpenActionMenuId(null);
-                                    }}
-                                    className="w-full px-3 py-2 text-left text-xs font-medium hover:bg-accent transition-colors"
-                                  >
-                                    Copy order ID
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                          </TableCell>
+                          <TableCell className="text-sm">{order.clientPO}</TableCell>
+                          {showVendorColumn ? (
+                            <TableCell className={cn("text-sm", order.supplier === "Pending" && "italic text-destructive")}>{order.supplier}</TableCell>
+                          ) : null}
+                          <TableCell className="text-sm">{formatCreatedDate(order.createdDate)}</TableCell>
+                          <TableCell className={cn("text-sm", deadlineInfo.isOverdue ? "font-semibold text-destructive" : deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3 ? "font-semibold text-warning" : "text-muted-foreground")}>
+                            {deadlineInfo.label}
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge status={order.status} />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => navigate(detailPath(order.id))}>Open details</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => navigate(`${detailPath(order.id)}/packaging-labels`)}>Packaging labels</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => navigate(`${detailPath(order.id)}/delivery-note`)}>Delivery note</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
                       );
                     })
                   )}
-                </div>
-              </div>
-            </div>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
-            <div className="p-4 border-t border-border flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-accent/5">
-              <p className="text-[11px] text-muted-foreground">
-                Showing <span className="font-bold text-foreground">{visibleOrders.length}</span> of <span className="font-bold text-foreground">{orders.length}</span> orders
-              </p>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-muted-foreground mr-2">
-                  Page <span className="font-bold text-foreground">{currentPage}</span> of <span className="font-bold text-foreground">{totalPages}</span>
-                </span>
-                <button
-                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                  disabled={currentPage === 1}
-                  className="flex items-center gap-1 px-3 py-1 bg-white border border-border rounded text-[10px] font-bold text-muted-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="w-3 h-3" />
-                  Prev
-                </button>
-                <button
-                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                  disabled={currentPage >= totalPages}
-                  className="flex items-center gap-1 px-3 py-1 bg-white border border-border rounded text-[10px] font-bold text-primary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                  <ChevronRight className="w-3 h-3" />
-                </button>
-              </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              Page {currentPage} of {totalPages}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setCurrentPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1}>
+                Previous
+              </Button>
+              <Button variant="outline" onClick={() => setCurrentPage((value) => Math.min(totalPages, value + 1))} disabled={currentPage === totalPages}>
+                Next
+              </Button>
             </div>
-          </section>
+          </div>
         </main>
       </div>
     </div>
   );
 }
 
-function formatCreatedDate(dateString: string) {
-  const date = new Date(`${dateString}T00:00:00`);
-
-  if (Number.isNaN(date.getTime())) {
-    return dateString;
+function formatCreatedDate(date: string) {
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
   }
-
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(date);
+  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function getDeadlineInfo(deadline: string) {
-  const normalized = deadline.trim().toLowerCase();
-  const daysLeftMatch = normalized.match(/(\d+)/);
+  if (deadline === "Overdue") {
+    return { label: "Overdue", isOverdue: true, daysLeft: null };
+  }
+  const daysLeftMatch = deadline.match(/(\d+)/);
   const daysLeft = daysLeftMatch ? Number(daysLeftMatch[1]) : null;
-  const isOverdue = normalized.includes("overdue") || normalized.includes("melewati");
-  const isFinished = normalized.includes("finished") || normalized.includes("selesai");
-
-  if (isOverdue) {
-    return {
-      daysLeft: 0,
-      isOverdue: true,
-      label: deadline,
-      hint: "Lewat deadline",
-    };
-  }
-
-  if (daysLeft !== null) {
-    return {
-      daysLeft,
-      isOverdue: false,
-      label: deadline.toLowerCase().includes("days") ? deadline : `${daysLeft} hari lagi`,
-      hint: `${daysLeft} hari lagi`,
-    };
-  }
-
-  if (isFinished) {
-    return {
-      daysLeft: null,
-      isOverdue: false,
-      label: deadline,
-      hint: "Order sudah selesai",
-    };
-  }
-
-  return {
-    daysLeft: null,
-    isOverdue: false,
-    label: deadline,
-    hint: null,
-  };
+  return { label: deadline, isOverdue: false, daysLeft };
 }
 
-function getOrderTone(order: { status: any; deadline: string; createdDate: string; items: Array<{ status: string }> }) {
-  const createdDate = new Date(`${order.createdDate}T00:00:00`);
-  const createdAge = Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
-  const deadlineInfo = getDeadlineInfo(order.deadline);
-  const baseStatus = getBaseOrderStatus(order.status);
-  const productionNotStarted = baseStatus === "Created" || baseStatus === "Waiting";
-  const hasUnfinishedItems = order.items.some((item) => item.status !== "Completed" && item.status !== "Delivered");
-
-  if (deadlineInfo.isOverdue) {
-    return "danger";
-  }
-
-  if (productionNotStarted && createdAge >= 7) {
-    return "danger";
-  }
-
-  if ((deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3 && hasUnfinishedItems) || (productionNotStarted && createdAge >= 3)) {
-    return "warning";
-  }
-
+function getOrderTone(order: Order) {
+  const status = getBaseOrderStatus(order.status);
+  if (status === "Urgent" || order.deadline === "Overdue") return "danger";
+  if (status === "Waiting") return "warning";
   return "default";
 }

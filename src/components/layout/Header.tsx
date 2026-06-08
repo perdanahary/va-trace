@@ -1,7 +1,13 @@
-import { Bell, Search, User } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Bell, Menu } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+
 import { unreadInboxCount } from "@/lib/messages";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { getNavItemsForRole, type UserRole } from "@/components/layout/Sidebar";
+import { UserAccountMenu } from "@/components/layout/UserAccountMenu";
 
 interface HeaderProps {
   title: string;
@@ -10,49 +16,66 @@ interface HeaderProps {
 
 export function Header({ title, className }: HeaderProps) {
   const location = useLocation();
-  const currentRole = location.pathname.split("/")[1] || "admin";
+  const currentRole = (location.pathname.split("/")[1] || "admin") as UserRole;
   const inboxPath = `/${currentRole}/inbox`;
+  const navItems = getNavItemsForRole(currentRole);
 
   return (
-    <header className={cn("h-16 border-b border-border bg-white flex items-center justify-between px-8 sticky top-0 z-10", className)}>
-      <h1 className="text-lg font-semibold tracking-tight animate-in-smart">{title}</h1>
-
-      <div className="flex items-center gap-4">
-        <div className="relative group animate-in-smart" style={{ animationDelay: '100ms' }}>
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors group-focus-within:text-primary" />
-          <input 
-            type="text" 
-            placeholder="Search anything..." 
-            className="pl-9 pr-4 py-1.5 bg-accent/50 border-none rounded-md text-sm w-64 focus:ring-1 focus:ring-primary transition-all outline-none"
-          />
+    <header className={cn("sticky top-0 z-20 border-b bg-background/90 backdrop-blur", className)}>
+      <div className="flex h-16 items-center gap-3 px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-2 lg:hidden">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Open navigation">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[300px]">
+              <SheetHeader className="text-left">
+                <SheetTitle>VA Trace</SheetTitle>
+              </SheetHeader>
+              <Separator className="my-4" />
+              <nav className="space-y-1">
+                {navItems.map((item) => {
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <Button
+                      key={item.path}
+                      asChild
+                      variant={isActive ? "secondary" : "ghost"}
+                      className={cn("h-11 w-full justify-start gap-3 px-3", isActive && "bg-primary text-primary-foreground hover:bg-primary/90")}
+                    >
+                      <Link to={item.path}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </Link>
+                    </Button>
+                  );
+                })}
+              </nav>
+            </SheetContent>
+          </Sheet>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Link
-            to={inboxPath}
-            className="p-2 hover:bg-accent rounded-full transition-colors relative btn-press animate-in-smart"
-            style={{ animationDelay: '200ms' }}
-            aria-label="Open inbox"
-          >
-            <Bell className="w-4 h-4 text-muted-foreground" />
-            {unreadInboxCount > 0 ? (
-              <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
-                {unreadInboxCount}
-              </span>
-            ) : null}
-          </Link>
-          
-          <div className="w-px h-6 bg-border mx-2"></div>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-lg font-semibold tracking-tight">{title}</h1>
+        </div>
 
-          <button className="flex items-center gap-2 p-1 hover:bg-accent rounded-md transition-colors btn-press animate-in-smart" style={{ animationDelay: '300ms' }}>
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-              <User className="w-4 h-4" />
-            </div>
-            <div className="text-left hidden md:block">
-              <p className="text-xs font-bold leading-none">Admin User</p>
-              <p className="text-[10px] text-muted-foreground leading-none mt-1">Procurement Manager</p>
-            </div>
-          </button>
+        <div className="ml-auto flex items-center gap-2">
+          <Button asChild variant="ghost" size="icon" className="relative" aria-label="Open inbox">
+            <Link to={inboxPath}>
+              <Bell className="h-4 w-4" />
+              {unreadInboxCount > 0 ? (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
+                  {unreadInboxCount}
+                </span>
+              ) : null}
+            </Link>
+          </Button>
+
+          <Separator orientation="vertical" className="hidden h-6 md:block" />
+
+          <UserAccountMenu role={currentRole} />
         </div>
       </div>
     </header>

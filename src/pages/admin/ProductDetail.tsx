@@ -1,26 +1,34 @@
-import { Sidebar } from "@/components/layout/Sidebar";
-import { Header } from "@/components/layout/Header";
-import { mockBrands } from "@/lib/mockData";
-import { mockProducts, type ProductRecord } from "@/lib/productMaster";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useState, type ChangeEvent, type ComponentType, type ReactNode } from "react";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
+  Building2,
+  ClipboardList,
   Edit3,
-  Save,
-  X,
-  Tag,
-  Box,
-  Package,
+  Hash,
   Layers,
   Maximize,
+  Package,
+  Plus,
+  Save,
+  Tag,
+  Trash2,
   Weight,
-  ClipboardList,
-  Building2,
-  Hash,
-  Warehouse,
+  X,
+  Box,
 } from "lucide-react";
-import { useState } from "react";
-import { cn } from "@/lib/utils";
+
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Header } from "@/components/layout/Header";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { mockBrands } from "@/lib/mockData";
+import { mockProducts, type ProductRecord } from "@/lib/productMaster";
 
 export function ProductDetail() {
   const { code } = useParams();
@@ -53,8 +61,6 @@ export function ProductDetail() {
 
   const [product, setProduct] = useState<ProductRecord>(initialProduct);
 
-  const handleToggleEdit = () => setIsEditing(!isEditing);
-
   const handleSave = () => {
     setIsEditing(false);
     console.log("Saving product:", product);
@@ -66,10 +72,11 @@ export function ProductDetail() {
   const handleCancel = () => {
     if (isNew) {
       navigate("/admin/products");
-    } else {
-      setProduct(initialProduct);
-      setIsEditing(false);
+      return;
     }
+
+    setProduct(initialProduct);
+    setIsEditing(false);
   };
 
   const handleDelete = () => {
@@ -79,344 +86,241 @@ export function ProductDetail() {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+  const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = event.target;
     setProduct((prev) => ({ ...prev, [name]: value }));
   };
 
   return (
-    <div className="flex min-h-screen bg-canvas-white font-sans">
+    <div className="flex min-h-screen bg-background font-sans">
       <Sidebar role="admin" />
       <div className="flex-1">
         <Header title={isNew ? "Add New Product" : `Product Details: ${product.code}`} />
 
-        <main className="p-8 max-w-5xl mx-auto space-y-6">
-          <section className="flex items-center justify-between animate-in-smart">
-            <Link to="/admin/products" className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-primary transition-colors group">
-              <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-              Back to Catalog
-            </Link>
+        <main className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <Button asChild variant="ghost" className="w-fit justify-start gap-2 px-0">
+              <Link to="/admin/products">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Catalog
+              </Link>
+            </Button>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {!isEditing ? (
                 <>
-                  <button
-                    onClick={handleDelete}
-                    className="flex items-center gap-2 px-4 py-2 bg-white border border-destructive text-destructive rounded-md text-xs font-bold hover:bg-destructive/10 transition-all btn-press"
-                  >
-                    <X className="w-3.5 h-3.5" />
+                  <Button variant="destructive" onClick={handleDelete}>
+                    <X className="h-4 w-4" />
                     Delete
-                  </button>
-                  <button
-                    onClick={handleToggleEdit}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md text-xs font-bold hover:bg-primary/90 transition-all btn-press shadow-md"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button onClick={() => setIsEditing(true)}>
+                    <Edit3 className="h-4 w-4" />
                     Edit Product
-                  </button>
+                  </Button>
                 </>
               ) : (
                 <>
-                  <button
-                    onClick={handleCancel}
-                    className="flex items-center gap-2 px-4 py-2 bg-white border border-border rounded-md text-xs font-bold hover:bg-accent transition-all btn-press"
-                  >
-                    <X className="w-3.5 h-3.5" />
+                  <Button variant="outline" onClick={handleCancel}>
+                    <X className="h-4 w-4" />
                     Cancel
-                  </button>
-                  <button
-                    onClick={handleSave}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md text-xs font-bold hover:bg-primary/90 transition-all btn-press shadow-md"
-                  >
-                    <Save className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button onClick={handleSave}>
+                    <Save className="h-4 w-4" />
                     {isNew ? "Create Product" : "Save Changes"}
-                  </button>
+                  </Button>
                 </>
               )}
             </div>
-          </section>
+          </div>
 
-          <section className="bg-white rounded-lg border border-border shadow-sm p-6 animate-in-smart" style={{ animationDelay: "100ms" }}>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-start gap-4 flex-1">
-                <div className="w-12 h-12 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 border border-border shrink-0">
-                  <Box className="w-6 h-6" />
-                </div>
-                <div className="flex-1 space-y-3">
-                  {isEditing ? (
-                    <EditableField
-                      label="Product Name"
-                      name="name"
-                      value={product.name}
-                      icon={ClipboardList}
-                      isEditing={isEditing}
-                      onChange={handleChange}
-                      placeholder="Enter product name..."
-                    />
-                  ) : (
-                    <h1 className="text-lg font-bold leading-tight">{product.name}</h1>
-                  )}
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Card className="border-border/70 shadow-sm">
+            <CardContent className="p-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="flex flex-1 items-start gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border bg-muted text-muted-foreground">
+                    <Box className="h-6 w-6" />
+                  </div>
+                  <div className="flex-1 space-y-3">
                     {isEditing ? (
-                      <EditableField
-                        label="Item Code"
-                        name="code"
-                        value={product.code}
-                        icon={Hash}
-                        isEditing={isEditing}
-                        onChange={handleChange}
-                        placeholder="e.g. 2026-0000-0000"
-                      />
+                      <Field label="Product Name">
+                        <Input name="name" value={product.name} onChange={handleChange} placeholder="Enter product name..." />
+                      </Field>
                     ) : (
-                      <p className="text-xs text-muted-foreground font-mono uppercase tracking-wider">{product.code}</p>
+                      <h1 className="text-2xl font-semibold tracking-tight">{product.name}</h1>
                     )}
-                    <div className="flex items-center justify-start md:justify-end">
-                      {isEditing ? (
-                        <SelectField
-                          label="Status"
-                          name="status"
-                          value={product.status}
-                          icon={Warehouse}
-                          isEditing={isEditing}
-                          onChange={handleChange}
-                          options={["Active", "Inactive"]}
-                        />
-                      ) : (
-                        <span className={cn(
-                          "px-3 py-1 rounded-full text-[10px] font-bold uppercase",
-                          product.status === "Active" ? "bg-success/10 text-success" : "bg-slate-100 text-slate-400"
-                        )}>
-                          {product.status}
-                        </span>
-                      )}
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" className="rounded-full font-mono text-[10px] uppercase tracking-[0.24em]">
+                        {product.code || "New product"}
+                      </Badge>
+                      <Badge variant={product.status === "Active" ? "success" : "secondary"} className="rounded-full uppercase tracking-[0.18em]">
+                        {product.status}
+                      </Badge>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </section>
+            </CardContent>
+          </Card>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <section className="bg-white rounded-lg border border-border shadow-sm overflow-hidden animate-in-smart" style={{ animationDelay: "200ms" }}>
-              <div className="p-4 border-b border-border bg-accent/5">
-                <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                  <Package className="w-3.5 h-3.5" />
-                  Classification
-                </h3>
-              </div>
-              <div className="p-6 space-y-4">
-                <EditableField
-                  label="Client Group"
-                  name="clientGroup"
-                  value={product.clientGroup}
-                  icon={Building2}
-                  isEditing={isEditing}
-                  onChange={handleChange}
-                />
-                <EditableField
-                  label="Product Type"
-                  name="productType"
-                  value={product.productType}
-                  icon={Tag}
-                  isEditing={isEditing}
-                  onChange={handleChange}
-                />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <SectionCard title="Classification" icon={Package} description="Market and brand metadata used across the catalog and order workflows.">
+              <Field label="Client Group">
+                <Input name="clientGroup" value={product.clientGroup} onChange={handleChange} disabled={!isEditing} />
+              </Field>
+              <Field label="Product Type">
+                <Input name="productType" value={product.productType} onChange={handleChange} disabled={!isEditing} />
+              </Field>
+              <Field label="Orientation">
                 <SelectField
-                  label="Orientation"
                   name="orientation"
                   value={product.orientation || "-"}
-                  icon={Layers}
-                  isEditing={isEditing}
                   onChange={handleChange}
                   options={["-", "H", "V"]}
+                  disabled={!isEditing}
                 />
+              </Field>
+              <Field label="Brand">
                 <SelectField
-                  label="Brand"
                   name="brand"
                   value={product.brand || "-"}
-                  icon={Tag}
-                  isEditing={isEditing}
                   onChange={handleChange}
                   options={["-", ...mockBrands.map((brand) => brand.name)]}
+                  disabled={!isEditing}
                 />
+              </Field>
+              <Field label="Brand Code">
                 <SelectField
-                  label="Brand Code"
                   name="brandCode"
                   value={product.brandCode || "-"}
-                  icon={Hash}
-                  isEditing={isEditing}
                   onChange={handleChange}
                   options={["-", ...mockBrands.map((brand) => brand.alias)]}
+                  disabled={!isEditing}
                 />
-              </div>
-            </section>
+              </Field>
+            </SectionCard>
 
-            <section className="bg-white rounded-lg border border-border shadow-sm overflow-hidden animate-in-smart" style={{ animationDelay: "300ms" }}>
-              <div className="p-4 border-b border-border bg-accent/5">
-                <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                  <Layers className="w-3.5 h-3.5" />
-                  Technical Details
-                </h3>
-              </div>
-              <div className="p-6 space-y-4">
-                <EditableField
-                  label="Dimensions"
-                  name="dimensions"
-                  value={product.dimensions}
-                  icon={Maximize}
-                  isEditing={isEditing}
-                  onChange={handleChange}
-                />
-                <EditableField
-                  label="Material"
-                  name="material"
-                  value={product.material}
-                  icon={Package}
-                  isEditing={isEditing}
-                  onChange={handleChange}
-                />
-                <EditableField
-                  label="Weight"
-                  name="weight"
-                  value={product.weight}
-                  icon={Weight}
-                  isEditing={isEditing}
-                  onChange={handleChange}
-                />
-                <EditableField
-                  label="UOM"
-                  name="uom"
-                  value={product.uom}
-                  icon={ClipboardList}
-                  isEditing={isEditing}
-                  onChange={handleChange}
-                />
-                <EditableField
-                  label="Format Type"
-                  name="formatType"
-                  value={product.formatType || "-"}
-                  icon={ClipboardList}
-                  isEditing={isEditing}
-                  onChange={handleChange}
-                />
-                <EditableField
-                  label="Ink Technology"
-                  name="inkTechnology"
-                  value={product.inkTechnology || "-"}
-                  icon={ClipboardList}
-                  isEditing={isEditing}
-                  onChange={handleChange}
-                />
-              </div>
-            </section>
+            <SectionCard title="Technical Details" icon={Layers} description="Physical dimensions and production-specific attributes.">
+              <Field label="Dimensions">
+                <Input name="dimensions" value={product.dimensions} onChange={handleChange} disabled={!isEditing} />
+              </Field>
+              <Field label="Material">
+                <Input name="material" value={product.material} onChange={handleChange} disabled={!isEditing} />
+              </Field>
+              <Field label="Weight">
+                <Input name="weight" value={product.weight} onChange={handleChange} disabled={!isEditing} />
+              </Field>
+              <Field label="UOM">
+                <Input name="uom" value={product.uom} onChange={handleChange} disabled={!isEditing} />
+              </Field>
+              <Field label="Format Type">
+                <Input name="formatType" value={product.formatType || "-"} onChange={handleChange} disabled={!isEditing} />
+              </Field>
+              <Field label="Ink Technology">
+                <Input name="inkTechnology" value={product.inkTechnology || "-"} onChange={handleChange} disabled={!isEditing} />
+              </Field>
+            </SectionCard>
           </div>
 
-          <section className="bg-white rounded-lg border border-border shadow-sm overflow-hidden animate-in-smart" style={{ animationDelay: "400ms" }}>
-            <div className="p-4 border-b border-border bg-accent/5">
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                <Package className="w-3.5 h-3.5" />
-                Seed Trace
-              </h3>
-            </div>
-            <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader className="border-b bg-muted/20">
+              <CardTitle className="text-base">Seed Trace</CardTitle>
+              <CardDescription>Parsed record provenance from the source catalog</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 p-6 md:grid-cols-3">
               <InfoCard label="Source Name" value={product.sourceName || "-"} />
               <InfoCard label="Length" value={product.lengthCm || "-"} />
               <InfoCard label="Width" value={product.widthCm || "-"} />
-            </div>
-          </section>
+            </CardContent>
+          </Card>
+
+          {isNew ? (
+            <Alert className="border-primary/20 bg-primary/5">
+              <AlertTitle>New product record</AlertTitle>
+              <AlertDescription>The product will be saved into the catalog once you submit the form.</AlertDescription>
+            </Alert>
+          ) : null}
         </main>
       </div>
     </div>
   );
 }
 
-function EditableField({
-  label,
-  name,
-  value,
-  icon: Icon,
-  isEditing,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  name: string;
-  value: string;
-  icon: any;
-  isEditing: boolean;
-  onChange: (e: any) => void;
-  placeholder?: string;
-}) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        <Icon className="w-3.5 h-3.5" />
-        <label className="text-[10px] font-bold uppercase tracking-wider">{label}</label>
-      </div>
-      {isEditing ? (
-        <input
-          name={name}
-          value={value}
-          onChange={onChange}
-          placeholder={placeholder}
-          className="w-full bg-slate-50 border border-border rounded px-3 py-1.5 text-xs focus:ring-1 focus:ring-primary outline-none transition-all"
-        />
-      ) : (
-        <p className="text-xs font-medium pl-5">{value || "-"}</p>
-      )}
+    <div className="space-y-2">
+      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      {children}
     </div>
   );
 }
 
-function SelectField({
-  label,
-  name,
-  value,
+function SectionCard({
+  title,
   icon: Icon,
-  isEditing,
-  onChange,
-  options,
+  description,
+  children,
 }: {
-  label: string;
-  name: string;
-  value: string;
-  icon: any;
-  isEditing: boolean;
-  onChange: (e: any) => void;
-  options: string[];
+  title: string;
+  icon: ComponentType<{ className?: string }>;
+  description: string;
+  children: ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        <Icon className="w-3.5 h-3.5" />
-        <label className="text-[10px] font-bold uppercase tracking-wider">{label}</label>
-      </div>
-      {isEditing ? (
-        <select
-          name={name}
-          value={value}
-          onChange={onChange}
-          className="w-full bg-slate-50 border border-border rounded px-3 py-1.5 text-xs focus:ring-1 focus:ring-primary outline-none transition-all"
-        >
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <p className="text-xs font-medium pl-5">{value || "-"}</p>
-      )}
-    </div>
+    <Card className="border-border/70 shadow-sm">
+      <CardHeader className="border-b bg-muted/20">
+        <div className="flex items-center gap-2">
+          <Icon className="h-4 w-4 text-primary" />
+          <CardTitle className="text-base">{title}</CardTitle>
+        </div>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4 p-6">{children}</CardContent>
+    </Card>
+  );
+}
+
+function SelectField({
+  name,
+  value,
+  onChange,
+  options,
+  disabled,
+}: {
+  name: string;
+  value: string;
+  onChange: (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  options: string[];
+  disabled?: boolean;
+}) {
+  return (
+    <Select
+      value={value}
+      onValueChange={(nextValue) =>
+        onChange({
+          target: { name, value: nextValue },
+        } as ChangeEvent<HTMLSelectElement>)
+      }
+    >
+      <SelectTrigger disabled={disabled}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option} value={option}>
+            {option}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
 function InfoCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="space-y-1.5 rounded-md border border-border p-4 bg-accent/5">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="text-xs font-medium break-words">{value}</p>
+    <div className="rounded-lg border bg-muted/20 p-4">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{label}</p>
+      <p className="mt-2 break-words text-sm font-medium">{value}</p>
     </div>
   );
 }

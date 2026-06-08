@@ -1,16 +1,20 @@
-import { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AppUser, UserRole } from "@/lib/userStore";
 
 interface UserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (user: Omit<AppUser, 'id'> | AppUser) => void;
+  onSave: (user: Omit<AppUser, "id"> | AppUser) => void;
   user?: AppUser | null;
 }
 
 export function UserModal({ isOpen, onClose, onSave, user }: UserModalProps) {
-  const [formData, setFormData] = useState<Omit<AppUser, 'id'>>({
+  const [formData, setFormData] = useState<Omit<AppUser, "id">>({
     name: "",
     email: "",
     role: "operator",
@@ -38,10 +42,8 @@ export function UserModal({ isOpen, onClose, onSave, user }: UserModalProps) {
     }
   }, [user, isOpen]);
 
-  if (!isOpen) return null;
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     if (user) {
       onSave({ ...formData, id: user.id } as AppUser);
     } else {
@@ -51,97 +53,85 @@ export function UserModal({ isOpen, onClose, onSave, user }: UserModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between p-6 border-b border-border">
-          <h2 className="text-lg font-bold">{user ? "Edit Operator" : "Invite New Operator"}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-accent rounded-full transition-colors">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{user ? "Edit Operator" : "Invite New Operator"}</DialogTitle>
+          <DialogDescription>Capture the operator profile and their access level.</DialogDescription>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Full Name</label>
-            <input
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Full Name</label>
+            <Input
               required
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-4 py-2 border border-border rounded-md text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
               placeholder="e.g. Marco Polo"
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Email Address</label>
-            <input
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Email Address</label>
+            <Input
               required
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-4 py-2 border border-border rounded-md text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
               placeholder="e.g. marco@officebee.co"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Role</label>
-              <select
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
-                className="w-full px-4 py-2 border border-border rounded-md text-sm focus:ring-1 focus:ring-primary outline-none transition-all bg-white"
-              >
-                <option value="admin">Admin</option>
-                <option value="operator">Operator</option>
-                <option value="analyst">Analyst</option>
-                <option value="customer">Customer</option>
-                <option value="vendor">Vendor</option>
-              </select>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Role</label>
+              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value as UserRole })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="operator">Operator</SelectItem>
+                  <SelectItem value="analyst">Analyst</SelectItem>
+                  <SelectItem value="customer">Customer</SelectItem>
+                  <SelectItem value="vendor">Vendor</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Status</label>
-              <select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as "Active" | "Inactive" })}
-                className="w-full px-4 py-2 border border-border rounded-md text-sm focus:ring-1 focus:ring-primary outline-none transition-all bg-white"
-              >
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-              </select>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Status</label>
+              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value as "Active" | "Inactive" })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Company/Affiliation</label>
-            <input
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Company/Affiliation</label>
+            <Input
               required
               type="text"
               value={formData.company}
               onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-              className="w-full px-4 py-2 border border-border rounded-md text-sm focus:ring-1 focus:ring-primary outline-none transition-all"
               placeholder="e.g. Officebee HQ"
             />
           </div>
 
-          <div className="pt-4 flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-border rounded-md text-sm font-bold hover:bg-accent transition-all"
-            >
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-primary text-white rounded-md text-sm font-bold hover:bg-primary/90 transition-all shadow-md btn-press"
-            >
-              {user ? "Save Changes" : "Send Invitation"}
-            </button>
-          </div>
+            </Button>
+            <Button type="submit">{user ? "Save Changes" : "Send Invitation"}</Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,37 +1,45 @@
+import type { ComponentType } from "react";
+
 import { cn } from "@/lib/utils";
-import { 
-  LayoutDashboard, 
-  Package, 
-  ShoppingCart, 
-  Truck, 
-  Users, 
-  Tag, 
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import {
+  LayoutDashboard,
+  Package,
+  ShoppingCart,
+  Truck,
+  Users,
+  Tag,
   Factory,
   Bookmark,
   Map,
-  Settings,
   PlusCircle,
   ChevronRight,
-  ShieldCheck,
   Mail,
-  Inbox
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
-export type UserRole = 'admin' | 'operator' | 'analyst' | 'customer' | 'vendor';
+export type UserRole = "admin" | "operator" | "analyst" | "customer" | "vendor";
 
 interface SidebarProps {
   role: UserRole;
   className?: string;
 }
 
-const navItems: Record<UserRole, any[]> = {
+export interface SidebarNavItem {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  path: string;
+}
+
+const navItems: Record<UserRole, SidebarNavItem[]> = {
   admin: [
     { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
     { icon: PlusCircle, label: "Create OR", path: "/admin/create" },
     { icon: Package, label: "Order Progress", path: "/admin/progress" },
     { icon: ShoppingCart, label: "All Orders", path: "/admin/orders" },
-    { icon: Inbox, label: "Dispatch Imports", path: "/admin/imports" },
+    { icon: Package, label: "Imports", path: "/admin/imports" },
     { icon: Mail, label: "Inbox", path: "/admin/inbox" },
     { icon: Truck, label: "Logistics", path: "/admin/logistics" },
     { icon: Factory, label: "Suppliers", path: "/admin/suppliers" },
@@ -45,7 +53,6 @@ const navItems: Record<UserRole, any[]> = {
     { icon: PlusCircle, label: "Create OR", path: "/operator/create" },
     { icon: Package, label: "Order Progress", path: "/operator/progress" },
     { icon: ShoppingCart, label: "All Orders", path: "/operator/orders" },
-    { icon: Inbox, label: "Dispatch Imports", path: "/operator/imports" },
     { icon: Mail, label: "Inbox", path: "/operator/inbox" },
   ],
   analyst: [
@@ -59,7 +66,7 @@ const navItems: Record<UserRole, any[]> = {
     { icon: LayoutDashboard, label: "Dashboard", path: "/customer" },
     { icon: Package, label: "Order Progress", path: "/customer/progress" },
     { icon: PlusCircle, label: "Create OR", path: "/customer/create" },
-    { icon: Inbox, label: "PO Imports", path: "/customer/imports" },
+    { icon: Package, label: "Imports", path: "/customer/imports" },
     { icon: Mail, label: "Inbox", path: "/customer/inbox" },
     { icon: ShoppingCart, label: "My Orders", path: "/customer/orders" },
   ],
@@ -69,68 +76,59 @@ const navItems: Record<UserRole, any[]> = {
     { icon: ShoppingCart, label: "My Orders", path: "/vendor/orders" },
     { icon: Mail, label: "Inbox", path: "/vendor/inbox" },
     { icon: Users, label: "My Profile", path: "/vendor/profile" },
-  ]
+  ],
 };
+
+export function getNavItemsForRole(role: UserRole) {
+  return navItems[role];
+}
 
 export function Sidebar({ role, className }: SidebarProps) {
   const location = useLocation();
   const items = navItems[role];
 
   return (
-    <div className={cn("flex flex-col w-64 bg-white border-r border-border h-screen sticky top-0", className)}>
-      <div className="p-6">
-        <div className="flex items-center gap-2 mb-8">
-          <div className="w-8 h-8 bg-primary rounded flex items-center justify-center text-white font-bold">V</div>
-          <span className="text-xl font-bold tracking-tight">VA Trace</span>
+    <aside
+      className={cn(
+        "sticky top-0 hidden h-screen w-72 shrink-0 flex-col border-r bg-card/95 px-4 py-5 backdrop-blur lg:flex",
+        className,
+      )}
+    >
+      <div className="flex items-center gap-3 px-2">
+        <Avatar className="h-10 w-10 rounded-xl">
+          <AvatarFallback className="rounded-xl bg-primary text-primary-foreground">V</AvatarFallback>
+        </Avatar>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold leading-none tracking-tight">VA Trace</p>
+          <p className="mt-1 text-xs text-muted-foreground">Procurement workspace</p>
         </div>
+      </div>
 
-        <nav className="space-y-1">
-          {items.map((item, index) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "flex items-center justify-between px-3 py-2 rounded-md transition-all duration-200 group btn-press",
-                  "animate-in-smart",
-                  isActive 
-                    ? "bg-primary text-primary-foreground shadow-sm" 
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                )}
-                style={{ animationDelay: `${index * 40}ms` }}
-              >
-                <div className="flex items-center gap-3">
-                  <item.icon className="w-4 h-4" />
-                  <span className="text-sm font-medium">{item.label}</span>
-                </div>
-                {isActive && <ChevronRight className="w-4 h-4" />}
+      <Separator className="my-5" />
+
+      <nav className="flex-1 space-y-1 overflow-y-auto pr-1">
+        {items.map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <Button
+              key={item.path}
+              asChild
+              variant={isActive ? "secondary" : "ghost"}
+              className={cn(
+                "h-11 w-full justify-start gap-3 px-3",
+                isActive ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-muted-foreground",
+              )}
+            >
+              <Link to={item.path} aria-current={isActive ? "page" : undefined}>
+                <item.icon className="h-4 w-4" />
+                <span className="flex-1 text-left text-sm font-medium">{item.label}</span>
+                {isActive ? <ChevronRight className="h-4 w-4" /> : null}
               </Link>
-            );
-          })}
-        </nav>
-      </div>
+            </Button>
+          );
+        })}
+      </nav>
 
-      <div className="mt-auto p-6 space-y-4">
-        <div className="bg-accent/50 p-3 rounded-lg border border-border">
-          <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">
-            <ShieldCheck className="w-3 h-3" />
-            Role Switcher
-          </div>
-          <div className="grid grid-cols-5 gap-1">
-            <Link to="/admin" title="Admin" className="text-[9px] font-bold p-1 bg-white border border-border rounded text-center hover:bg-primary hover:text-white transition-colors">ADM</Link>
-            <Link to="/operator" title="Operator" className="text-[9px] font-bold p-1 bg-white border border-border rounded text-center hover:bg-primary hover:text-white transition-colors">OPR</Link>
-            <Link to="/analyst" title="Analyst" className="text-[9px] font-bold p-1 bg-white border border-border rounded text-center hover:bg-primary hover:text-white transition-colors">ANA</Link>
-            <Link to="/customer" title="Customer" className="text-[9px] font-bold p-1 bg-white border border-border rounded text-center hover:bg-primary hover:text-white transition-colors">CUS</Link>
-            <Link to="/vendor" title="Vendor" className="text-[9px] font-bold p-1 bg-white border border-border rounded text-center hover:bg-primary hover:text-white transition-colors">VND</Link>
-          </div>
-        </div>
-
-        <button className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition-colors text-sm font-medium w-full px-3">
-          <Settings className="w-4 h-4" />
-          <span>Settings</span>
-        </button>
-      </div>
-    </div>
+    </aside>
   );
 }

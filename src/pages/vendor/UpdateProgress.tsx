@@ -1,33 +1,69 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { mockOrders } from "@/lib/mockData";
+import { resolveQuantityComplaint, useOrders } from "@/lib/orderStore";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { 
   ArrowLeft, 
+  AlertTriangle,
+  CheckCircle2,
   Save, 
   History, 
   Plus, 
   Minus,
-  CheckCircle2,
-  AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 export function VendorUpdateProgress() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const order = mockOrders.find(o => o.id === id) || mockOrders[0];
+  const orders = useOrders();
+  const order = orders.find((o) => o.id === id) || orders[0];
+  const complaint = order.complaint;
+  const complaintSummary = useMemo(() => {
+    if (!complaint) {
+      return null;
+    }
 
-  const [production, setProduction] = useState(200);
-  const [ready, setReady] = useState(100);
-  const [shipping, setShipping] = useState(100);
+    return {
+      ordered: complaint.items.reduce((total, item) => total + item.orderedQty, 0),
+      delivered: complaint.items.reduce((total, item) => total + item.systemDeliveredQty, 0),
+      actual: complaint.items.reduce((total, item) => total + item.actualReceivedQty, 0),
+      delta: complaint.items.reduce((total, item) => total + item.deltaQty, 0),
+    };
+  }, [complaint]);
 
-  const total = 750;
+  const total = getTotalQuantity(order);
+  const [production, setProduction] = useState(() => Math.max(Math.round(total * 0.7), 0));
+  const [ready, setReady] = useState(() => Math.max(Math.round(total * 0.4), 0));
+  const [shipping, setShipping] = useState(() => Math.max(Math.round(total * 0.2), 0));
+  const [vendorNote, setVendorNote] = useState("");
+
+  useEffect(() => {
+    setProduction(Math.max(Math.round(total * 0.7), 0));
+    setReady(Math.max(Math.round(total * 0.4), 0));
+    setShipping(Math.max(Math.round(total * 0.2), 0));
+  }, [order.id, total]);
+
+  const handleComplaintDecision = (decision: "approved" | "rejected") => {
+    if (!complaint) {
+      return;
+    }
+
+    resolveQuantityComplaint(order.id, {
+      decision,
+      reviewedBy: "Vendor Admin",
+      reviewNote: vendorNote.trim() || (decision === "approved" ? "Vendor approved the quantity revision." : "Vendor rejected the quantity revision."),
+    });
+  };
 
   return (
-    <div className="flex min-h-screen bg-canvas-white">
+    <div className="flex min-h-screen bg-background">
       <Sidebar role="vendor" />
       <div className="flex-1">
         <Header title={`Update Progress: ${order.id}`} />
@@ -49,10 +85,10 @@ export function VendorUpdateProgress() {
             </button>
           </section>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             {/* Main Update Form */}
             <div className="lg:col-span-2 space-y-6">
-              <section className="bg-white rounded-lg border border-border shadow-sm overflow-hidden animate-in-smart" style={{ animationDelay: '100ms' }}>
+              <section className="overflow-hidden rounded-lg border border-border bg-white shadow-sm animate-in-smart" style={{ animationDelay: '100ms' }}>
                 <div className="p-6 border-b border-border bg-accent/5 flex items-center justify-between">
                   <div className="space-y-1">
                     <h3 className="text-sm font-bold tracking-tight">{order.campaign}</h3>
@@ -92,7 +128,7 @@ export function VendorUpdateProgress() {
               </section>
 
               {/* Conflict/Warning section if needed */}
-              <section className="bg-warning/5 border border-warning/20 p-4 rounded-lg flex items-start gap-3 animate-in-smart" style={{ animationDelay: '200ms' }}>
+              <section className="flex items-start gap-3 rounded-lg border border-warning/20 bg-warning/5 p-4 animate-in-smart" style={{ animationDelay: '200ms' }}>
                 <AlertTriangle className="w-5 h-5 text-warning mt-0.5" />
                 <div>
                   <h4 className="text-xs font-bold text-warning uppercase tracking-widest">Update Policy</h4>
@@ -105,7 +141,7 @@ export function VendorUpdateProgress() {
 
             {/* Live Summary Sidebar */}
             <div className="space-y-6">
-              <section className="bg-white rounded-lg border border-border shadow-sm p-6 sticky top-24 animate-in-smart" style={{ animationDelay: '300ms' }}>
+              <section className="sticky top-24 rounded-lg border border-border bg-white p-6 shadow-sm animate-in-smart" style={{ animationDelay: '300ms' }}>
                 <div className="flex items-center gap-2 mb-6">
                   <CheckCircle2 className="w-4 h-4 text-primary" />
                   <h3 className="text-sm font-bold tracking-tight">Fulfillment Summary</h3>
@@ -126,12 +162,86 @@ export function VendorUpdateProgress() {
                   </div>
                 </div>
               </section>
+
+              {complaint ? (
+                <Card className="border-border shadow-sm">
+                  <CardHeader className="border-b bg-muted/20">
+                    <CardTitle className="text-base">Complaint Review</CardTitle>
+                    <CardDescription>Approve or reject the PMG quantity revision.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4 p-6">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Complaint ID</p>
+                        <p className="mt-1 text-sm font-medium">{complaint.id}</p>
+                      </div>
+                      <Badge variant={complaint.status === "approved" ? "success" : complaint.status === "rejected" ? "destructive" : "warning"} className="rounded-full uppercase tracking-[0.18em]">
+                        {complaint.status}
+                      </Badge>
+                    </div>
+
+                    {complaintSummary ? (
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <MiniStat label="Ordered Qty" value={`${complaintSummary.ordered} pcs`} />
+                        <MiniStat label="System Delivered" value={`${complaintSummary.delivered} pcs`} />
+                        <MiniStat label="Actual Received" value={`${complaintSummary.actual} pcs`} />
+                        <MiniStat label="Delta" value={`${complaintSummary.delta} pcs`} />
+                      </div>
+                    ) : null}
+
+                    <div className="space-y-2">
+                      {complaint.items.map((item) => (
+                        <div key={item.lineId} className="rounded-lg border border-border/60 bg-background p-3">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <p className="text-sm font-medium">{item.productName}</p>
+                              <p className="text-xs text-muted-foreground">PO Line {item.poLineNumber}</p>
+                            </div>
+                            <div className="text-right text-xs text-muted-foreground">
+                              <p>Delivered: {item.systemDeliveredQty} pcs</p>
+                              <p>Actual: {item.actualReceivedQty} pcs</p>
+                            </div>
+                          </div>
+                          <p className="mt-2 text-xs font-medium text-destructive">Missing {item.deltaQty} pcs</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <Textarea
+                      value={vendorNote}
+                      onChange={(event) => setVendorNote(event.target.value)}
+                      placeholder="Add vendor review note before approval or rejection."
+                    />
+
+                    {complaint.status === "pending" ? (
+                      <div className="flex flex-col gap-3 sm:flex-row">
+                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => handleComplaintDecision("rejected")}>
+                          <AlertTriangle className="h-4 w-4" />
+                          Reject Revision
+                        </Button>
+                        <Button className="w-full sm:w-auto" onClick={() => handleComplaintDecision("approved")}>
+                          <CheckCircle2 className="h-4 w-4" />
+                          Approve Revision
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-sm text-muted-foreground">
+                        This complaint has already been reviewed by the vendor.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : null}
             </div>
           </div>
         </main>
       </div>
     </div>
   );
+}
+
+function getTotalQuantity(order: { items: Array<{ quantity: number }> }) {
+  return order.items.reduce((total, item) => total + item.quantity, 0);
 }
 
 function UpdateItem({ label, value, max, onChange, color, bg, helper }: { label: string, value: number, max: number, onChange: (v: number) => void, color: string, bg: string, helper?: string }) {
@@ -189,6 +299,15 @@ function SummaryStat({ label, percentage, color }: { label: string, percentage: 
           style={{ width: `${percentage}%` }}
         ></div>
       </div>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border/60 bg-background p-3">
+      <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm font-medium">{value}</p>
     </div>
   );
 }
