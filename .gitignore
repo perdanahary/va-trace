@@ -1,0 +1,17 @@
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+# OS / editor / build artifacts
+.DS_Store
+dist/
+.codex-*.png
+/*.png
+.artifacts/
+*.log
+my-session.json
