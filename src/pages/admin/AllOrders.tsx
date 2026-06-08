@@ -3,11 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { Download, Filter, MoreHorizontal, Plus, Search } from "lucide-react";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
+import { FilterField, FilterSection } from "@/components/shared/FilterSection";
 import { Header } from "@/components/layout/Header";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -119,64 +119,58 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
           </section>
 
           {showFilters ? (
-            <Card className="border-border/70 shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">Filters</CardTitle>
-                <CardDescription>Refine by status and vendor.</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground">Status</p>
-                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {statusOptions.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground">Vendor</p>
-                  <Select value={selectedVendor} onValueChange={setSelectedVendor}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select vendor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vendorOptions.map((vendor) => (
-                        <SelectItem key={vendor} value={vendor}>
-                          {vendor}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-end justify-between gap-3">
-                  <Button variant="ghost" onClick={clearFilters} className="px-0">
+            <FilterSection
+              actions={
+                <>
+                  <Button
+                    variant="ghost"
+                    onClick={clearFilters}
+                    className="h-auto px-0 font-normal text-muted-foreground hover:bg-transparent hover:text-primary hover:underline"
+                  >
                     Reset all filters
                   </Button>
-                  <Button variant="ghost" onClick={() => setShowFilters(false)} className="px-0 text-muted-foreground">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowFilters(false)}
+                    className="h-auto px-0 font-normal text-muted-foreground hover:bg-transparent hover:text-primary hover:underline"
+                  >
                     Hide filters
                   </Button>
-                </div>
-              </CardContent>
-            </Card>
+                </>
+              }
+            >
+              <FilterField label="Status">
+                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FilterField>
+              <FilterField label="Vendor">
+                <Select value={selectedVendor} onValueChange={setSelectedVendor}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select vendor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vendorOptions.map((vendor) => (
+                      <SelectItem key={vendor} value={vendor}>
+                        {vendor}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FilterField>
+            </FilterSection>
           ) : null}
 
-          <Card className="border-border/70 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <div>
-                <CardTitle className="text-base">Order Requests</CardTitle>
-                <CardDescription>{filteredOrders.length} matching records</CardDescription>
-              </div>
-              <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.24em]">
-                {selectedStatus !== "All Statuses" || selectedVendor !== "All Vendors" ? "Filtered" : "All"}
-              </Badge>
-            </CardHeader>
+          <Card className="border-border/70 py-0 shadow-sm">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>

@@ -1,5 +1,5 @@
 import {
-  getBrandSeedByAlias,
+  getBrandSeedByName,
   mockProducts as legacyProducts,
   type Product as LegacyProduct,
 } from "@/lib/mockData";
@@ -28,7 +28,7 @@ export interface ProductRecord {
 export const mockProducts: ProductRecord[] = legacyProducts.map((product: LegacyProduct) => {
   const parsed = parseRawProductName(product.name);
 
-  const brandSeed = getBrandSeedByAlias(parsed.brandCode);
+  const brandSeed = getBrandSeedByName(parsed.brandCode);
 
   return {
     code: product.code,

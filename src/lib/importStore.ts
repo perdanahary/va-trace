@@ -84,6 +84,7 @@ export interface ImportBatch {
   id: string;
   fileName: string;
   sourceSheetName: string;
+  sourceHeaderRowNumber?: number;
   uploadedBy: string;
   uploadedAt: string;
   stage: ImportBatchStage;
@@ -103,6 +104,8 @@ export interface DispatchResult {
 
 const STORAGE_KEY = "va-trace-import-batches";
 const STORE_EVENT = "va-trace-import-batches:change";
+let cachedBatches: ImportBatch[] | null = null;
+let cachedStorageValue: string | null = null;
 
 const expectedHeaders = [
   "PO Number",
@@ -135,6 +138,16 @@ const expectedHeaders = [
 
 type SheetRowRecord = Record<string, string>;
 
+export interface ParsedImportSheetRow {
+  values: SheetRowRecord;
+  sheetRowNumber: number;
+}
+
+export interface ParsedImportSheet {
+  records: ParsedImportSheetRow[];
+  headerRowNumber: number;
+}
+
 function makeId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 }
@@ -152,11 +165,38 @@ function readStoredBatches(): ImportBatch[] {
     const stored = window.localStorage.getItem(STORAGE_KEY);
 
     if (!stored) {
+      cachedBatches = initialSeedBatches;
+      cachedStorageValue = null;
       return initialSeedBatches;
     }
 
+    if (stored === cachedStorageValue && cachedBatches) {
+      return cachedBatches;
+    }
+
     const parsed = JSON.parse(stored) as ImportBatch[];
-    return Array.isArray(parsed) ? parsed : initialSeedBatches;
+    if (!Array.isArray(parsed)) {
+      cachedBatches = initialSeedBatches;
+      cachedStorageValue = null;
+      return initialSeedBatches;
+    }
+
+    const legacySeedFileName = "Sampoerna-Jakarta-Dispatch.xlsx";
+    const legacySeedSheetName = "Item Vendor Tracking";
+    const legacySeedUploadedBy = "Customer Portal";
+
+    const filtered = parsed.filter(
+      (batch) =>
+        !(
+          batch.fileName === legacySeedFileName &&
+          batch.sourceSheetName === legacySeedSheetName &&
+          batch.uploadedBy === legacySeedUploadedBy
+        ),
+    );
+
+    cachedBatches = filtered;
+    cachedStorageValue = stored;
+    return filtered;
   } catch {
     return initialSeedBatches;
   }
@@ -167,7 +207,10 @@ function writeStoredBatches(nextBatches: ImportBatch[]) {
     return;
   }
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextBatches));
+  const serialized = JSON.stringify(nextBatches);
+  cachedBatches = nextBatches;
+  cachedStorageValue = serialized;
+  window.localStorage.setItem(STORAGE_KEY, serialized);
   window.dispatchEvent(new Event(STORE_EVENT));
 }
 
@@ -201,9 +244,9 @@ function normalizeCellValue(value: unknown) {
   return String(value).trim();
 }
 
-function parseSheetRows(records: SheetRowRecord[]) {
+function parseSheetRows(records: ParsedImportSheetRow[]) {
   return records
-    .map((record, index) => buildImportRow(record, index + 2))
+    .map((record) => buildImportRow(record.values, record.sheetRowNumber))
     .filter((row) => Object.values(row.raw).some((value) => value !== ""));
 }
 
@@ -335,11 +378,78 @@ function applyDuplicateFlags(rows: ImportBatchRow[]) {
   });
 }
 
-function buildBatch(
+function findImportHeaderRow(rows: unknown[][]) {
+  for (const [rowIndex, row] of rows.entries()) {
+    const normalizedHeaders = row.map((value) => normalizeCellValue(value));
+    const headerIndices = expectedHeaders.reduce<Record<string, number>>((accumulator, header) => {
+      const index = normalizedHeaders.indexOf(header);
+
+      if (index >= 0) {
+        accumulator[header] = index;
+      }
+
+      return accumulator;
+    }, {});
+
+    if (expectedHeaders.every((header) => headerIndices[header] !== undefined)) {
+      return {
+        rowIndex,
+        headerIndices,
+      };
+    }
+  }
+
+  return null;
+}
+
+function describeMissingHeaders(rows: unknown[][]) {
+  const bestMatch = rows
+    .map((row) => row.map((value) => normalizeCellValue(value)))
+    .sort((left, right) => {
+      const leftCount = expectedHeaders.filter((header) => left.includes(header)).length;
+      const rightCount = expectedHeaders.filter((header) => right.includes(header)).length;
+      return rightCount - leftCount;
+    })[0] ?? [];
+
+  return expectedHeaders.filter((header) => !bestMatch.includes(header));
+}
+
+export function extractImportRecordsFromWorksheet(sheet: XLSX.WorkSheet): ParsedImportSheet {
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+    header: 1,
+    defval: "",
+    raw: false,
+  });
+  const headerMatch = findImportHeaderRow(rows);
+
+  if (!headerMatch) {
+    const missingHeaders = describeMissingHeaders(rows);
+    throw new Error(`Template mismatch. Missing header(s): ${missingHeaders.join(", ")}`);
+  }
+
+  const records = rows.slice(headerMatch.rowIndex + 1).map((row, index) => {
+    const values = Object.fromEntries(
+      expectedHeaders.map((header) => [header, normalizeCellValue(row[headerMatch.headerIndices[header]])]),
+    ) as SheetRowRecord;
+
+    return {
+      values,
+      sheetRowNumber: headerMatch.rowIndex + index + 2,
+    };
+  });
+
+  return {
+    records,
+    headerRowNumber: headerMatch.rowIndex + 1,
+  };
+}
+
+export function buildImportBatch(
   fileName: string,
   sourceSheetName: string,
   uploadedBy: string,
-  records: SheetRowRecord[],
+  records: ParsedImportSheetRow[],
+  sourceHeaderRowNumber?: number,
 ): ImportBatch {
   const parsedRows = parseSheetRows(records);
   const rows = applyDuplicateFlags(parsedRows);
@@ -348,6 +458,7 @@ function buildBatch(
     id: makeId("IMB"),
     fileName,
     sourceSheetName,
+    sourceHeaderRowNumber,
     uploadedBy,
     uploadedAt: new Date().toISOString(),
     stage: "Assignment in progress",
@@ -357,209 +468,8 @@ function buildBatch(
   };
 }
 
-function buildSeedRecords(): SheetRowRecord[] {
-  return [
-    {
-      "PO Number": "5702001001",
-      "PO Line": "1",
-      Cycle: "C1",
-      Year: "2026",
-      Zone: "Jakarta",
-      Region: "Jakarta Inner",
-      Area: "Jakarta Barat",
-      Wcode: "WH055",
-      "Sales Point": "Jakarta Barat",
-      "Item Name": "TPOSM - Sticker - 40x40 cm - Sticker Chromo - DPP12 20K",
-      Catergory: "Sticker",
-      "Item Code": "2026-00194983-0046",
-      Brand: "Dji Sam Soe Magnum Filter",
-      "Brand SKU": "",
-      "Brand Name PO": "DSE12 25K",
-      Length: "",
-      Width: "",
-      Quantity: "3200",
-      "Order Date": "",
-      "Production Start Date": "",
-      "Production Finish Date": "",
-      "Shipment Date": "",
-      "Est. Received Date": "",
-      "Received Date Based on CPT": "",
-      "DN Number": "",
-      Entity: "PT HM Sampoerna Tbk",
-    },
-    {
-      "PO Number": "5702001001",
-      "PO Line": "2",
-      Cycle: "C1",
-      Year: "2026",
-      Zone: "Jakarta",
-      Region: "Jakarta Inner",
-      Area: "Jakarta Barat",
-      Wcode: "WH055",
-      "Sales Point": "Jakarta Barat",
-      "Item Name": "GT SRC - Backwall SRC Elevate (H) - 27.7x97.7 cm - Duratrans - DPP12 20K",
-      Catergory: "Backwall",
-      "Item Code": "2026-00194983-0050",
-      Brand: "Dji Sam Soe Magnum Filter",
-      "Brand SKU": "",
-      "Brand Name PO": "DSE12 25K",
-      Length: "",
-      Width: "",
-      Quantity: "240",
-      "Order Date": "",
-      "Production Start Date": "",
-      "Production Finish Date": "",
-      "Shipment Date": "",
-      "Est. Received Date": "",
-      "Received Date Based on CPT": "",
-      "DN Number": "",
-      Entity: "PT HM Sampoerna Tbk",
-    },
-    {
-      "PO Number": "5702001002",
-      "PO Line": "1",
-      Cycle: "C1",
-      Year: "2026",
-      Zone: "Jakarta",
-      Region: "Jakarta Inner",
-      Area: "Jakarta Selatan",
-      Wcode: "WH071",
-      "Sales Point": "Jakarta Selatan",
-      "Item Name": "TPOSM - Sticker - 40x40 cm - Sticker Chromo - DPP12 20K",
-      Catergory: "Sticker",
-      "Item Code": "2026-00194983-0046",
-      Brand: "Dji Sam Soe Magnum Filter",
-      "Brand SKU": "",
-      "Brand Name PO": "DSE12 25K",
-      Length: "",
-      Width: "",
-      Quantity: "1800",
-      "Order Date": "",
-      "Production Start Date": "",
-      "Production Finish Date": "",
-      "Shipment Date": "",
-      "Est. Received Date": "",
-      "Received Date Based on CPT": "",
-      "DN Number": "",
-      Entity: "PT HM Sampoerna Tbk",
-    },
-    {
-      "PO Number": "5702001003",
-      "PO Line": "1",
-      Cycle: "C1",
-      Year: "2026",
-      Zone: "Jakarta",
-      Region: "Jakarta Outer",
-      Area: "Bogor",
-      Wcode: "WH014",
-      "Sales Point": "Bogor",
-      "Item Name": "TPOSM - Sticker - 40x40 cm - Sticker Chromo - DPP12 20K",
-      Catergory: "Sticker",
-      "Item Code": "2026-00194983-0046",
-      Brand: "Dji Sam Soe Magnum Filter",
-      "Brand SKU": "",
-      "Brand Name PO": "DSE12 25K",
-      Length: "",
-      Width: "",
-      Quantity: "2100",
-      "Order Date": "",
-      "Production Start Date": "",
-      "Production Finish Date": "",
-      "Shipment Date": "",
-      "Est. Received Date": "",
-      "Received Date Based on CPT": "",
-      "DN Number": "",
-      Entity: "PT HM Sampoerna Tbk",
-    },
-    {
-      "PO Number": "5702001003",
-      "PO Line": "1",
-      Cycle: "C1",
-      Year: "2026",
-      Zone: "Jakarta",
-      Region: "Jakarta Outer",
-      Area: "Bogor",
-      Wcode: "WH014",
-      "Sales Point": "Bogor",
-      "Item Name": "TPOSM - Sticker - 40x40 cm - Sticker Chromo - DPP12 20K",
-      Catergory: "Sticker",
-      "Item Code": "2026-00194983-0046",
-      Brand: "Dji Sam Soe Magnum Filter",
-      "Brand SKU": "",
-      "Brand Name PO": "DSE12 25K",
-      Length: "",
-      Width: "",
-      Quantity: "2100",
-      "Order Date": "",
-      "Production Start Date": "",
-      "Production Finish Date": "",
-      "Shipment Date": "",
-      "Est. Received Date": "",
-      "Received Date Based on CPT": "",
-      "DN Number": "",
-      Entity: "PT HM Sampoerna Tbk",
-    },
-    {
-      "PO Number": "5702001004",
-      "PO Line": "4",
-      Cycle: "C1",
-      Year: "2026",
-      Zone: "Jakarta",
-      Region: "Jakarta Outer",
-      Area: "Depok",
-      Wcode: "WH021",
-      "Sales Point": "Depok",
-      "Item Name": "TPOSM - Sunscreen Without Velcro - 1x3 m - Vinyl FF Frontlight 10 Oz - DPP12 20K",
-      Catergory: "Sunscreen",
-      "Item Code": "2026-00194983-0044",
-      Brand: "Dji Sam Soe Magnum Filter",
-      "Brand SKU": "",
-      "Brand Name PO": "DSE12 25K",
-      Length: "",
-      Width: "",
-      Quantity: "160",
-      "Order Date": "",
-      "Production Start Date": "",
-      "Production Finish Date": "",
-      "Shipment Date": "",
-      "Est. Received Date": "",
-      "Received Date Based on CPT": "",
-      "DN Number": "",
-      Entity: "PT HM Sampoerna Tbk",
-    },
-    {
-      "PO Number": "5702001005",
-      "PO Line": "7",
-      Cycle: "C1",
-      Year: "2026",
-      Zone: "Jakarta",
-      Region: "Jakarta Inner",
-      Area: "Jakarta Timur",
-      Wcode: "WH064",
-      "Sales Point": "Jakarta Timur",
-      "Item Name": "Unknown Sticker Format",
-      Catergory: "Sticker",
-      "Item Code": "ITEM-NOT-IN-MASTER",
-      Brand: "Dji Sam Soe Magnum Filter",
-      "Brand SKU": "",
-      "Brand Name PO": "DSE12 25K",
-      Length: "",
-      Width: "",
-      Quantity: "880",
-      "Order Date": "",
-      "Production Start Date": "",
-      "Production Finish Date": "",
-      "Shipment Date": "",
-      "Est. Received Date": "",
-      "Received Date Based on CPT": "",
-      "DN Number": "",
-      Entity: "PT HM Sampoerna Tbk",
-    },
-  ];
-}
-
 function buildInitialBatches() {
-  return [buildBatch("Sampoerna-Jakarta-Dispatch.xlsx", "Item Vendor Tracking", "Customer Portal", buildSeedRecords())];
+  return [];
 }
 
 const initialSeedBatches = buildInitialBatches();
@@ -623,20 +533,7 @@ function getBatchById(batchId: string) {
   return readStoredBatches().find((batch) => batch.id === batchId) ?? null;
 }
 
-function dispatchAssignedRows(batchId: string): DispatchResult {
-  const batch = getBatchById(batchId);
-
-  if (!batch) {
-    return {
-      createdOrders: [],
-      createdOrderIds: [],
-      skippedRowIds: [],
-      unresolvedAssignedCount: 0,
-      pendingDuplicateCount: 0,
-      remainingUnassignedCount: 0,
-    };
-  }
-
+export function getDispatchReadiness(batch: ImportBatch) {
   const assignedRows = batch.rows.filter(
     (row) => row.assignment && row.status !== "excluded" && row.status !== "dispatched",
   );
@@ -649,20 +546,28 @@ function dispatchAssignedRows(batchId: string): DispatchResult {
       row.status === "assigned",
   );
 
+  return {
+    assignedRows,
+    unresolvedAssignedRows,
+    pendingDuplicateRows,
+    dispatchableRows,
+    remainingUnassignedCount: batch.rows.filter((row) => row.status === "unassigned").length,
+  };
+}
+
+export function createOrdersFromDispatchableRows(batch: ImportBatch, dispatchableRows: ImportBatchRow[], dispatchRunId = "") {
   const groupedRows = dispatchableRows.reduce<Record<string, ImportBatchRow[]>>((accumulator, row) => {
-    const key = `${row.assignment?.vendorId}::${row.match.salesPointId ?? row.raw.wcode}`;
+    const salesPointId = row.match.salesPointId ?? row.raw.wcode;
+    const key = `${row.raw.poNumber}::${salesPointId}::${row.assignment?.vendorId}`;
     accumulator[key] = [...(accumulator[key] ?? []), row];
     return accumulator;
   }, {});
 
-  const createdAt = new Date().toISOString();
-  const createdBy = "Admin Dispatch Workspace";
-  const createdOrders = Object.values(groupedRows).map((rows) => {
+  return Object.values(groupedRows).map((rows) => {
     const firstRow = rows[0];
     const vendor = firstRow.assignment!;
     const salesPointId = firstRow.match.salesPointId ?? firstRow.raw.wcode;
-    const uniquePoNumbers = [...new Set(rows.map((row) => row.raw.poNumber))];
-    const salesPoint = findSalesPointFromRow(firstRow);
+    const sourcePoNumber = firstRow.raw.poNumber;
     const topProgramName = rows.reduce<Record<string, number>>((accumulator, row) => {
       const key = row.raw.brandNamePo || row.raw.brand || "Imported Program";
       accumulator[key] = (accumulator[key] ?? 0) + 1;
@@ -690,7 +595,7 @@ function dispatchAssignedRows(batchId: string): DispatchResult {
       status: getOrderRequestStatus(items),
       createdDate: toIsoDate(),
       deadline: "14 days left",
-      clientPO: uniquePoNumbers.length === 1 ? uniquePoNumbers[0] : `MULTI-PO (${uniquePoNumbers.length})`,
+      clientPO: sourcePoNumber,
       soNumber: "",
       supplier: vendor.vendorName,
       salesPointId,
@@ -702,14 +607,37 @@ function dispatchAssignedRows(batchId: string): DispatchResult {
       importBatchId: batch.id,
       importRowIds: rows.map((row) => row.id),
       assignedVendorId: vendor.vendorId,
-      dispatchRunId: "",
-      importPoNumbers: uniquePoNumbers,
+      dispatchRunId,
+      importPoNumbers: [sourcePoNumber],
       items,
     } satisfies StoredOrder;
   });
+}
 
+function dispatchAssignedRows(batchId: string): DispatchResult {
+  const batch = getBatchById(batchId);
+
+  if (!batch) {
+    return {
+      createdOrders: [],
+      createdOrderIds: [],
+      skippedRowIds: [],
+      unresolvedAssignedCount: 0,
+      pendingDuplicateCount: 0,
+      remainingUnassignedCount: 0,
+    };
+  }
+
+  const createdAt = new Date().toISOString();
+  const createdBy = "Admin Dispatch Workspace";
   const dispatchRunId = makeId("DSP");
-  const finalOrders = createdOrders.map((order) => ({ ...order, dispatchRunId }));
+  const {
+    unresolvedAssignedRows,
+    pendingDuplicateRows,
+    dispatchableRows,
+    remainingUnassignedCount,
+  } = getDispatchReadiness(batch);
+  const finalOrders = createOrdersFromDispatchableRows(batch, dispatchableRows, dispatchRunId);
   appendOrders(finalOrders);
 
   const dispatchedRowIds = new Set(dispatchableRows.map((row) => row.id));
@@ -759,7 +687,7 @@ function dispatchAssignedRows(batchId: string): DispatchResult {
     skippedRowIds,
     unresolvedAssignedCount: unresolvedAssignedRows.length,
     pendingDuplicateCount: pendingDuplicateRows.length,
-    remainingUnassignedCount: batch.rows.filter((row) => row.status === "unassigned").length,
+    remainingUnassignedCount,
   };
 }
 
@@ -783,26 +711,8 @@ export function useImportStore() {
     }
 
     const firstSheet = workbook.Sheets[firstSheetName];
-    const headerRows = XLSX.utils.sheet_to_json<(string | number)[]>(firstSheet, {
-      header: 1,
-      defval: "",
-    });
-    const workbookHeaders = (headerRows[0] ?? []).map((value) => normalizeCellValue(value));
-    const missingHeaders = expectedHeaders.filter((header) => !workbookHeaders.includes(header));
-
-    if (missingHeaders.length > 0) {
-      throw new Error(`Template mismatch. Missing header(s): ${missingHeaders.join(", ")}`);
-    }
-
-    const records = XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, {
-      defval: "",
-      raw: false,
-    });
-
-    const normalizedRecords = records.map((record) =>
-      Object.fromEntries(Object.entries(record).map(([key, value]) => [key, normalizeCellValue(value)])),
-    ) as SheetRowRecord[];
-    const nextBatch = buildBatch(file.name, firstSheetName, uploadedBy, normalizedRecords);
+    const parsedSheet = extractImportRecordsFromWorksheet(firstSheet);
+    const nextBatch = buildImportBatch(file.name, firstSheetName, uploadedBy, parsedSheet.records, parsedSheet.headerRowNumber);
 
     saveBatches([nextBatch, ...readStoredBatches()]);
     return nextBatch;

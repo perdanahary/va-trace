@@ -5,9 +5,7 @@ import { Header } from "@/components/layout/Header";
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { inboxCategories, inboxMessages, type InboxMessage } from "@/lib/messages";
 import { cn } from "@/lib/utils";
 
@@ -95,44 +94,45 @@ export function InboxPage({ role }: InboxPageProps) {
         <Header title="Inbox" />
 
         <main className="space-y-6 p-4 sm:p-6 lg:p-8">
-          <Card className="border-border/70 shadow-sm">
-            <CardHeader className="space-y-2 border-b">
-              <CardTitle className="text-2xl">Inbox</CardTitle>
-              <CardDescription>
-                Supplier, logistics, and system messages related to your account and active order requests.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5 p-6">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex flex-wrap gap-2">
-                  <FilterSelect
-                    icon={CalendarDays}
-                    value={selectedDateFilter}
-                    options={dateFilters}
-                    onChange={(value) => setSelectedDateFilter(value as DateFilter)}
-                  />
-                  <FilterSelect
-                    icon={Mail}
-                    value={selectedCategory}
-                    options={inboxCategories}
-                    onChange={(value) => setSelectedCategory(value as (typeof inboxCategories)[number])}
-                  />
-                </div>
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex items-center gap-4">
+              <Tabs
+                value={selectedCategory}
+                onValueChange={(value) => setSelectedCategory(value as (typeof inboxCategories)[number])}
+                className="w-auto"
+              >
+                <TabsList>
+                  {inboxCategories.map((category) => (
+                    <TabsTrigger key={category} value={category} className="px-4">
+                      {category}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            </div>
 
-                <div className="relative w-full max-w-md">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search messages or order IDs" className="pl-9" />
-                </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center xl:justify-end">
+              <FilterSelect
+                icon={CalendarDays}
+                value={selectedDateFilter}
+                options={dateFilters}
+                onChange={(value) => setSelectedDateFilter(value as DateFilter)}
+              />
+              <div className="relative w-full max-w-md">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search messages or order IDs" className="pl-9" />
               </div>
+            </div>
+          </div>
 
-              <Alert className="border-sky-200 bg-sky-50/70">
-                <AlertTitle className="text-sky-900">Message summary</AlertTitle>
-                <AlertDescription className="text-sky-800">
-                  {filteredMessages.length} messages · {unreadCount} unread
-                </AlertDescription>
-              </Alert>
+          <Alert className="border-sky-200 bg-sky-50/70 shadow-sm">
+            <AlertTitle className="text-sky-900">Message summary</AlertTitle>
+            <AlertDescription className="text-sky-800">
+              {filteredMessages.length} messages · {unreadCount} unread
+            </AlertDescription>
+          </Alert>
 
-              <div className="grid min-h-[640px] grid-cols-1 divide-y divide-border overflow-hidden rounded-xl border xl:grid-cols-[minmax(360px,0.98fr)_minmax(0,1.52fr)] xl:divide-x xl:divide-y-0">
+          <div className="grid min-h-[640px] grid-cols-1 divide-y divide-border overflow-hidden rounded-xl border bg-card shadow-sm xl:grid-cols-[minmax(360px,0.98fr)_minmax(0,1.52fr)] xl:divide-x xl:divide-y-0">
                 <section className="bg-background">
                   <div className="grid grid-cols-[32px_minmax(0,1fr)_140px] items-center border-b px-6 py-4 text-sm font-medium">
                     <div className="h-5 w-5 rounded border border-border bg-background" />
@@ -248,8 +248,6 @@ export function InboxPage({ role }: InboxPageProps) {
                   )}
                 </section>
               </div>
-            </CardContent>
-          </Card>
         </main>
       </div>
     </div>

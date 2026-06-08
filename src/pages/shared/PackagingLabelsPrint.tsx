@@ -1,12 +1,11 @@
-import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, AlertTriangle, Package, Printer } from "lucide-react";
+import { useParams } from "react-router-dom";
+import { AlertTriangle, Package, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
 import { Header } from "@/components/layout/Header";
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { generatePackagingLabels, type PackagingLabel } from "@/lib/deliveryNote";
 import { useOrders } from "@/lib/orderStore";
 
@@ -25,24 +24,22 @@ export function PackagingLabelsPrint({ role = "admin" }: PackagingLabelsPrintPro
     <div className="flex min-h-screen bg-background">
       <Sidebar role={role} />
       <div className="flex-1">
-        <Header title={`Packaging Labels: ${labelsDocument.doNumber}`} />
+        <Header
+          title={`Packaging Labels: ${labelsDocument.doNumber}`}
+          breadcrumbs={[
+            { label: "All Orders", to: role === "admin" ? "/admin/orders" : `/${role}/orders` },
+            { label: order.id, to: backPath },
+            { label: `Packaging Labels: ${labelsDocument.doNumber}` },
+          ]}
+          actions={
+            <Button onClick={() => window.print()} className="gap-2">
+              <Printer className="h-4 w-4" />
+              Print Packaging Labels
+            </Button>
+          }
+        />
 
         <main className="space-y-5 p-4 sm:p-6 lg:p-8">
-          <Card className="mx-auto max-w-[1080px] border-border/70 shadow-sm">
-            <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <Button asChild variant="ghost" className="w-fit justify-start gap-2 px-0">
-                <Link to={backPath}>
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to Order
-                </Link>
-              </Button>
-              <Button onClick={() => window.print()} className="gap-2">
-                <Printer className="h-4 w-4" />
-                Print Packaging Labels
-              </Button>
-            </CardContent>
-          </Card>
-
           {labelsDocument.missingRequiredFields.length > 0 ? (
             <Alert className="mx-auto max-w-[1080px] border-warning/30 bg-warning/10">
               <AlertTriangle className="h-4 w-4 text-warning" />
@@ -52,8 +49,8 @@ export function PackagingLabelsPrint({ role = "admin" }: PackagingLabelsPrintPro
           ) : null}
 
           {labelsDocument.labels.length === 0 ? (
-            <Card className="mx-auto max-w-[1080px] border-dashed border-border bg-background shadow-sm">
-              <CardContent className="space-y-3 p-8 text-center">
+            <div className="mx-auto max-w-[1080px] rounded-lg border border-dashed border-border bg-background p-8 text-center shadow-sm">
+              <div className="space-y-3">
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
                   <Package className="h-5 w-5" />
                 </div>
@@ -61,8 +58,8 @@ export function PackagingLabelsPrint({ role = "admin" }: PackagingLabelsPrintPro
                 <p className="text-sm text-muted-foreground">
                   Packaging labels are created only for lines with delivered quantity greater than zero.
                 </p>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ) : (
             <article className="packaging-label-sheet mx-auto max-w-[1080px]">
               {labelsDocument.labels.map((label) => (

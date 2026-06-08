@@ -14,12 +14,15 @@ export type OrderStatus =
   | "Urgent"
   | "Waiting";
 
+export type SupplierStatusLabel = "Active" | "Inactive";
+export type StatusBadgeValue = OrderStatus | OrderRequestStatus | SupplierStatusLabel;
+
 interface StatusBadgeProps {
-  status: OrderStatus | OrderRequestStatus;
+  status: StatusBadgeValue;
   className?: string;
 }
 
-const statusVariants: Record<OrderStatus, "success" | "processing" | "warning" | "destructive" | "secondary"> = {
+const statusVariants: Partial<Record<StatusBadgeValue, "success" | "processing" | "warning" | "destructive" | "secondary">> = {
   Created: "secondary",
   Accepted: "success",
   "In Production": "processing",
@@ -30,6 +33,8 @@ const statusVariants: Record<OrderStatus, "success" | "processing" | "warning" |
   Overdue: "destructive",
   Urgent: "destructive",
   Waiting: "warning",
+  Active: "success",
+  Inactive: "secondary",
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
@@ -48,10 +53,11 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
     );
   }
 
-  const variant = statusVariants[status as OrderStatus] ?? "secondary";
+  const variant = statusVariants[status] ?? "secondary";
+  const textTransformClass = status === "Active" || status === "Inactive" ? "normal-case" : "uppercase";
 
   return (
-    <Badge variant={variant} className={cn("rounded-full uppercase tracking-[0.18em]", className)}>
+    <Badge variant={variant} className={cn("rounded-full tracking-[0.18em]", textTransformClass, className)}>
       {status}
     </Badge>
   );

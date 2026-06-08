@@ -1,8 +1,25 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { mockBrands } from "@/lib/mockData";
-import { Search, Plus, MoreVertical, Bookmark } from "lucide-react";
+import { Search, Plus, MoreHorizontal, Bookmark } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function BrandList() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -23,96 +40,101 @@ export function BrandList() {
   }, [searchQuery]);
 
   return (
-    <div className="flex min-h-screen bg-canvas-white font-sans">
+    <div className="flex min-h-screen bg-background">
       <Sidebar role="admin" />
       <div className="flex-1">
         <Header title="Brand Management" />
         
-        <main className="p-8 space-y-6">
-          <section className="flex items-center justify-between animate-in-smart">
-            <div className="relative w-96 group">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
-              <input 
-                type="text" 
+        <main className="space-y-4 p-4 sm:p-6 lg:p-8">
+          <section className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between animate-in-smart">
+            <div className="relative w-full xl:max-w-xl group">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <Input 
                 placeholder="Search brands..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-white border border-border rounded-md text-sm focus:ring-1 focus:ring-primary outline-none transition-all shadow-sm"
+                className="pl-9"
               />
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-md text-xs font-bold hover:bg-primary/90 transition-all btn-press shadow-md">
-              <Plus className="w-3.5 h-3.5" />
+            <Button className="gap-2">
+              <Plus className="w-4 h-4" />
               Register New Brand
-            </button>
+            </Button>
           </section>
 
-          <section className="bg-white rounded-lg border border-border overflow-hidden shadow-sm animate-in-smart" style={{ animationDelay: '100ms' }}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-accent/30 text-[10px] uppercase tracking-wider text-muted-foreground font-bold border-b border-border">
-                    <th className="px-6 py-4">Brand Information</th>
-                    <th className="px-6 py-4">Alias</th>
-                    <th className="px-6 py-4">Price Label</th>
-                    <th className="px-6 py-4">System Name</th>
-                    <th className="px-6 py-4 text-center"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
+          <Card className="border-border/70 shadow-sm p-0 animate-in-smart" style={{ animationDelay: '100ms' }}>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Brand Information</TableHead>
+                    <TableHead>Alias</TableHead>
+                    <TableHead>Price Label</TableHead>
+                    <TableHead>System Name</TableHead>
+                    <TableHead className="text-right" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filteredBrands.map((brand, index) => (
-                    <tr
+                    <TableRow
                       key={`${brand.alias}-${brand.sysname}-${index}`}
-                      className="hover:bg-accent/10 transition-colors group animate-in-smart"
+                      className="group animate-in-smart"
                       style={{ animationDelay: `${150 + (index * 20)}ms` }}
                     >
-                      <td className="px-6 py-4">
+                      <TableCell>
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded bg-slate-50 flex items-center justify-center text-slate-400 border border-border">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-muted text-muted-foreground">
                             <Bookmark className="w-4 h-4" />
                           </div>
                           <div>
-                            <p className="text-xs font-bold leading-tight">{brand.name}</p>
-                            <p className="text-[10px] text-muted-foreground/80 mt-1 font-mono uppercase tracking-tighter">
+                            <p className="text-sm font-medium leading-tight">{brand.name}</p>
+                            <p className="text-[10px] text-muted-foreground mt-1 font-mono uppercase tracking-tighter">
                               Brand master record
                             </p>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-xs font-medium text-foreground font-mono whitespace-nowrap">
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm font-medium text-foreground font-mono whitespace-nowrap">
                           {brand.alias}
                         </span>
-                      </td>
-                      <td className="px-6 py-4">
+                      </TableCell>
+                      <TableCell>
                         {brand.priceLabel ? (
                           <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-primary/10 text-primary">
                             {brand.priceLabel}
                           </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
+                          <span className="text-sm text-muted-foreground">—</span>
                         )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-xs text-muted-foreground font-mono">{brand.sysname}</span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <button className="p-1.5 hover:bg-accent rounded-md transition-colors btn-press">
-                          <MoreVertical className="w-4 h-4 text-muted-foreground" />
-                        </button>
-                      </td>
-                    </tr>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-muted-foreground font-mono">{brand.sysname}</span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>Edit Brand</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive">Delete Brand</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                  {filteredBrands.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground text-sm">
-                        No brands match your search.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="p-4 bg-accent/10 border-t border-border flex items-center justify-between">
+                </TableBody>
+              </Table>
+              {filteredBrands.length === 0 && (
+                <div className="px-6 py-12 text-center text-muted-foreground text-sm">
+                  No brands match your search.
+                </div>
+              )}
+            </CardContent>
+            <div className="p-4 bg-muted/30 border-t border-border flex items-center justify-between">
               <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
                 Showing {filteredBrands.length} of {mockBrands.length} brands
               </span>
@@ -120,7 +142,7 @@ export function BrandList() {
                 Brand Directory
               </span>
             </div>
-          </section>
+          </Card>
         </main>
       </div>
     </div>

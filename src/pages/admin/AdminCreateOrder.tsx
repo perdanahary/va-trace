@@ -1,21 +1,20 @@
-import { useState, type HTMLInputTypeAttribute } from "react";
+import { useMemo, useState, type PointerEvent, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
-import { Calendar, CheckCircle, ChevronDown, Info, Package, Plus, Search, Trash2, UserCheck, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { CheckCircle, GripVertical, Info, Package, Plus, Trash2, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
+import { SearchableCombobox, type ComboboxOption } from "@/components/ui/searchable-combobox";
 import { mockSalesPoints } from "@/lib/mockData";
 import { mockProducts } from "@/lib/productMaster";
-import { getSalesPointDeliveryProfile } from "@/lib/deliveryNote";
+import { appendOrders, createManualOrder } from "@/lib/orderStore";
 import { useSupplierStore } from "@/lib/supplierStore";
 import { cn } from "@/lib/utils";
 
@@ -23,11 +22,11 @@ interface AdminCreateOrderProps {
   role?: UserRole;
 }
 
-type OrderItem = { id: number; product: string; quantity: number };
+type OrderItem = { id: string; productCode: string; quantity: number; poLineNumber: string };
 
 export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
   const navigate = useNavigate();
-  const [items, setItems] = useState<OrderItem[]>([{ id: 1, product: "", quantity: 0 }]);
+  const [items, setItems] = useState<OrderItem[]>([{ id: "item-1", productCode: "", quantity: 0, poLineNumber: "1" }]);
   const [clientPO, setClientPO] = useState("");
   const [campaignName, setCampaignName] = useState("");
   const [soNumber, setSoNumber] = useState("");
@@ -37,23 +36,167 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
   const [selectedSalesPoint, setSelectedSalesPoint] = useState("WH020");
   const [deadlinePreset, setDeadlinePreset] = useState("7-days");
   const [customDeadline, setCustomDeadline] = useState("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { suppliers } = useSupplierStore();
 
   const salesPoint = mockSalesPoints.find((entry) => entry.wcode === selectedSalesPoint) ?? mockSalesPoints[0];
-  const deliveryProfile = getSalesPointDeliveryProfile(selectedSalesPoint);
-  const selectedSupplierName = selectedSupplier ? suppliers.find((supplier) => supplier.id === selectedSupplier)?.name ?? "Not Selected" : "Not Selected";
+  const selectedSupplierRecord = suppliers.find((supplier) => supplier.id === selectedSupplier) ?? null;
+  const selectedSupplierName = selectedSupplierRecord?.name ?? "Not Selected";
   const totalQuantity = items.reduce((total, item) => total + item.quantity, 0);
   const returnPath = role === "admin" ? "/admin/orders" : `/${role}/orders`;
-  const submitPath = role === "admin" ? "/admin/orders" : `/${role}/orders`;
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const productOptions = useMemo(
+    () =>
+      mockProducts.map((product) => ({
+        value: product.code,
+        label: product.name,
+        description: product.code,
+        keywords: [product.code, product.brand, product.material, product.dimensions].filter(Boolean) as string[],
+      })),
+    [],
+  );
+  const supplierOptions = useMemo(
+    () =>
+      suppliers.map((supplier) => ({
+        value: supplier.id,
+        label: supplier.name,
+        description: supplier.id,
+        keywords: [supplier.id, supplier.name, supplier.picName, supplier.email, supplier.phone, supplier.type, supplier.status].filter(Boolean) as string[],
+      })),
+    [suppliers],
+  );
+  const salesPointOptions = useMemo(
+    () =>
+      mockSalesPoints.map((entry) => ({
+        value: entry.wcode,
+        label: `${entry.wcode} - ${entry.salesPoint}`,
+        description: `${entry.region} · ${entry.zone}`,
+        keywords: [entry.wcode, entry.salesPoint, entry.area, entry.region, entry.zone].filter(Boolean) as string[],
+      })),
+    [],
+  );
 
-  const addItem = () => setItems([...items, { id: Date.now(), product: "", quantity: 0 }]);
-  const removeItem = (id: number) => {
-    if (items.length > 1) setItems(items.filter((item) => item.id !== id));
+  const deadlineLabel =
+    deadlinePreset === "custom" ? customDeadline : (deadlineOptions.find((option) => option.value === deadlinePreset)?.label ?? "");
+
+  const validationErrors = useMemo(() => {
+    const errors: string[] = [];
+
+    if (!clientPO.trim()) errors.push("Customer PO Ref is required.");
+    if (!campaignName.trim()) errors.push("Campaign Name is required.");
+    if (!soNumber.trim()) errors.push("SO Number is required.");
+    if (!picProgramName.trim()) errors.push("PIC Program Name is required.");
+    if (!picProgramEmail.trim()) errors.push("PIC Program Email is required.");
+    if (!selectedSupplierRecord) errors.push("Supplier assignment is required.");
+    if (!selectedSalesPoint) errors.push("Sales point is required.");
+    if (!deadlineLabel.trim()) errors.push("Deadline is required.");
+
+    items.forEach((item, index) => {
+      const product = mockProducts.find((entry) => entry.code === item.productCode);
+
+      if (!item.productCode) errors.push(`Item ${index + 1}: select a product.`);
+      if (!product) errors.push(`Item ${index + 1}: product code is not recognized.`);
+      if (item.quantity <= 0) errors.push(`Item ${index + 1}: quantity must be greater than zero.`);
+    });
+
+    return errors;
+  }, [campaignName, clientPO, deadlineLabel, items, picProgramEmail, picProgramName, selectedSalesPoint, selectedSupplierRecord, soNumber]);
+
+  const addItem = () => {
+    setItems((current) => [
+      ...current,
+      { id: `item-${Date.now()}`, productCode: "", quantity: 0, poLineNumber: String(current.length + 1) },
+    ]);
   };
-  const updateItem = (id: number, field: "product" | "quantity", value: string | number) => {
+
+  const removeItem = (id: string) => {
+    if (items.length > 1) {
+      setItems((current) => renumberItems(current.filter((item) => item.id !== id)));
+    }
+  };
+
+  const updateItem = (id: string, field: "productCode" | "quantity" | "poLineNumber", value: string | number) => {
     setItems((currentItems) =>
-      currentItems.map((item) => (item.id === id ? { ...item, [field]: field === "quantity" ? Number(value) || 0 : value } : item)),
+      currentItems.map((item) => (item.id === id ? { ...item, [field]: field === "quantity" ? Number(value) || 0 : String(value) } : item)),
     );
+  };
+
+  const handlePointerDown = (id: string, event: PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDraggedItemId(id);
+    setDropTargetId(id);
+  };
+
+  const handlePointerMove = (event: PointerEvent<HTMLButtonElement>) => {
+    if (!draggedItemId) return;
+
+    const target = document.elementFromPoint(event.clientX, event.clientY);
+    const row = target?.closest<HTMLElement>("[data-item-row='true']");
+    const targetId = row?.dataset.itemId;
+
+    if (targetId && targetId !== draggedItemId) {
+      setDropTargetId(targetId);
+    }
+  };
+
+  const handlePointerUp = () => {
+    if (!draggedItemId || !dropTargetId || draggedItemId === dropTargetId) {
+      setDraggedItemId(null);
+      setDropTargetId(null);
+      return;
+    }
+
+    setItems((current) => {
+      return reorderItems(current, draggedItemId, dropTargetId);
+    });
+
+    setDraggedItemId(null);
+    setDropTargetId(null);
+  };
+
+  const handlePointerCancel = () => {
+    setDraggedItemId(null);
+    setDropTargetId(null);
+  };
+
+  const handleSubmit = () => {
+    if (validationErrors.length > 0) {
+      const message = "Fix the required fields before sending this order.";
+      setSubmitError(message);
+      toast.error(message);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    const order = createManualOrder({
+      campaign: campaignName,
+      clientPO,
+      soNumber,
+      supplier: selectedSupplierName,
+      salesPointId: selectedSalesPoint,
+      picProgramName,
+      picProgramEmail,
+      deadline: deadlineLabel,
+      items: items.map((item, index) => {
+        const product = mockProducts.find((entry) => entry.code === item.productCode);
+
+        return {
+          productCode: item.productCode,
+          name: product?.name ?? item.productCode,
+          quantity: item.quantity,
+          poLineNumber: item.poLineNumber || String(index + 1),
+        };
+      }),
+    });
+
+    appendOrders([order]);
+    toast.success(`Order ${order.id} created.`);
+    navigate(`/admin/orders/${order.id}`);
   };
 
   return (
@@ -63,12 +206,24 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
         <Header title={`Create Order Request (${role.charAt(0).toUpperCase() + role.slice(1)})`} />
 
         <main className="mx-auto max-w-7xl space-y-8 p-4 sm:p-6 lg:p-8">
-          <Button asChild variant="ghost" className="w-fit justify-start gap-2 px-0">
-            <Link to={returnPath}>
-              <ArrowLeft className="h-4 w-4" />
-              Discard and Return
-            </Link>
-          </Button>
+          {submitError ? (
+            <Alert className="items-start gap-4 border-destructive/20 bg-destructive/5 text-foreground">
+              <AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
+              <div className="flex-1">
+                <AlertTitle className="text-base font-semibold leading-none">Cannot send yet</AlertTitle>
+                <AlertDescription className="mt-2">
+                  <p className="font-medium text-muted-foreground">{submitError}</p>
+                  {validationErrors.length > 0 ? (
+                    <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm">
+                      {validationErrors.map((error) => (
+                        <li key={error} className="text-foreground/80">{error}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </AlertDescription>
+              </div>
+            </Alert>
+          ) : null}
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="space-y-8 lg:col-span-2">
@@ -78,24 +233,25 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                     <Info className="h-4 w-4 text-primary" />
                     <CardTitle className="text-base">Project & Supplier Info</CardTitle>
                   </div>
-                  <CardDescription>Capture the order request, supplier assignment, and delivery-note aligned metadata.</CardDescription>
+                  <CardDescription>Capture the order request and supplier assignment.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-4 md:grid-cols-2">
-                    <FormField label="Customer PO Ref" required>
-                      <Input placeholder="e.g. 123928098" value={clientPO} onChange={(e) => setClientPO(e.target.value)} />
+                    <FormField label="Customer PO Ref" required htmlFor="client-po">
+                      <Input id="client-po" placeholder="e.g. 123928098" value={clientPO} onChange={(e) => setClientPO(e.target.value)} />
                     </FormField>
-                    <FormField label="Campaign Name" required>
-                      <Input placeholder="e.g. Sunscreen Q2" value={campaignName} onChange={(e) => setCampaignName(e.target.value)} />
+                    <FormField label="Campaign Name" required htmlFor="campaign-name">
+                      <Input id="campaign-name" placeholder="e.g. Sunscreen Q2" value={campaignName} onChange={(e) => setCampaignName(e.target.value)} />
                     </FormField>
-                    <FormField label="SO Number" required>
-                      <Input placeholder="e.g. SO123928" value={soNumber} onChange={(e) => setSoNumber(e.target.value)} />
+                    <FormField label="SO Number" required htmlFor="so-number">
+                      <Input id="so-number" placeholder="e.g. SO123928" value={soNumber} onChange={(e) => setSoNumber(e.target.value)} />
                     </FormField>
-                    <FormField label="PIC Program Name" required>
-                      <Input placeholder="e.g. Chandra Sadikin" value={picProgramName} onChange={(e) => setPicProgramName(e.target.value)} />
+                    <FormField label="PIC Program Name" required htmlFor="pic-program-name">
+                      <Input id="pic-program-name" placeholder="e.g. Chandra Sadikin" value={picProgramName} onChange={(e) => setPicProgramName(e.target.value)} />
                     </FormField>
-                    <FormField label="PIC Program Email" required>
+                    <FormField label="PIC Program Email" required htmlFor="pic-program-email">
                       <Input
+                        id="pic-program-email"
                         type="email"
                         placeholder="e.g. chandra.sadikin@sampoerna.com"
                         value={picProgramEmail}
@@ -103,32 +259,24 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                       />
                     </FormField>
                     <FormField label="Sales Point" required>
-                      <Select value={selectedSalesPoint} onValueChange={setSelectedSalesPoint}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {mockSalesPoints.map((entry) => (
-                            <SelectItem key={`${entry.wcode}-${entry.salesPoint}`} value={entry.wcode}>
-                              {entry.wcode} - {entry.salesPoint}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableCombobox
+                        value={selectedSalesPoint}
+                        onValueChange={setSelectedSalesPoint}
+                        options={salesPointOptions}
+                        placeholder="Select a sales point..."
+                        searchPlaceholder="Search sales point, zone, region, or code..."
+                        emptyText="No sales points match your search."
+                      />
                     </FormField>
                     <FormField label="Assign Supplier" required>
-                      <Select value={selectedSupplier} onValueChange={setSelectedSupplier}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a supplier..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {suppliers.map((supplier) => (
-                            <SelectItem key={supplier.id} value={supplier.id}>
-                              {supplier.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableCombobox
+                        value={selectedSupplier}
+                        onValueChange={setSelectedSupplier}
+                        options={supplierOptions}
+                        placeholder="Select a supplier..."
+                        searchPlaceholder="Search supplier, PIC, email, phone, or code..."
+                        emptyText="No suppliers match your search."
+                      />
                     </FormField>
                     <FormField label="Deadline" required>
                       <Select value={deadlinePreset} onValueChange={setDeadlinePreset}>
@@ -145,42 +293,19 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                       </Select>
                     </FormField>
                     {deadlinePreset === "custom" ? (
-                      <FormField label="Custom Deadline" required>
-                        <Input type="date" value={customDeadline} onChange={(e) => setCustomDeadline(e.target.value)} />
+                      <FormField label="Custom Deadline" required htmlFor="custom-deadline">
+                        <Input
+                          id="custom-deadline"
+                          type="date"
+                          value={customDeadline}
+                          onChange={(e) => setCustomDeadline(e.target.value)}
+                        />
                       </FormField>
                     ) : null}
                   </div>
                   <p className="mt-4 text-xs text-muted-foreground">
                     Most order requests are short-horizon. Choose a relative due time first; use an exact date only when the year matters.
                   </p>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/70 shadow-sm">
-                <CardHeader className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-primary" />
-                    <CardTitle className="text-base">Delivery Note Alignment</CardTitle>
-                  </div>
-                  <CardDescription>Preview the data that will carry into delivery-note and print workflows.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <AlignmentPreviewItem label="Program" value={campaignName || "Campaign name will map here"} note="Maps from Campaign Name" />
-                    <AlignmentPreviewItem label="SO Number" value={soNumber || "SO number is required for delivery note"} note="Shown on order detail and print" />
-                    <AlignmentPreviewItem
-                      label="PIC Program"
-                      value={
-                        picProgramName || picProgramEmail
-                          ? `${picProgramName}${picProgramEmail ? ` (${picProgramEmail})` : ""}`
-                          : "PIC program name and email will map here"
-                      }
-                      note="Built from PIC Program Name + Email"
-                    />
-                    <AlignmentPreviewItem label="Deliver To" value={deliveryProfile.deliveryCompanyName} note={deliveryProfile.deliveryLocationName} />
-                    <AlignmentPreviewItem label="Address" value={deliveryProfile.address} note={deliveryProfile.phone || "No phone mapped"} />
-                    <AlignmentPreviewItem label="PIC Client" value={deliveryProfile.picClient || "Client PIC not mapped"} note={deliveryProfile.wcode} />
-                  </div>
                 </CardContent>
               </Card>
 
@@ -200,45 +325,25 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                 <CardContent className="space-y-4">
                   <AnimatePresence initial={false}>
                     {items.map((item, index) => (
-                      <motion.div
+                      <ItemRow
                         key={item.id}
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="grid gap-3 overflow-hidden md:grid-cols-12 md:items-end"
-                      >
-                        <div className="space-y-2 md:col-span-7">
-                          {index === 0 ? <label className="text-xs font-medium">Product</label> : null}
-                          <Select value={item.product} onValueChange={(value) => updateItem(item.id, "product", value)}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select product..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {mockProducts.map((product) => (
-                                <SelectItem key={product.code} value={product.code}>
-                                  {product.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2 md:col-span-4">
-                          {index === 0 ? <label className="text-xs font-medium">Quantity</label> : null}
-                          <Input type="number" placeholder="0" value={item.quantity || ""} onChange={(event) => updateItem(item.id, "quantity", event.target.value)} />
-                        </div>
-                        <div className="md:col-span-1 md:pb-0.5">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className={cn("h-10 w-10", items.length === 1 && "opacity-20")}
-                            onClick={() => removeItem(item.id)}
-                            disabled={items.length === 1}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </motion.div>
+                        id={item.id}
+                        index={index}
+                        itemCount={items.length}
+                        isDragging={draggedItemId === item.id}
+                        isDropTarget={dropTargetId === item.id}
+                        productCode={item.productCode}
+                        productOptions={productOptions}
+                        quantity={item.quantity}
+                        poLineNumber={item.poLineNumber}
+                        onProductChange={(value) => updateItem(item.id, "productCode", value)}
+                        onQuantityChange={(value) => updateItem(item.id, "quantity", value)}
+                        onRemove={() => removeItem(item.id)}
+                        onPointerDown={(event) => handlePointerDown(item.id, event)}
+                        onPointerMove={handlePointerMove}
+                        onPointerUp={handlePointerUp}
+                        onPointerCancel={handlePointerCancel}
+                      />
                     ))}
                   </AnimatePresence>
                 </CardContent>
@@ -263,21 +368,15 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                     <ReviewRow label="Total Qty" value={`${totalQuantity} qty`} />
                     <ReviewRow
                       label="Deadline"
-                      value={
-                        deadlinePreset === "custom"
-                          ? customDeadline || "Exact date"
-                          : deadlineOptions.find((option) => option.value === deadlinePreset)?.label ?? "Unknown"
-                      }
+                      value={deadlineLabel || (deadlineOptions.find((option) => option.value === deadlinePreset)?.label ?? "Unknown")}
                     />
                   </div>
-                  <div className="rounded-md border border-white/20 bg-white/10 p-3 text-xs leading-relaxed">
-                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em]">Delivery Note Snapshot</p>
-                    <p>{deliveryProfile.deliveryCompanyName}</p>
-                    <p>{deliveryProfile.deliveryLocationName}</p>
-                    <p>{deliveryProfile.address}</p>
-                  </div>
-                  <Button onClick={() => navigate(submitPath)} className="w-full bg-white text-primary hover:bg-slate-50">
-                    Approve & Send to Vendor
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    className="w-full bg-white text-primary hover:bg-slate-50 disabled:opacity-70"
+                  >
+                    {isSubmitting ? "Sending..." : "Approve & Send to Vendor"}
                   </Button>
                 </CardContent>
               </Card>
@@ -300,15 +399,17 @@ const deadlineOptions = [
 function FormField({
   label,
   required = false,
+  htmlFor,
   children,
 }: {
   label: string;
   required?: boolean;
-  children: React.ReactNode;
+  htmlFor?: string;
+  children: ReactNode;
 }) {
   return (
     <div className="space-y-2">
-      <label className="text-xs font-medium">
+      <label className="text-xs font-medium" htmlFor={htmlFor}>
         {label} {required ? "*" : ""}
       </label>
       {children}
@@ -316,14 +417,122 @@ function FormField({
   );
 }
 
-function AlignmentPreviewItem({ label, value, note }: { label: string; value: string; note?: string }) {
+function ItemRow({
+  id,
+  index,
+  itemCount,
+  isDragging,
+  isDropTarget,
+  productCode,
+  productOptions,
+  quantity,
+  poLineNumber,
+  onProductChange,
+  onQuantityChange,
+  onRemove,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+  onPointerCancel,
+}: {
+  id: string;
+  index: number;
+  itemCount: number;
+  isDragging: boolean;
+  isDropTarget: boolean;
+  productCode: string;
+  productOptions: ComboboxOption[];
+  quantity: number;
+  poLineNumber: string;
+  onProductChange: (value: string) => void;
+  onQuantityChange: (value: string) => void;
+  onRemove: () => void;
+  onPointerDown: (event: PointerEvent<HTMLButtonElement>) => void;
+  onPointerMove: (event: PointerEvent<HTMLButtonElement>) => void;
+  onPointerUp: () => void;
+  onPointerCancel: () => void;
+}) {
   return (
-    <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{label}</p>
-      <p className="mt-2 break-words text-sm font-semibold">{value}</p>
-      {note ? <p className="mt-1 break-words text-xs text-muted-foreground">{note}</p> : null}
-    </div>
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      exit={{ opacity: 0, height: 0 }}
+      data-item-row="true"
+      data-item-id={id}
+      className={cn(
+        "grid gap-3 overflow-visible md:grid-cols-12 md:items-end",
+        isDragging && "z-10 opacity-80",
+        isDropTarget && !isDragging && "rounded-lg ring-1 ring-primary/30",
+      )}
+    >
+      <div className="flex items-end gap-2 md:col-span-1 md:pb-0.5">
+        <button
+          type="button"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerCancel}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-input bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          style={{ touchAction: "none", cursor: "grab" }}
+          aria-label={`Reorder line ${poLineNumber}`}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="space-y-2 md:col-span-2">
+        {index === 0 ? <label className="text-xs font-medium">Line</label> : null}
+        <Input value={poLineNumber} readOnly tabIndex={-1} className="bg-muted/40" placeholder="1" />
+      </div>
+      <div className="space-y-2 md:col-span-6">
+        {index === 0 ? <label className="text-xs font-medium">Product</label> : null}
+        <SearchableCombobox
+          value={productCode}
+          onValueChange={onProductChange}
+          options={productOptions}
+          placeholder="Select product..."
+          searchPlaceholder="Search product name, code, brand, or material..."
+          emptyText="No products match your search."
+        />
+      </div>
+      <div className="space-y-2 md:col-span-2">
+        {index === 0 ? <label className="text-xs font-medium">Quantity</label> : null}
+        <Input type="number" placeholder="0" value={quantity || ""} onChange={(event) => onQuantityChange(event.target.value)} />
+      </div>
+      <div className="md:col-span-1 md:pb-0.5">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={cn("h-10 w-10", itemCount === 1 && "opacity-20")}
+          onClick={onRemove}
+          disabled={itemCount === 1}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </motion.div>
   );
+}
+
+function renumberItems(items: OrderItem[]) {
+  return items.map((item, index) => ({
+    ...item,
+    poLineNumber: String(index + 1),
+  }));
+}
+
+function reorderItems(items: OrderItem[], sourceId: string, targetId: string) {
+  const sourceIndex = items.findIndex((item) => item.id === sourceId);
+  const targetIndex = items.findIndex((item) => item.id === targetId);
+
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+    return items;
+  }
+
+  const nextItems = [...items];
+  const [movedItem] = nextItems.splice(sourceIndex, 1);
+  nextItems.splice(targetIndex, 0, movedItem);
+  return renumberItems(nextItems);
 }
 
 function ReviewRow({ label, value }: { label: string; value: string }) {

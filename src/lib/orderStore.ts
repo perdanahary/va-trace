@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { mockOrders, type ComplaintHistoryEntry, type ComplaintLineItem, type ComplaintStatus, type Order, type OrderComplaint, type OrderLine } from "@/lib/mockData";
+import { getOrderRequestStatus } from "@/lib/orderStatus";
 
 export interface ImportedOrderLine extends OrderLine {
   sourceBatchId?: string;
@@ -16,6 +17,27 @@ export interface StoredOrder extends Omit<Order, "items"> {
   dispatchRunId?: string;
   importPoNumbers?: string[];
   items: ImportedOrderLine[];
+}
+
+export interface ManualOrderLineDraft {
+  productCode: string;
+  name: string;
+  quantity: number;
+  poLineNumber?: string;
+}
+
+export interface ManualOrderDraft {
+  campaign: string;
+  clientPO: string;
+  soNumber: string;
+  supplier: string;
+  salesPointId: string;
+  picProgramName: string;
+  picProgramEmail: string;
+  deadline: string;
+  createdDate?: string;
+  sourceType?: "manual";
+  items: ManualOrderLineDraft[];
 }
 
 export interface RaiseComplaintInput {
@@ -163,6 +185,44 @@ function clampQuantity(value: number, max: number) {
   }
 
   return Math.max(0, Math.min(Math.round(value), max));
+}
+
+function makeOrderId() {
+  return `OR-${new Date().getFullYear()}-${Math.floor(Math.random() * 900000 + 100000)}`;
+}
+
+function toIsoDate(date = new Date()) {
+  return date.toISOString().slice(0, 10);
+}
+
+export function createManualOrder(draft: ManualOrderDraft): StoredOrder {
+  const items: ImportedOrderLine[] = draft.items.map((item, index) => ({
+    id: `ITEM-${index + 1}`,
+    productCode: item.productCode,
+    poLineNumber: item.poLineNumber?.trim() || String(index + 1),
+    name: item.name,
+    quantity: item.quantity,
+    deliveredQuantity: 0,
+    status: "Created",
+  }));
+
+  return {
+    id: makeOrderId(),
+    campaign: draft.campaign.trim(),
+    status: getOrderRequestStatus(items),
+    createdDate: draft.createdDate ?? toIsoDate(),
+    deadline: draft.deadline.trim(),
+    clientPO: draft.clientPO.trim(),
+    soNumber: draft.soNumber.trim(),
+    supplier: draft.supplier.trim(),
+    salesPointId: draft.salesPointId,
+    picProgram: {
+      name: draft.picProgramName.trim(),
+      email: draft.picProgramEmail.trim(),
+    },
+    sourceType: draft.sourceType ?? "manual",
+    items,
+  };
 }
 
 export function raiseQuantityComplaint(orderId: string, input: RaiseComplaintInput) {

@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
-  ArrowLeft,
   Calendar,
   Clock,
   ClipboardList,
@@ -158,51 +157,51 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
       ]
     : [];
 
+  const headerActions = (
+    <>
+      <Button asChild>
+        <Link to={deliveryNotePath}>
+          <Printer className="h-4 w-4" />
+          Delivery Note
+        </Link>
+      </Button>
+      <Button asChild variant="outline">
+        <Link to={packagingLabelsPath}>
+          <Package className="h-4 w-4" />
+          Packaging Labels
+        </Link>
+      </Button>
+      <Button variant="outline">
+        <Edit3 className="h-4 w-4" />
+        Edit Order
+      </Button>
+      <Button variant="destructive">
+        <Trash2 className="h-4 w-4" />
+        Cancel OR
+      </Button>
+      {canRaiseComplaint ? (
+        <Button onClick={openComplaintDialog} variant={complaint ? "outline" : "default"}>
+          <AlertTriangle className="h-4 w-4" />
+          {complaint ? "Review Complaint" : "Raise Complaint"}
+        </Button>
+      ) : null}
+    </>
+  );
+
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role={role} />
       <div className="flex-1">
-        <Header title={`Order Details: ${order.id}`} />
+        <Header
+          title={order.id}
+          breadcrumbs={[
+            { label: "All Orders", to: backPath },
+            { label: order.id },
+          ]}
+          actions={headerActions}
+        />
 
         <main className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <Button asChild variant="ghost" className="w-fit justify-start gap-2 px-0">
-              <Link to={backPath}>
-                <ArrowLeft className="h-4 w-4" />
-                Back to All Orders
-              </Link>
-            </Button>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Button asChild>
-                  <Link to={deliveryNotePath}>
-                    <Printer className="h-4 w-4" />
-                    Delivery Note
-                </Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link to={packagingLabelsPath}>
-                  <Package className="h-4 w-4" />
-                  Packaging Labels
-                </Link>
-              </Button>
-              <Button variant="outline">
-                <Edit3 className="h-4 w-4" />
-                Edit Order
-              </Button>
-                <Button variant="destructive">
-                  <Trash2 className="h-4 w-4" />
-                  Cancel OR
-                </Button>
-              {canRaiseComplaint ? (
-                <Button onClick={openComplaintDialog} variant={complaint ? "outline" : "default"}>
-                  <AlertTriangle className="h-4 w-4" />
-                  {complaint ? "Review Complaint" : "Raise Complaint"}
-                </Button>
-              ) : null}
-              </div>
-            </div>
-
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="space-y-6 lg:col-span-2">
               <Card className="border-border/70 shadow-sm">

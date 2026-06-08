@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { AlertCircle, ArrowRight, FileSpreadsheet, Inbox, Loader2, Upload } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, FileSpreadsheet, Inbox, Loader2, Upload } from "lucide-react";
+import { toast } from "sonner";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
@@ -22,6 +23,7 @@ export function ImportUploadPage({ role = "customer" }: ImportUploadPageProps) {
   const [dragActive, setDragActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [lastUploadedBatch, setLastUploadedBatch] = useState<Awaited<ReturnType<typeof uploadWorkbook>> | null>(null);
 
   const batchLinkBase = role === "customer" ? "/admin/imports" : `/${role}/imports`;
   const pageTitle = role === "customer" ? "Bulk PO Upload" : "Import Inbox";
@@ -31,10 +33,13 @@ export function ImportUploadPage({ role = "customer" }: ImportUploadPageProps) {
     if (!file) return;
 
     setErrorMessage(null);
+    setLastUploadedBatch(null);
     setIsUploading(true);
 
     try {
-      await uploadWorkbook(file, role === "customer" ? "Customer Portal" : "Operations Desk");
+      const nextBatch = await uploadWorkbook(file, role === "customer" ? "Customer Portal" : "Operations Desk");
+      setLastUploadedBatch(nextBatch);
+      toast.success(`Uploaded ${nextBatch.fileName}. Review the staged batch next.`);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Import failed.");
     } finally {
@@ -58,7 +63,7 @@ export function ImportUploadPage({ role = "customer" }: ImportUploadPageProps) {
                   </Badge>
                   <CardTitle className="text-2xl">Import client PO for vendor dispatch</CardTitle>
                   <CardDescription>
-                    Upload the official workbook. VA Trace reads the first sheet, matches rows against master data, and stages the batch for dispatch.
+                    Upload the original workbook. VA Trace finds the real header row, ignores tracking columns, matches rows against master data, and stages the batch for dispatch.
                   </CardDescription>
                 </CardHeader>
 
@@ -85,7 +90,7 @@ export function ImportUploadPage({ role = "customer" }: ImportUploadPageProps) {
                     </div>
                     <p className="mt-5 text-base font-semibold">Drop `.xlsx` file here or click to browse</p>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Only the first worksheet is imported. Keep the official header names unchanged.
+                      Only the first worksheet is imported. Keep the official PO header names unchanged.
                     </p>
                     <Badge variant="secondary" className="mt-4 rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.24em]">
                       Required sheet: Item Vendor Tracking
@@ -103,6 +108,24 @@ export function ImportUploadPage({ role = "customer" }: ImportUploadPageProps) {
                       <AlertCircle className="h-4 w-4 text-destructive" />
                       <AlertTitle>Upload blocked</AlertTitle>
                       <AlertDescription>{errorMessage}</AlertDescription>
+                    </Alert>
+                  ) : null}
+
+                  {lastUploadedBatch ? (
+                    <Alert className="border-primary/20 bg-primary/5">
+                      <CheckCircle2 className="h-4 w-4 text-primary" />
+                      <AlertTitle>Batch staged successfully</AlertTitle>
+                      <AlertDescription className="space-y-3">
+                        <p>
+                          {lastUploadedBatch.fileName} is now staged with {lastUploadedBatch.rows.length} rows. Operations can continue matching and dispatching without re-uploading.
+                        </p>
+                        <Button asChild className="w-fit gap-2">
+                          <Link to={batchLinkBase}>
+                            Open Dispatch Workspace
+                            <ArrowRight className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                      </AlertDescription>
                     </Alert>
                   ) : null}
 
@@ -127,12 +150,26 @@ export function ImportUploadPage({ role = "customer" }: ImportUploadPageProps) {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button asChild className="gap-2">
-                    <Link to={batchLinkBase}>
-                      Open Dispatch Workspace
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
-                  </Button>
+                  {lastUploadedBatch ? (
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        {lastUploadedBatch.rows.length} rows staged from <span className="font-medium text-foreground">{lastUploadedBatch.fileName}</span>.
+                      </p>
+                      <Button asChild className="gap-2">
+                        <Link to={batchLinkBase}>
+                          Review staged batch
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button asChild className="gap-2">
+                      <Link to={batchLinkBase}>
+                        Open Dispatch Workspace
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
 

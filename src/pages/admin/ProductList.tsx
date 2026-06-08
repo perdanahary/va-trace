@@ -5,10 +5,9 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { mockProducts } from "@/lib/productMaster";
 
@@ -21,7 +20,7 @@ export function ProductList() {
       <div className="flex-1">
         <Header title="Product Catalog" />
 
-        <main className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <main className="space-y-4 p-4 sm:p-6 lg:p-8">
           <section className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="relative w-full xl:max-w-xl">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -33,11 +32,7 @@ export function ProductList() {
             </Button>
           </section>
 
-          <Card className="border-border/70 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">Product List</CardTitle>
-              <CardDescription>{mockProducts.length} products available</CardDescription>
-            </CardHeader>
+          <Card className="border-border/70 shadow-sm p-0">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
@@ -64,9 +59,6 @@ export function ProductList() {
                           </div>
                           <div>
                             <p className="text-sm font-medium">{product.name}</p>
-                            <p className="mt-1 text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
-                              {product.clientGroup} · {product.productType}
-                            </p>
                             <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                               {product.code}
                             </p>
@@ -87,7 +79,9 @@ export function ProductList() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <StatusBadge status={product.status === "Active" ? "Accepted" : "Waiting"} />
+                        <Badge variant={product.status === "Active" ? "success" : "secondary"} className="rounded-full uppercase tracking-[0.18em]">
+                          {product.status}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
                         <DropdownMenu>

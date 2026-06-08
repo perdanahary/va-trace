@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, CheckCircle2, Clock, Inbox, MoreHorizontal, Package, Truck } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, FileText, Inbox, MoreHorizontal, Package, Truck } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -11,13 +11,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { mockOrders } from "@/lib/mockData";
+import { useOrders, type StoredOrder } from "@/lib/orderStore";
 import { cn } from "@/lib/utils";
 
 type VendorTab = "Pending" | "Production" | "Shipping" | "History";
 
 export function VendorDashboard() {
   const [activeTab, setActiveTab] = useState<VendorTab>("Production");
+  const orders = useOrders();
 
   const metrics = [
     { label: "Pending", value: "02", tone: "warning" as const },
@@ -62,22 +63,22 @@ export function VendorDashboard() {
             </TabsList>
 
             <TabsContent value="Pending" className="space-y-4">
-              {getOrdersForTab("Pending").map((order, index) => (
+              {getOrdersForTab("Pending", orders).map((order, index) => (
                 <VendorOrderCard key={order.id} order={order} index={index} />
               ))}
             </TabsContent>
             <TabsContent value="Production" className="space-y-4">
-              {getOrdersForTab("Production").map((order, index) => (
+              {getOrdersForTab("Production", orders).map((order, index) => (
                 <VendorOrderCard key={order.id} order={order} index={index} />
               ))}
             </TabsContent>
             <TabsContent value="Shipping" className="space-y-4">
-              {getOrdersForTab("Shipping").map((order, index) => (
+              {getOrdersForTab("Shipping", orders).map((order, index) => (
                 <VendorOrderCard key={order.id} order={order} index={index} />
               ))}
             </TabsContent>
             <TabsContent value="History" className="space-y-4">
-              {getOrdersForTab("History").map((order, index) => (
+              {getOrdersForTab("History", orders).map((order, index) => (
                 <VendorOrderCard key={order.id} order={order} index={index} />
               ))}
             </TabsContent>
@@ -88,7 +89,7 @@ export function VendorDashboard() {
   );
 }
 
-function VendorOrderCard({ order, index }: { order: (typeof mockOrders)[number]; index: number }) {
+function VendorOrderCard({ order, index }: { order: StoredOrder; index: number }) {
   return (
     <Card className="border-border/70 shadow-sm">
       <CardContent className="p-6">
@@ -112,7 +113,11 @@ function VendorOrderCard({ order, index }: { order: (typeof mockOrders)[number];
               </Button>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <FileText className="h-4 w-4" />
+                <span>PO: {order.clientPO}</span>
+              </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" />
                 <span>Created: {order.createdDate}</span>
@@ -167,15 +172,15 @@ function ProgressRow({ label, current, total }: { label: string; current: number
   );
 }
 
-function getOrdersForTab(tab: VendorTab) {
+function getOrdersForTab(tab: VendorTab, orders: StoredOrder[]) {
   switch (tab) {
     case "Pending":
-      return mockOrders.filter((order) => order.status === "Created" || order.status === "Waiting").slice(0, 3);
+      return orders.filter((order) => order.status === "Created" || order.status === "Waiting").slice(0, 3);
     case "Production":
-      return mockOrders.filter((order) => order.status === "In Production" || order.status === "Accepted").slice(0, 3);
+      return orders.filter((order) => order.status === "In Production" || order.status === "Accepted").slice(0, 3);
     case "Shipping":
-      return mockOrders.filter((order) => order.status === "Ready to Ship" || order.status === "On Delivery").slice(0, 3);
+      return orders.filter((order) => order.status === "Ready to Ship" || order.status === "On Delivery").slice(0, 3);
     case "History":
-      return mockOrders.filter((order) => order.status === "Completed" || order.status === "Delivered").slice(0, 3);
+      return orders.filter((order) => order.status === "Completed" || order.status === "Delivered").slice(0, 3);
   }
 }

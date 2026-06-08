@@ -1,12 +1,11 @@
-import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, AlertTriangle, Printer } from "lucide-react";
+import { useParams } from "react-router-dom";
+import { AlertTriangle, Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
 import { Header } from "@/components/layout/Header";
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { generateDeliveryNote, type DeliveryNoteLine } from "@/lib/deliveryNote";
 import { useOrders } from "@/lib/orderStore";
@@ -27,24 +26,22 @@ export function DeliveryNotePrint({ role = "admin" }: DeliveryNotePrintProps) {
     <div className="flex min-h-screen bg-background">
       <Sidebar role={role} />
       <div className="flex-1">
-        <Header title={`Delivery Note: ${deliveryNote.doNumber}`} />
+        <Header
+          title={`Delivery Note: ${deliveryNote.doNumber}`}
+          breadcrumbs={[
+            { label: "All Orders", to: role === "admin" ? "/admin/orders" : `/${role}/orders` },
+            { label: order.id, to: backPath },
+            { label: `Delivery Note: ${deliveryNote.doNumber}` },
+          ]}
+          actions={
+            <Button onClick={() => window.print()} className="gap-2">
+              <Printer className="h-4 w-4" />
+              Print Delivery Note
+            </Button>
+          }
+        />
 
         <main className="space-y-5 p-4 sm:p-6 lg:p-8">
-          <Card className="mx-auto max-w-[980px] border-border/70 shadow-sm">
-            <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <Button asChild variant="ghost" className="w-fit justify-start gap-2 px-0">
-                <Link to={backPath}>
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to Order
-                </Link>
-              </Button>
-              <Button onClick={() => window.print()} className="gap-2">
-                <Printer className="h-4 w-4" />
-                Print Delivery Note
-              </Button>
-            </CardContent>
-          </Card>
-
           {deliveryNote.missingRequiredFields.length > 0 ? (
             <Alert className="mx-auto max-w-[980px] border-warning/30 bg-warning/10">
               <AlertTriangle className="h-4 w-4 text-warning" />

@@ -55,7 +55,7 @@ export function UserList({ role = "admin" }: UserListProps) {
       <div className="flex-1">
         <Header title={canManageUsers ? "Operator Management" : "Operator Directory"} />
 
-        <main className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <main className="flex flex-col gap-4 p-4 sm:p-6 lg:p-8">
           <section className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="relative w-full xl:max-w-xl">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -92,13 +92,7 @@ export function UserList({ role = "admin" }: UserListProps) {
             </Card>
           ) : null}
 
-          <Card className="border-border/70 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <div>
-                <CardTitle className="text-base">Operators</CardTitle>
-                <CardDescription>{filteredUsers.length} records</CardDescription>
-              </div>
-            </CardHeader>
+          <Card className="border-border/70 shadow-sm p-0">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>

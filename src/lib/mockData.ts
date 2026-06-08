@@ -2037,13 +2037,13 @@ export interface BrandSeed {
 }
 
 export const mockBrands: BrandSeed[] = [
-  { alias: "MLA16 35", name: "A-Mild 16", sysname: "a-mild-16", priceLabel: "35K" },
-  { alias: "AVO20", name: "Avolution 20", sysname: "avolution-20" },
-  { alias: "DPP12 20", name: "Dji Sam Soe", sysname: "dji-sam-soe", priceLabel: "20K" },
-  { alias: "DSE12 25", name: "DSS Magnum Filter 12 Edisi Bintang", sysname: "dss-magnum-filter-12-edisi-bintang", priceLabel: "25K" },
-  { alias: "DSB12", name: "Dji Sam Soe Snap Box 12", sysname: "dji-sam-soe-snap-box-12" },
-  { alias: "SPS12 15", name: "Sampoerna Prima", sysname: "sampoerna-prima", priceLabel: "15K" },
-  { alias: "SAI12 16", name: "Sampoerna Prima", sysname: "sampoerna-prima", priceLabel: "16K" },
+  { alias: "A-Mild 16", name: "MLA16 35", sysname: "mla16-35", priceLabel: "35K" },
+  { alias: "Avolution 20", name: "AVO20", sysname: "avo20" },
+  { alias: "Dji Sam Soe", name: "DPP12 20", sysname: "dpp12-20", priceLabel: "20K" },
+  { alias: "DSS Magnum Filter 12 Edisi Bintang", name: "DSE12 25", sysname: "dse12-25", priceLabel: "25K" },
+  { alias: "Dji Sam Soe Snap Box 12", name: "DSB12", sysname: "dsb12" },
+  { alias: "Sampoerna Prima", name: "SPS12 15", sysname: "sps12-15", priceLabel: "15K" },
+  { alias: "Sampoerna Prima", name: "SAI12 16", sysname: "sai12-16", priceLabel: "16K" },
 ];
 
 export const getBrandSeedByAlias = (alias: string) =>

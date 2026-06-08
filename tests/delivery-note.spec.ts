@@ -40,6 +40,12 @@ test.describe("Delivery note print mapping", () => {
   test("uses the HH Global supplier seed for OR-2026-816972", async ({ page }) => {
     await page.goto(`${baseUrl}/admin/orders/OR-2026-816972/delivery-note`);
 
+    await expect(page.getByRole("banner").getByRole("link", { name: "All Orders" })).toBeVisible();
+    await expect(page.getByRole("banner").getByRole("link", { name: "OR-2026-816972" })).toBeVisible();
+    await expect(page.getByRole("banner").getByText("Delivery Note: DEL20260601816972")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Print Delivery Note" })).toBeVisible();
+    await expect(page.getByText("Back to Order")).toHaveCount(0);
+
     const note = page.locator(".delivery-note-page");
     await expect(note).toContainText("DO Number : DEL20260601816972");
     await expect(note).toContainText("PT. HH Global Services Indonesia");

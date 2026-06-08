@@ -13,6 +13,20 @@ export interface Supplier {
 
 const STORAGE_KEY = "va-trace-suppliers";
 
+function normalizeSupplierStatus(status: string): Supplier["status"] {
+  const normalized = status.trim().toLowerCase();
+
+  if (normalized === "active" || normalized === "accepted") {
+    return "ACTIVE";
+  }
+
+  if (normalized === "inactive" || normalized === "waiting") {
+    return "INACTIVE";
+  }
+
+  return "INACTIVE";
+}
+
 const initialSuppliers: Supplier[] = [
   {
     id: "SUP-001",
@@ -70,7 +84,15 @@ function readSuppliers(): Supplier[] {
     }
 
     const parsed = JSON.parse(stored) as Supplier[];
-    return Array.isArray(parsed) ? parsed : initialSuppliers;
+
+    if (!Array.isArray(parsed)) {
+      return initialSuppliers;
+    }
+
+    return parsed.map((supplier) => ({
+      ...supplier,
+      status: normalizeSupplierStatus(String(supplier.status ?? "inactive")),
+    }));
   } catch {
     return initialSuppliers;
   }
@@ -100,6 +122,7 @@ export function useSupplierStore() {
   const addSupplier = (supplier: Omit<Supplier, "id">) => {
     const newSupplier: Supplier = {
       ...supplier,
+      status: normalizeSupplierStatus(supplier.status),
       id: generateSupplierId(supplier.name),
     };
 
@@ -108,7 +131,15 @@ export function useSupplierStore() {
 
   const updateSupplier = (id: string, updates: Partial<Supplier>) => {
     setSuppliers((prev) =>
-      prev.map((supplier) => (supplier.id === id ? { ...supplier, ...updates } : supplier)),
+      prev.map((supplier) =>
+        supplier.id === id
+          ? {
+              ...supplier,
+              ...updates,
+              status: updates.status ? normalizeSupplierStatus(updates.status) : supplier.status,
+            }
+          : supplier,
+      ),
     );
   };
 
@@ -126,4 +157,3 @@ export function useSupplierStore() {
     [suppliers],
   );
 }
-

@@ -2,18 +2,10 @@ import { useState, type ChangeEvent, type ComponentType, type ReactNode } from "
 import { useNavigate, useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
-  Building2,
-  ClipboardList,
   Edit3,
-  Hash,
   Layers,
-  Maximize,
   Package,
-  Plus,
   Save,
-  Tag,
-  Trash2,
-  Weight,
   X,
   Box,
 } from "lucide-react";
@@ -26,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { mockBrands } from "@/lib/mockData";
 import { mockProducts, type ProductRecord } from "@/lib/productMaster";
 
@@ -189,7 +180,7 @@ export function ProductDetail() {
                   disabled={!isEditing}
                 />
               </Field>
-              <Field label="Brand Code">
+              <Field label="Alias">
                 <SelectField
                   name="brandCode"
                   value={product.brandCode || "-"}
@@ -221,18 +212,6 @@ export function ProductDetail() {
               </Field>
             </SectionCard>
           </div>
-
-          <Card className="border-border/70 shadow-sm">
-            <CardHeader className="border-b bg-muted/20">
-              <CardTitle className="text-base">Seed Trace</CardTitle>
-              <CardDescription>Parsed record provenance from the source catalog</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4 p-6 md:grid-cols-3">
-              <InfoCard label="Source Name" value={product.sourceName || "-"} />
-              <InfoCard label="Length" value={product.lengthCm || "-"} />
-              <InfoCard label="Width" value={product.widthCm || "-"} />
-            </CardContent>
-          </Card>
 
           {isNew ? (
             <Alert className="border-primary/20 bg-primary/5">
@@ -313,14 +292,5 @@ function SelectField({
         ))}
       </SelectContent>
     </Select>
-  );
-}
-
-function InfoCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border bg-muted/20 p-4">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{label}</p>
-      <p className="mt-2 break-words text-sm font-medium">{value}</p>
-    </div>
   );
 }

@@ -1,4 +1,5 @@
 import { User, LogOut, Settings, ChevronDown } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +13,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import type { UserRole } from "@/components/layout/Sidebar";
+import { cn } from "@/lib/utils";
 
 const accountByRole: Record<
   UserRole,
@@ -57,33 +59,42 @@ const accountByRole: Record<
 interface UserAccountMenuProps {
   role: UserRole;
   compact?: boolean;
+  className?: string;
+  contentClassName?: string;
+  leading?: ReactNode;
 }
 
-export function UserAccountMenu({ role, compact = false }: UserAccountMenuProps) {
+export function UserAccountMenu({ role, compact = false, className, contentClassName, leading }: UserAccountMenuProps) {
   const account = accountByRole[role];
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className={compact ? "h-10 px-2" : "h-11 gap-2 px-2.5"}>
+        <Button
+          variant="ghost"
+          className={cn(compact ? "h-10 justify-center gap-0 px-2" : "h-11 justify-start gap-2 px-2.5", className)}
+        >
+          {leading}
           <Avatar className="h-8 w-8">
             <AvatarFallback className="bg-primary/10 text-primary">
               <User className="h-4 w-4" />
             </AvatarFallback>
           </Avatar>
-          <div className="hidden min-w-0 text-left md:block">
-            <div className="flex items-center gap-2">
-              <p className="truncate text-xs font-medium leading-none">{account.name}</p>
-              <Badge variant="secondary" className="rounded-full px-1.5 py-0 text-[9px] uppercase tracking-[0.2em]">
-                {account.status}
-              </Badge>
+          {!compact ? (
+            <div className="hidden min-w-0 text-left md:block">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-xs font-medium leading-none">{account.name}</p>
+                <Badge variant="secondary" className="rounded-full px-1.5 py-0 text-[9px] uppercase tracking-[0.2em]">
+                  {account.status}
+                </Badge>
+              </div>
+              <p className="mt-1 truncate text-[10px] text-muted-foreground">{account.title}</p>
             </div>
-            <p className="mt-1 truncate text-[10px] text-muted-foreground">{account.title}</p>
-          </div>
-          <ChevronDown className="hidden h-4 w-4 text-muted-foreground md:block" />
+          ) : null}
+          {!compact ? <ChevronDown className="hidden h-4 w-4 text-muted-foreground md:block" /> : null}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
+      <DropdownMenuContent align="end" className={cn("w-64", contentClassName)}>
         <DropdownMenuLabel className="space-y-3 py-3">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">

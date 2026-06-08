@@ -6,11 +6,17 @@ test.describe("Packaging labels print flow", () => {
   test("shows the packaging label action on order detail", async ({ page }) => {
     await page.goto(`${baseUrl}/admin/orders/OR-2026-816972`);
 
-    await expect(page.getByRole("link", { name: "Packaging Labels" })).toBeVisible();
+    await expect(page.getByRole("banner").getByRole("link", { name: "Packaging Labels" })).toBeVisible();
   });
 
   test("renders one label per delivered line item only", async ({ page }) => {
     await page.goto(`${baseUrl}/admin/orders/OR-2026-816972/packaging-labels`);
+
+    await expect(page.getByRole("banner").getByRole("link", { name: "All Orders" })).toBeVisible();
+    await expect(page.getByRole("banner").getByRole("link", { name: "OR-2026-816972" })).toBeVisible();
+    await expect(page.getByRole("banner").getByText("Packaging Labels: DEL20260601816972")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Print Packaging Labels" })).toBeVisible();
+    await expect(page.getByText("Back to Order")).toHaveCount(0);
 
     const cards = page.locator(".packaging-label-card");
     await expect(cards).toHaveCount(1);

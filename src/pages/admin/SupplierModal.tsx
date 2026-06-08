@@ -134,8 +134,8 @@ export function SupplierModal({ isOpen, onClose, onSave, supplier }: SupplierMod
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ACTIVE">ACTIVE</SelectItem>
-                  <SelectItem value="INACTIVE">INACTIVE</SelectItem>
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="INACTIVE">Inactive</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
