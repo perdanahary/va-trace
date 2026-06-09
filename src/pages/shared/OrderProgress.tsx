@@ -384,15 +384,18 @@ export function OrderProgress({ role }: OrderProgressProps) {
                                     <div className="flex items-center justify-between mb-4">
                                       <h4 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Item Fulfillment Progress</h4>
                                       <span className="text-xs text-muted-foreground">
-                                        Ordered: <strong className="text-foreground">{item.quantity}</strong> units
+                                        <strong className="text-foreground">{item.quantity}</strong> total units
                                       </span>
                                     </div>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                                      <DetailedProgress label="In Production" value={item.status === 'In Production' || item.status === 'Ready to Ship' || isDelivered ? item.quantity : 0} total={item.quantity} isActive={item.status === 'In Production'} isDone={item.status === 'Ready to Ship' || isDelivered} />
-                                      <DetailedProgress label="READY" value={item.status === 'Ready to Ship' || isDelivered ? item.quantity : 0} total={item.quantity} isActive={item.status === 'Ready to Ship'} isDone={isDelivered} />
-                                      <DetailedProgress label="TRANSIT" value={item.status === 'On Delivery' ? item.quantity : 0} total={item.quantity} isActive={item.status === 'On Delivery'} />
-                                      <DetailedProgress label="DELIVERED" value={item.deliveredQuantity || 0} total={item.quantity} isDone={isDelivered} />
-                                    </div>
+                                    <SegmentedProgress
+                                      segments={[
+                                        { label: "In Production", value: item.status === "In Production" ? Math.max(0, item.quantity - (item.deliveredQuantity ?? 0)) : 0, color: "bg-processing" },
+                                        { label: "Ready", value: item.status === "Ready to Ship" ? Math.max(0, item.quantity - (item.deliveredQuantity ?? 0)) : 0, color: "bg-primary" },
+                                        { label: "Transit", value: item.status === "On Delivery" ? Math.max(0, item.quantity - (item.deliveredQuantity ?? 0)) : 0, color: "bg-warning" },
+                                        { label: "Delivered", value: item.deliveredQuantity ?? 0, color: "bg-success" },
+                                      ]}
+                                      total={item.quantity}
+                                    />
                                   </div>
 
                                   {/* Milestone Info */}
@@ -434,28 +437,41 @@ export function OrderProgress({ role }: OrderProgressProps) {
   );
 }
 
-function DetailedProgress({
-  label,
-  value,
+function SegmentedProgress({
+  segments,
   total,
-  isDone = false,
-  isActive = false,
 }: {
-  label: string;
-  value: number;
+  segments: { label: string; value: number; color: string }[];
   total: number;
-  isDone?: boolean;
-  isActive?: boolean;
 }) {
-  const percentage = total > 0 ? (value / total) * 100 : 0;
-
   return (
-    <div className={cn("space-y-2", !isDone && !isActive && "opacity-40")}>
-      <div className="flex justify-between items-end text-[10px] font-semibold">
-        <span className={cn("uppercase tracking-wider", isDone && "text-success", isActive && "text-primary")}>{label}</span>
-        <span className="text-base font-bold text-foreground leading-none">{value}</span>
+    <div className="space-y-2">
+      <div className="flex h-2 w-full overflow-hidden rounded-full bg-secondary">
+        {segments.map((seg, i) => {
+          const pct = total > 0 ? (seg.value / total) * 100 : 0;
+          return (
+            <div
+              key={seg.label}
+              className={cn(
+                "h-full transition-all",
+                seg.value > 0 ? seg.color : "bg-transparent",
+                i === 0 && "rounded-l-full",
+                i === segments.length - 1 && "rounded-r-full"
+              )}
+              style={{ width: `${pct}%` }}
+            />
+          );
+        })}
       </div>
-      <Progress value={percentage} className="h-1.5" />
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        {segments.map((seg) => (
+          <div key={seg.label} className={cn("flex items-center gap-1.5 text-[10px] font-medium", seg.value === 0 ? "text-muted-foreground/50" : "text-muted-foreground")}>
+            <span className={cn("inline-block h-2 w-2 rounded-sm", seg.value > 0 ? seg.color : "bg-muted-foreground/30")} />
+            <span className="uppercase tracking-wider">{seg.label}</span>
+            <span className={cn("font-bold", seg.value > 0 ? "text-foreground" : "text-muted-foreground/50")}>{seg.value}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
