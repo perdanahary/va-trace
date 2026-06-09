@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -172,9 +173,6 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
     const query = searchTerm.trim().toLowerCase();
 
     return batch.rows.filter((row) => {
-      if (activeTab === "raw-rows" && row.status === "excluded") return true;
-      if (activeTab === "raw-rows") return true;
-
       const matchesSearch =
         !query ||
         [
@@ -781,124 +779,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                 className="min-w-0"
               >
                 <Card className="overflow-hidden rounded-[1.5rem] border-slate-200/70 bg-white/95 shadow-[0_22px_64px_-36px_rgba(15,23,42,0.22)]">
-                  {/* ===== BATCH COMMAND CENTER ===== */}
-                  <div className="border-b border-slate-200/80 bg-slate-50/80 px-5 py-4 sm:px-6">
-                    <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
-                      <div className="min-w-0">
-                        <CardDescription className="text-xs normal-case tracking-normal text-slate-500">Import Dispatch Command Center</CardDescription>
-                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <CardTitle className="max-w-[720px] truncate text-lg font-semibold tracking-[-0.04em] text-slate-950">
-                            {batch.fileName}
-                          </CardTitle>
-                          <Badge variant="outline" className="rounded-full border-slate-200 bg-white text-xs normal-case tracking-normal text-slate-600">
-                            {batches.length} upload{batches.length === 1 ? "" : "s"}
-                          </Badge>
-                          <Badge variant="outline" className="rounded-full border-slate-200 bg-white text-xs normal-case tracking-normal text-slate-600">
-                            {batch.validationStatus.replaceAll("_", " ")}
-                          </Badge>
-                        </div>
-                        <p className="mt-1 text-xs font-medium normal-case tracking-normal text-slate-500">
-                          {batch.stage} · {summary.totalRows} rows · Assignment progress {assignmentProgressLabel}
-                        </p>
 
-                        {batches.length > 1 ? (
-                          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                            {batches.map((entry) => {
-                              const isActive = entry.id === batch.id;
-                              const entrySummary = getImportBatchSummary(entry);
-
-                              return (
-                                <Button
-                                  key={entry.id}
-                                  type="button"
-                                  variant={isActive ? "default" : "outline"}
-                                  onClick={() => {
-                                    setSelectedBatchId(entry.id);
-                                    setSelectedRowIds([]);
-                                    setDispatchResultMessage(null);
-                                    priorityBatchId.current = "";
-                                  }}
-                                  className={cn(
-                                    "h-9 min-w-[220px] justify-between rounded-full px-3 text-xs font-semibold normal-case tracking-normal",
-                                    isActive
-                                      ? "border-slate-950 bg-slate-950 text-white hover:bg-slate-900"
-                                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-950",
-                                  )}
-                                >
-                                  <span className="truncate">{entry.fileName}</span>
-                                  <span>{entrySummary.blockerRows} blockers</span>
-                                </Button>
-                              );
-                            })}
-                          </div>
-                        ) : null}
-                      </div>
-
-                      <div className="grid min-w-[360px] gap-2 sm:grid-cols-5">
-                        <button type="button" onClick={() => setActiveTab("issue-groups")} className="text-left">
-                          <BatchMetric label="Blockers" value={`${summary.blockerRows}`} detail={`${summary.pendingDuplicateRows} dup · ${summary.unresolvedRows} unresolved`} tone={summary.blockerRows > 0 ? "danger" : "success"} />
-                        </button>
-                        <button type="button" onClick={() => setActiveTab("assignment-groups")} className="text-left">
-                          <BatchMetric label="Needs assign" value={`${summary.unassignedRows}`} detail={`${assignmentGroups.length} groups`} tone={summary.unassignedRows > 0 ? "warning" : "success"} />
-                        </button>
-                        <button type="button" onClick={() => setActiveTab("assignment-groups")} className="text-left">
-                          <BatchMetric label="Assigned" value={`${summary.assignedRows}`} detail={`${assignmentProgressLabel} total`} tone={summary.assignedRows > 0 ? "default" : "default"} />
-                        </button>
-                        <button type="button" onClick={() => setActiveTab("or-preview")} className="text-left">
-                          <BatchMetric label="Ready" value={`${dispatchReadiness?.dispatchableRows.length ?? 0}`} detail={`${summary.unassignedRows} unassigned`} tone={canImport ? "success" : "default"} />
-                        </button>
-                        <button type="button" onClick={() => setActiveTab("import-log")} className="text-left">
-                          <BatchMetric label="Imported" value={`${summary.dispatchedRows}`} detail={`${summary.totalRows} total rows`} tone={summary.dispatchedRows > 0 ? "success" : "default"} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 flex items-center gap-3">
-                      {recommendedNextAction ? (
-                        <div className="flex items-center gap-3 rounded-full border border-cyan-200 bg-cyan-50/80 px-4 py-2">
-                          <span className="text-xs font-semibold normal-case tracking-normal text-cyan-800">Next: {recommendedNextAction.text}</span>
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => setActiveTab(recommendedNextAction.tab)}
-                            className="h-7 rounded-full bg-cyan-800 px-3 text-[11px] font-semibold normal-case tracking-normal text-white hover:bg-cyan-900"
-                          >
-                            {recommendedNextAction.cta}
-                            <ArrowRight className="ml-1 h-3 w-3" />
-                          </Button>
-                        </div>
-                      ) : summary.dispatchedRows === summary.totalRows ? (
-                        <div className="flex items-center gap-3 rounded-full border-emerald-200 bg-emerald-50/80 px-4 py-2">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                          <span className="text-xs font-semibold normal-case tracking-normal text-emerald-800">All rows processed. Batch complete.</span>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <div className="mt-3 grid gap-2 lg:grid-cols-3">
-                      <WorkflowStep
-                        icon={AlertCircle}
-                        label="1. Resolve blockers"
-                        value={summary.blockerRows === 0 ? "Clear" : `${summary.blockerRows} to resolve`}
-                        active={activeTab === "issue-groups"}
-                        complete={summary.blockerRows === 0}
-                      />
-                      <WorkflowStep
-                        icon={ListChecks}
-                        label="2. Assign vendors"
-                        value={summary.unassignedRows === 0 ? "No open rows" : `${summary.unassignedRows} remaining`}
-                        active={activeTab === "assignment-groups"}
-                        complete={summary.unassignedRows === 0 && summary.blockerRows === 0}
-                      />
-                      <WorkflowStep
-                        icon={Send}
-                        label="3. Import ORs"
-                        value={canImport ? "Ready to import" : `${dispatchReadiness?.dispatchableRows.length ?? 0} ready`}
-                        active={activeTab === "or-preview" || activeTab === "import-log"}
-                        complete={batch.validationStatus === "imported"}
-                      />
-                    </div>
-                  </div>
 
                   {/* ===== TAB NAVIGATION ===== */}
                   <div className="border-b border-slate-200/80 px-5 py-3 sm:px-6">
@@ -976,30 +857,30 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                       {duplicateSummary && duplicateSummary.rowIds.length > 0 ? (
                         <div className="bg-white px-5 py-5 sm:px-6">
                           <p className="mb-3 text-xs font-semibold normal-case tracking-normal text-slate-500">Unresolved Issues</p>
-                          <div className="grid gap-3 xl:grid-cols-2">
-                            <IssueActionCard
-                              issueType={duplicateSummary.label}
-                              affectedRows={duplicateSummary.rowIds.length}
-                              detectedValue="Rows with matching PO, sales point, item, and quantity"
-                              actions={[
-                                {
-                                  label: "Import anyway",
-                                  tone: "primary",
-                                  onClick: () => handleBulkDuplicateDecision(duplicateSummary.label, duplicateSummary.rowIds, "include"),
-                                },
-                                {
-                                  label: "Exclude all matching",
-                                  tone: "danger",
-                                  onClick: () => handleBulkDuplicateDecision(duplicateSummary.label, duplicateSummary.rowIds, "exclude"),
-                                },
-                                {
-                                  label: "Export issue list",
-                                  tone: "neutral",
-                                  onClick: () => handleExportIssueList(duplicateSummary.label, duplicateSummary.rows),
-                                },
-                              ]}
-                            />
-                          </div>
+                          <Table className="min-w-full text-left">
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-[200px]">Issue type</TableHead>
+                                <TableHead>Affected rows</TableHead>
+                                <TableHead>Detected value</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              <TableRow>
+                                <TableCell className="font-medium">{duplicateSummary.label}</TableCell>
+                                <TableCell>{duplicateSummary.rowIds.length}</TableCell>
+                                <TableCell>Rows with matching PO, sales point, item, and quantity</TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-2">
+                                    <Button size="sm" variant="outline" className="text-cyan-700 border-cyan-200 bg-cyan-50 hover:bg-cyan-100" onClick={() => handleBulkDuplicateDecision(duplicateSummary.label, duplicateSummary.rowIds, "include")}>Import anyway</Button>
+                                    <Button size="sm" variant="outline" className="text-rose-700 border-rose-200 bg-rose-50 hover:bg-rose-100" onClick={() => handleBulkDuplicateDecision(duplicateSummary.label, duplicateSummary.rowIds, "exclude")}>Exclude all matching</Button>
+                                    <Button size="sm" variant="outline" onClick={() => handleExportIssueList(duplicateSummary.label, duplicateSummary.rows)}>Export issue list</Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
                         </div>
                       ) : null}
 
@@ -1008,38 +889,33 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                           {!duplicateSummary || duplicateSummary.rowIds.length === 0 ? (
                             <p className="mb-3 text-xs font-semibold normal-case tracking-normal text-slate-500">Unresolved Issues</p>
                           ) : null}
-                          <div className="grid gap-3 xl:grid-cols-2">
-                            {issueSummaries.map((issue) => (
-                              <IssueActionCard
-                                key={issue.key}
-                                issueType={issue.label}
-                                affectedRows={issue.rowIds.length}
-                                detectedValue={issue.rows[0]?.raw.itemCode || issue.rows[0]?.raw.itemName || "—"}
-                                actions={[
-                                  {
-                                    label: "Map to product",
-                                    tone: "primary",
-                                    onClick: () => handleBulkMapToProduct(issue.label),
-                                  },
-                                  {
-                                    label: "Create product",
-                                    tone: "neutral",
-                                    onClick: () => handleBulkCreateProduct(issue.label),
-                                  },
-                                  {
-                                    label: "Exclude all matching",
-                                    tone: "danger",
-                                    onClick: () => handleBulkExclude(issue.label, issue.rowIds),
-                                  },
-                                  {
-                                    label: "Export issue list",
-                                    tone: "neutral",
-                                    onClick: () => handleExportIssueList(issue.label, issue.rows),
-                                  },
-                                ]}
-                              />
-                            ))}
-                          </div>
+                          <Table className="min-w-full text-left mt-2">
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-[200px]">Issue type</TableHead>
+                                <TableHead>Affected rows</TableHead>
+                                <TableHead>Detected value</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {issueSummaries.map((issue) => (
+                                <TableRow key={issue.key}>
+                                  <TableCell className="font-medium">{issue.label}</TableCell>
+                                  <TableCell>{issue.rowIds.length}</TableCell>
+                                  <TableCell>{issue.rows[0]?.raw.itemCode || issue.rows[0]?.raw.itemName || "—"}</TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex justify-end gap-2">
+                                      <Button size="sm" variant="outline" className="text-cyan-700 border-cyan-200 bg-cyan-50 hover:bg-cyan-100" onClick={() => handleBulkMapToProduct(issue.label)}>Map to product</Button>
+                                      <Button size="sm" variant="outline" onClick={() => handleBulkCreateProduct(issue.label)}>Create product</Button>
+                                      <Button size="sm" variant="outline" className="text-rose-700 border-rose-200 bg-rose-50 hover:bg-rose-100" onClick={() => handleBulkExclude(issue.label, issue.rowIds)}>Exclude all matching</Button>
+                                      <Button size="sm" variant="outline" onClick={() => handleExportIssueList(issue.label, issue.rows)}>Export issue list</Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
                         </div>
                       ) : null}
 
@@ -1063,27 +939,52 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                             Assignment Groups
                             <span className="ml-2 font-normal text-slate-400">— {assignmentGroups.length} group{assignmentGroups.length === 1 ? "" : "s"} · {assignmentGroups.reduce((s, g) => s + g.rowCount, 0)} rows</span>
                           </p>
-                          <div className="grid gap-3 xl:grid-cols-2">
-                            {assignmentGroups.map((group) => {
-                              const recommendedVendor = suppliers.find(
-                                (s) => s.status === "ACTIVE" && s.name.toLowerCase().includes(group.region.toLowerCase().slice(0, 4)),
-                              );
+                          <Table className="min-w-full text-left mt-2">
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Group</TableHead>
+                                <TableHead>Region</TableHead>
+                                <TableHead>Rows</TableHead>
+                                <TableHead>Total Qty</TableHead>
+                                <TableHead>Sales Points</TableHead>
+                                <TableHead>Vendor Assignment</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {assignmentGroups.map((group) => {
+                                const recommendedVendor = suppliers.find(
+                                  (s) => s.status === "ACTIVE" && s.name.toLowerCase().includes(group.region.toLowerCase().slice(0, 4)),
+                                );
+                                const availableSuppliers = suppliers.filter((s) => s.status === "ACTIVE");
 
-                              return (
-                                <AssignmentGroupCard
-                                  key={group.key}
-                                  label={group.label}
-                                  rowCount={group.rowCount}
-                                  totalQty={group.totalQty}
-                                  salesPointCount={group.salesPointCount}
-                                  region={group.region}
-                                  recommendedVendorName={recommendedVendor?.name ?? null}
-                                  suppliers={suppliers.filter((s) => s.status === "ACTIVE")}
-                                  onAssign={(vendorId) => handleAssignGroup(group.rows, vendorId)}
-                                />
-                              );
-                            })}
-                          </div>
+                                return (
+                                  <TableRow key={group.key}>
+                                    <TableCell className="font-medium">{group.label}</TableCell>
+                                    <TableCell>{group.region}</TableCell>
+                                    <TableCell>{group.rowCount}</TableCell>
+                                    <TableCell>{group.totalQty}</TableCell>
+                                    <TableCell>{group.salesPointCount}</TableCell>
+                                    <TableCell>
+                                      <div className="flex items-center gap-2">
+                                        <Select onValueChange={(vendorId) => handleAssignGroup(group.rows, vendorId)}>
+                                          <SelectTrigger className="w-[200px] h-8">
+                                            <SelectValue placeholder={recommendedVendor ? `Recommended: ${recommendedVendor.name}` : "Select vendor..."} />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {availableSuppliers.map((vendor) => (
+                                              <SelectItem key={vendor.id} value={vendor.id}>
+                                                {vendor.name}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
                         </div>
                       ) : (
                         <div className="px-6 py-16">
@@ -1134,7 +1035,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                       </div>
 
                       <Table className="min-w-[1120px] text-left">
-                        <TableHeader className="sticky top-0 z-[1] bg-white/95 text-xs normal-case tracking-normal text-slate-500 backdrop-blur">
+                        <TableHeader>
                           <TableRow>
                             <TableHead className="px-4 py-3 sm:px-6">Select</TableHead>
                             <TableHead className="px-4 py-3">Item</TableHead>
@@ -1377,23 +1278,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                 {/* --- ISSUE GROUPS PANEL --- */}
                 {activeTab === "issue-groups" && (
                   <Card className="rounded-[1.4rem] border-slate-200/70 bg-white/95 shadow-[0_16px_48px_-30px_rgba(15,23,42,0.22)]">
-                    <CardHeader className="pb-3">
-                      <CardDescription className="text-xs normal-case tracking-normal text-slate-500">Issue Resolution</CardDescription>
-                      <CardTitle className="text-base font-semibold tracking-[-0.04em] text-slate-950">Resolve blockers in bulk</CardTitle>
-                      <CardDescription className="text-sm leading-6 text-slate-600">
-                        {summary.blockerRows} row(s) blocked by {issueSummaries.length} issue type(s){duplicateSummary ? ` and ${duplicateSummary.rowIds.length} possible duplicate(s)` : ""}.
-                        Resolve issues by mapping products, creating new products, or excluding rows.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="space-y-3 rounded-[1.1rem] border border-slate-200 bg-slate-50 p-3.5">
-                        <p className="text-xs font-semibold normal-case tracking-normal text-slate-500">Before / After</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <StateBlock label="Before" value={`${summary.blockerRows} blocked`} />
-                          <StateBlock label="After" value="0 blocked" tone="success" />
-                        </div>
-                      </div>
-
+                    <CardContent className="p-5">
                       <div className="space-y-2">
                         <p className="text-xs font-semibold normal-case tracking-normal text-slate-500">Flow progress</p>
                         <div className="space-y-1.5">
@@ -1404,15 +1289,6 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                           <FlowProgressRow label="Imported ✓" value={summary.dispatchedRows} active={false} complete={summary.dispatchedRows > 0} />
                         </div>
                       </div>
-
-                      {issueSummaries.length > 0 ? (
-                        <div className="space-y-2 rounded-[1.1rem] border border-slate-200 bg-white p-3.5">
-                          <p className="text-xs font-semibold normal-case tracking-normal text-slate-500">Top issue</p>
-                          <p className="text-sm font-semibold tracking-[-0.02em] text-slate-950">{issueSummaries[0].label}</p>
-                          <p className="text-xs leading-5 text-slate-500">Affects {issueSummaries[0].rowIds.length} rows</p>
-                          <p className="text-xs leading-5 text-slate-500">Detected value: {issueSummaries[0].rows[0]?.raw.itemCode || issueSummaries[0].rows[0]?.raw.itemName || "—"}</p>
-                        </div>
-                      ) : null}
                     </CardContent>
                   </Card>
                 )}
@@ -1482,7 +1358,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                                   size="icon"
                                   disabled={ruleConditions.length === 1}
                                   onClick={() => removeRuleCondition(index)}
-                                  className="h-10 w-10 rounded-xl text-slate-500"
+                                  className="h-10 w-10 text-slate-500"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -1496,7 +1372,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                           variant="outline"
                           onClick={addRuleCondition}
                           disabled={ruleConditions.length >= ruleFieldOptions.length}
-                          className="h-10 rounded-xl border-dashed border-slate-300 bg-white"
+                          className="h-10 border-dashed border-slate-300 bg-white"
                         >
                           <Plus className="h-4 w-4" />
                           Add condition
@@ -1524,7 +1400,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                           type="button"
                           onClick={handleCreateRule}
                           disabled={!ruleVendorId || ruleConditions.every((condition) => condition.value.trim().length === 0)}
-                          className="h-11 rounded-2xl bg-slate-950 text-white hover:bg-slate-900"
+                          className="h-11 bg-slate-950 text-white hover:bg-slate-900"
                         >
                           Create assignment rule
                           <Plus className="h-3.5 w-3.5" />
@@ -1546,7 +1422,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                             size="sm"
                             onClick={handlePreviewAssignments}
                             disabled={batch.assignmentRules.length === 0}
-                            className="h-8 rounded-full px-3 text-xs"
+                            className="h-8 px-3 text-xs"
                           >
                             <Wand2 className="h-3.5 w-3.5" />
                             Preview draft
@@ -1573,7 +1449,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                                       size="icon"
                                       disabled={index === 0}
                                       onClick={() => moveAssignmentRule(batch.id, rule.id, "up")}
-                                      className="h-8 w-8 rounded-lg text-slate-500"
+                                      className="h-8 w-8 text-slate-500"
                                     >
                                       <ArrowUp className="h-4 w-4" />
                                     </Button>
@@ -1583,7 +1459,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                                       size="icon"
                                       disabled={index === batch.assignmentRules.length - 1}
                                       onClick={() => moveAssignmentRule(batch.id, rule.id, "down")}
-                                      className="h-8 w-8 rounded-lg text-slate-500"
+                                      className="h-8 w-8 text-slate-500"
                                     >
                                       <ArrowDown className="h-4 w-4" />
                                     </Button>
@@ -1592,7 +1468,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                                       variant="ghost"
                                       size="icon"
                                       onClick={() => deleteAssignmentRule(batch.id, rule.id)}
-                                      className="h-8 w-8 rounded-lg text-slate-500"
+                                      className="h-8 w-8 text-slate-500"
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -1645,7 +1521,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                                 type="button"
                                 variant="outline"
                                 onClick={() => clearAssignmentDraft(batch.id)}
-                                className="h-11 rounded-2xl border-slate-200 bg-white"
+                                className="h-11 border-slate-200 bg-white"
                               >
                                 Clear draft
                               </Button>
@@ -1653,7 +1529,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                                 type="button"
                                 onClick={handleApproveAssignmentDraft}
                                 disabled={assignmentDraftSummary.matchedCount === 0}
-                                className="h-11 rounded-2xl bg-slate-950 text-white hover:bg-slate-900"
+                                className="h-11 bg-slate-950 text-white hover:bg-slate-900"
                               >
                                 Approve draft assignments
                                 <ChevronsRight className="h-3.5 w-3.5" />
@@ -1700,7 +1576,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                         <Button
                           onClick={handleAssign}
                           disabled={!selectedVendorId || selectedRowIds.length === 0}
-                          className="h-11 w-full rounded-2xl bg-slate-950 text-white hover:bg-slate-900"
+                          className="h-11 w-full bg-slate-950 text-white hover:bg-slate-900"
                         >
                           Assign selected rows
                           <ChevronsRight className="h-3.5 w-3.5" />
@@ -1765,7 +1641,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                         <Button
                           onClick={handleAssign}
                           disabled={!selectedVendorId || selectedRowIds.length === 0}
-                          className="h-11 w-full rounded-2xl bg-slate-950 text-white hover:bg-slate-900"
+                          className="h-11 w-full bg-slate-950 text-white hover:bg-slate-900"
                         >
                           Assign selected rows
                           <ChevronsRight className="h-3.5 w-3.5" />
@@ -1800,7 +1676,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                         <Button
                           onClick={handleDispatch}
                           disabled={!canImport}
-                          className="h-11 w-full rounded-2xl bg-slate-950 text-white hover:bg-slate-900"
+                          className="h-11 w-full bg-slate-950 text-white hover:bg-slate-900"
                         >
                           {batch.importJob?.status === "failed" ? "Retry import ORs" : "Import assigned ORs"}
                           <ArrowRight className="h-3.5 w-3.5" />
@@ -2083,21 +1959,18 @@ function FilterSelect({
   onChange: (value: string) => void;
   options: string[];
 }) {
+  const comboboxOptions = useMemo(() => options.map((opt) => ({ value: opt, label: opt })), [options]);
+
   return (
     <label className="grid gap-2 text-xs font-semibold normal-case tracking-normal text-slate-500">
       {label}
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white normal-case tracking-normal">
-          <SelectValue className="normal-case tracking-normal" />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option} value={option} className="normal-case tracking-normal">
-              {option}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <SearchableCombobox
+        value={value}
+        onValueChange={onChange}
+        options={comboboxOptions}
+        placeholder={`Select ${label.toLowerCase()}...`}
+        className="h-11 bg-white"
+      />
     </label>
   );
 }
