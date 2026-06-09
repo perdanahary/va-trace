@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,7 @@ export function AdminDashboard({ role = "admin" }: AdminDashboardProps) {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role={role} />
-      <div className="flex-1">
+      <ContentArea>
         <Header title={getHeaderTitle()} />
 
         <main className="space-y-8 p-4 sm:p-6 lg:p-8">
@@ -110,7 +111,7 @@ export function AdminDashboard({ role = "admin" }: AdminDashboardProps) {
             </CardContent>
           </Card>
         </main>
-      </div>
+      </ContentArea>
     </div>
   );
 }

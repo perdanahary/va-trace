@@ -3,6 +3,7 @@ import { AlertCircle, CheckCircle2, Clock, FileText, Inbox, MoreHorizontal, Pack
 import { Link } from "react-router-dom";
 
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +23,7 @@ export function VendorDashboard() {
 
   const metrics = [
     { label: "Pending", value: "02", tone: "warning" as const },
-    { label: "Production", value: "08", tone: "processing" as const },
+    { label: "In Production", value: "08", tone: "processing" as const },
     { label: "Ready", value: "03", tone: "processing" as const },
     { label: "Shipping", value: "01", tone: "processing" as const },
     { label: "Completed", value: "124", tone: "success" as const },
@@ -31,7 +32,7 @@ export function VendorDashboard() {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role="vendor" />
-      <div className="flex-1">
+      <ContentArea>
         <Header title="Vendor Dashboard" />
 
         <main className="space-y-8 p-4 sm:p-6 lg:p-8">
@@ -57,7 +58,7 @@ export function VendorDashboard() {
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as VendorTab)} className="space-y-4">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="Pending">Pending</TabsTrigger>
-              <TabsTrigger value="Production">Production</TabsTrigger>
+              <TabsTrigger value="Production">In Production</TabsTrigger>
               <TabsTrigger value="Shipping">Shipping</TabsTrigger>
               <TabsTrigger value="History">History</TabsTrigger>
             </TabsList>
@@ -84,7 +85,7 @@ export function VendorDashboard() {
             </TabsContent>
           </Tabs>
         </main>
-      </div>
+      </ContentArea>
     </div>
   );
 }
@@ -142,7 +143,7 @@ function VendorOrderCard({ order, index }: { order: StoredOrder; index: number }
               </Badge>
             </div>
             <div className="space-y-3">
-              <ProgressRow label="Production" current={200} total={750} />
+              <ProgressRow label="In Production" current={200} total={750} />
               <ProgressRow label="Ready to Ship" current={100} total={750} />
               <ProgressRow label="On Delivery" current={100} total={750} />
               <ProgressRow label="Delivered" current={100} total={750} />

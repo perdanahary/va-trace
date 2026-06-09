@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Eye, Factory, Mail, MoreHorizontal, Phone, Plus, Search, Trash2, User } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -80,7 +81,7 @@ export function SupplierList() {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role="admin" />
-      <div className="flex-1">
+      <ContentArea>
         <Header title="Supplier Management" />
 
         <main className="space-y-6 p-4 sm:p-6 lg:p-8">
@@ -197,7 +198,7 @@ export function SupplierList() {
             </CardContent>
           </Card>
         </main>
-      </div>
+      </ContentArea>
 
       <SupplierModal
         isOpen={isModalOpen}

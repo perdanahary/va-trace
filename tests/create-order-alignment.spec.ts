@@ -7,8 +7,8 @@ test.describe("Create order form", () => {
     await page.goto(`${baseUrl}/admin/create`);
 
     await expect(page.getByText("SO Number *", { exact: true })).toBeVisible();
-    await expect(page.getByText("PIC Program Name *", { exact: true })).toBeVisible();
-    await expect(page.getByText("PIC Program Email *", { exact: true })).toBeVisible();
+    await expect(page.getByText("PIC Project Name *", { exact: true })).toBeVisible();
+    await expect(page.getByText("PIC Project Email *", { exact: true })).toBeVisible();
     await expect(page.getByText("Delivery Note Alignment")).toBeVisible();
     await expect(page.getByText("Delivery Note Snapshot")).toBeVisible();
     await expect(page.getByRole("button", { name: "Add Item" })).toBeVisible();
@@ -28,7 +28,7 @@ test.describe("Create order form", () => {
 
     await expect(projectCombobox).toContainText(projectName);
 
-    await page.goto(`${baseUrl}/customer/create`);
+    await page.goto(`${baseUrl}/client/create`);
 
     const clientProjectCombobox = page.getByRole("combobox", { name: "Campaign Name" });
     await clientProjectCombobox.click();

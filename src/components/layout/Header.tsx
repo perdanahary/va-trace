@@ -63,7 +63,7 @@ export function Header({ title, className, startActions, actions, breadcrumbs, s
           <div className="flex items-center gap-2 lg:hidden">
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="Open navigation">
+                <Button variant="ghost" size="sm" aria-label="Open navigation">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
@@ -80,7 +80,8 @@ export function Header({ title, className, startActions, actions, breadcrumbs, s
                         key={item.path}
                         asChild
                         variant={isActive ? "secondary" : "ghost"}
-                        className={cn("h-11 w-full justify-start gap-3 px-3", isActive && "bg-primary text-primary-foreground hover:bg-primary/90")}
+                        size="sm"
+                        className={cn("w-full justify-start gap-3 px-3", isActive && "bg-primary text-primary-foreground hover:bg-primary/90")}
                       >
                         <Link to={item.path}>
                           <item.icon className="h-4 w-4" />
@@ -104,10 +105,9 @@ export function Header({ title, className, startActions, actions, breadcrumbs, s
         <Button
           type="button"
           variant="ghost"
-          size="icon"
+          size="sm"
           aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
           onClick={toggleSidebar}
-          className="h-9 w-9"
         >
           <PanelLeft className="h-4 w-4" />
         </Button>

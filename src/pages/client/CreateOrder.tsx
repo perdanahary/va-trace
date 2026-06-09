@@ -5,12 +5,13 @@ import { ArrowLeft, Calendar, CheckCircle, Info, Package, Plus, Search, Trash2 }
 import { toast } from "sonner";
 
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { cn } from "@/lib/utils";
-import { getSalesPointCustomerBinding, mockProducts, mockSalesPoints } from "@/lib/mockData";
+import { getSalesPointClientBinding, mockProducts, mockSalesPoints } from "@/lib/mockData";
 import { appendOrders, createManualOrder } from "@/lib/orderStore";
 import { useProjectStore } from "@/lib/projectStore";
 
@@ -28,7 +29,7 @@ export function CreateOrder() {
   const { projects, addProject } = useProjectStore();
 
   const salesPoint = mockSalesPoints.find((entry) => entry.wcode === selectedSalesPoint) ?? mockSalesPoints[0];
-  const salesPointCustomer = getSalesPointCustomerBinding(salesPoint.wcode);
+  const salesPointClient = getSalesPointClientBinding(salesPoint.wcode);
   const totalQuantity = items.reduce((total, item) => total + item.quantity, 0);
   const projectOptions = useMemo(
     () =>
@@ -44,7 +45,7 @@ export function CreateOrder() {
   const validationErrors = useMemo(() => {
     const errors: string[] = [];
 
-    if (!clientPO.trim()) errors.push("Customer PO Ref is required.");
+    if (!clientPO.trim()) errors.push("Client PO Ref is required.");
     if (!campaignName.trim()) errors.push("Campaign Name is required.");
     if (!soNumber.trim()) errors.push("SO Number is required.");
     if (!selectedSalesPoint) errors.push("Sales point is required.");
@@ -97,8 +98,8 @@ export function CreateOrder() {
       soNumber,
       supplier: "Pending",
       salesPointId: selectedSalesPoint,
-      picProgramName: "Client Submitted",
-      picProgramEmail: "",
+      picProjectName: "Client Submitted",
+      picProjectEmail: "",
       deadline,
       items: items.map((item, index) => {
         const product = mockProducts.find((entry) => entry.code === item.productCode);
@@ -115,18 +116,18 @@ export function CreateOrder() {
     appendOrders([order]);
     addProject(campaignName);
     toast.success(`Order ${order.id} created.`);
-    navigate("/customer");
+    navigate("/client");
   };
 
   return (
     <div className="flex min-h-screen bg-canvas-white">
-      <Sidebar role="customer" />
-      <div className="flex-1">
+      <Sidebar role="client" />
+      <ContentArea>
         <Header title="New Order Request" />
 
         <main className="mx-auto max-w-4xl space-y-8 p-8">
           <section className="flex items-center justify-between animate-in-smart">
-            <Link to="/customer" className="flex items-center gap-2 text-xs font-bold text-muted-foreground transition-colors hover:text-primary group">
+            <Link to="/client" className="flex items-center gap-2 text-xs font-bold text-muted-foreground transition-colors hover:text-primary group">
               <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
               Discard and Return
             </Link>
@@ -143,7 +144,7 @@ export function CreateOrder() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <FormInput id="customer-po" label="Customer PO Ref" placeholder="e.g. 123928098" required value={clientPO} onChange={setClientPO} />
+                    <FormInput id="client-po" label="Client PO Ref" placeholder="e.g. 123928098" required value={clientPO} onChange={setClientPO} />
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                       Campaign Name *
@@ -318,7 +319,7 @@ export function CreateOrder() {
                       {salesPoint.wcode} - {salesPoint.salesPoint}
                     </p>
                     <p className="text-[10px] uppercase tracking-widest opacity-70">
-                      Customer: {salesPointCustomer?.customerName ?? "Unbound"} · {salesPointCustomer?.customerEntityName ?? "No entity"}
+                      Client: {salesPointClient?.clientName ?? "Unbound"} · {salesPointClient?.clientEntityName ?? "No entity"}
                     </p>
                   </div>
 
@@ -335,7 +336,7 @@ export function CreateOrder() {
             </div>
           </div>
         </main>
-      </div>
+      </ContentArea>
     </div>
   );
 }

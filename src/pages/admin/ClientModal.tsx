@@ -5,19 +5,19 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { type Customer } from "@/lib/customerStore";
+import { type Client } from "@/lib/clientStore";
 import { useUserStore } from "@/lib/userStore";
 
-interface CustomerModalProps {
+interface ClientModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (customer: Omit<Customer, "id"> | Customer) => void;
-  customer?: Customer | null;
+  onSave: (client: Omit<Client, "id"> | Client) => void;
+  client?: Client | null;
 }
 
-type CustomerFormData = Omit<Customer, "id">;
+type ClientFormData = Omit<Client, "id">;
 
-const emptyForm: CustomerFormData = {
+const emptyForm: ClientFormData = {
   name: "",
   entityName: "",
   npwp: "",
@@ -34,37 +34,37 @@ const emptyForm: CustomerFormData = {
   linkedUserId: "",
 };
 
-export function CustomerModal({ isOpen, onClose, onSave, customer }: CustomerModalProps) {
+export function ClientModal({ isOpen, onClose, onSave, client }: ClientModalProps) {
   const { users } = useUserStore();
-  const customerUsers = useMemo(() => users.filter((user) => user.role === "customer"), [users]);
-  const [formData, setFormData] = useState<CustomerFormData>(emptyForm);
+  const clientUsers = useMemo(() => users.filter((user) => user.role === "client"), [users]);
+  const [formData, setFormData] = useState<ClientFormData>(emptyForm);
 
   useEffect(() => {
-    if (customer) {
+    if (client) {
       setFormData({
-        name: customer.name,
-        entityName: customer.entityName,
-        npwp: customer.npwp,
-        email: customer.email,
-        phone: customer.phone,
-        additionalInfo: customer.additionalInfo,
-        shippingAddress: customer.shippingAddress,
-        linkedUserId: customer.linkedUserId,
+        name: client.name,
+        entityName: client.entityName,
+        npwp: client.npwp,
+        email: client.email,
+        phone: client.phone,
+        additionalInfo: client.additionalInfo,
+        shippingAddress: client.shippingAddress,
+        linkedUserId: client.linkedUserId,
       });
       return;
     }
 
     setFormData({
       ...emptyForm,
-      linkedUserId: customerUsers[0]?.id ?? "",
+      linkedUserId: clientUsers[0]?.id ?? "",
     });
-  }, [customer, customerUsers, isOpen]);
+  }, [client, clientUsers, isOpen]);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (customer) {
-      onSave({ ...formData, id: customer.id });
+    if (client) {
+      onSave({ ...formData, id: client.id });
     } else {
       onSave(formData);
     }
@@ -74,8 +74,8 @@ export function CustomerModal({ isOpen, onClose, onSave, customer }: CustomerMod
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{customer ? "Edit Customer" : "Add Customer"}</DialogTitle>
-          <DialogDescription>Maintain the customer master data and bind it to the existing customer user account.</DialogDescription>
+          <DialogTitle>{client ? "Edit Client" : "Add Client"}</DialogTitle>
+          <DialogDescription>Maintain the client master data and bind it to the existing client user account.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -127,10 +127,10 @@ export function CustomerModal({ isOpen, onClose, onSave, customer }: CustomerMod
               <label className="text-sm font-medium">Bound User</label>
               <Select value={formData.linkedUserId} onValueChange={(value) => setFormData((current) => ({ ...current, linkedUserId: value }))}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select customer user" />
+                  <SelectValue placeholder="Select client user" />
                 </SelectTrigger>
                 <SelectContent>
-                  {customerUsers.map((user) => (
+                  {clientUsers.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.name} ({user.email})
                     </SelectItem>
@@ -233,7 +233,7 @@ export function CustomerModal({ isOpen, onClose, onSave, customer }: CustomerMod
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit">{customer ? "Save Changes" : "Create Customer"}</Button>
+            <Button type="submit">{client ? "Save Changes" : "Create Client"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

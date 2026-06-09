@@ -10,7 +10,7 @@ const roleLabels: Record<UserRole, string> = {
   admin: "Admin",
   operator: "Operator",
   analyst: "Analyst",
-  customer: "Customer",
+  client: "Client",
   vendor: "Vendor",
 };
 
@@ -148,7 +148,7 @@ function DecorativeBackground() {
 function getRoleFromPathname(pathname: string): UserRole {
   const segment = pathname.split("/")[1];
 
-  if (segment === "admin" || segment === "operator" || segment === "analyst" || segment === "customer" || segment === "vendor") {
+  if (segment === "admin" || segment === "operator" || segment === "analyst" || segment === "client" || segment === "vendor") {
     return segment;
   }
 

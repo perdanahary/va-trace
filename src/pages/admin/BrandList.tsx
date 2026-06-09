@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { mockBrands } from "@/lib/mockData";
 import { Search, Plus, MoreHorizontal, Bookmark } from "lucide-react";
@@ -33,8 +34,7 @@ export function BrandList() {
       return (
         brand.name.toLowerCase().includes(query) ||
         brand.alias.toLowerCase().includes(query) ||
-        brand.sysname.toLowerCase().includes(query) ||
-        brand.priceLabel?.toLowerCase().includes(query)
+        brand.sysname.toLowerCase().includes(query)
       );
     });
   }, [searchQuery]);
@@ -42,7 +42,7 @@ export function BrandList() {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role="admin" />
-      <div className="flex-1">
+      <ContentArea>
         <Header title="Brand Management" />
         
         <main className="space-y-4 p-4 sm:p-6 lg:p-8">
@@ -69,7 +69,6 @@ export function BrandList() {
                   <TableRow>
                     <TableHead>Brand Information</TableHead>
                     <TableHead>Alias</TableHead>
-                    <TableHead>Price Label</TableHead>
                     <TableHead>System Name</TableHead>
                     <TableHead className="text-right" />
                   </TableRow>
@@ -98,15 +97,6 @@ export function BrandList() {
                         <span className="text-sm font-medium text-foreground font-mono whitespace-nowrap">
                           {brand.alias}
                         </span>
-                      </TableCell>
-                      <TableCell>
-                        {brand.priceLabel ? (
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-primary/10 text-primary">
-                            {brand.priceLabel}
-                          </span>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">—</span>
-                        )}
                       </TableCell>
                       <TableCell>
                         <span className="text-sm text-muted-foreground font-mono">{brand.sysname}</span>
@@ -144,7 +134,7 @@ export function BrandList() {
             </div>
           </Card>
         </main>
-      </div>
+      </ContentArea>
     </div>
   );
 }

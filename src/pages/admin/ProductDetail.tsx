@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -84,7 +85,7 @@ export function ProductDetail() {
   return (
     <div className="flex min-h-screen bg-background font-sans">
       <Sidebar role="admin" />
-      <div className="flex-1">
+      <ContentArea>
         <Header
           title={isNew ? "Add New Product" : `Product Details: ${product.code}`}
           actions={
@@ -211,7 +212,7 @@ export function ProductDetail() {
             </Alert>
           ) : null}
         </main>
-      </div>
+      </ContentArea>
     </div>
   );
 }

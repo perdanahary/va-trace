@@ -7,6 +7,7 @@ import {
   buildImportBatch,
   createOrdersFromDispatchableRows,
   extractImportRecordsFromWorksheet,
+  getAssignmentDraft,
   getDispatchReadiness,
   type ImportBatchRow,
   type ParsedImportSheetRow,
@@ -195,23 +196,23 @@ test.describe("bulk order request import", () => {
     expect(orders.every((order) => order.importPoNumbers?.length === 1 && order.importPoNumbers[0] === order.clientPO)).toBe(true);
   });
 
-  test("binds imported sales points to the Sampoerna customer on the row match and generated order", () => {
+  test("binds imported sales points to the Sampoerna client on the row match and generated order", () => {
     const batch = buildImportBatch(
-      "customer-binding.xlsx",
+      "client-binding.xlsx",
       "Sheet1",
       "Test",
       parsedRows([makeRecord({ "PO Number": "PO-CUS-A", Wcode: "WH055", "Sales Point": "Jakarta Barat", Quantity: "9" })]),
     );
     const assignedRows = batch.rows.map((row) => assign(row, "SUP-001", "CV Cetakan Terbaik Sejagat"));
 
-    expect(assignedRows[0].match.customerId).toBe("CUS-SAMPOERNA");
-    expect(assignedRows[0].match.customerName).toBe("Sampoerna");
-    expect(assignedRows[0].match.customerEntityName).toBe("PT HM Sampoerna Tbk");
+    expect(assignedRows[0].match.clientId).toBe("CUS-SAMPOERNA");
+    expect(assignedRows[0].match.clientName).toBe("Sampoerna");
+    expect(assignedRows[0].match.clientEntityName).toBe("PT HM Sampoerna Tbk");
 
-    const orders = createOrdersFromDispatchableRows({ ...batch, rows: assignedRows }, assignedRows, "DSP-CUSTOMER");
-    expect(orders[0].customerId).toBe("CUS-SAMPOERNA");
-    expect(orders[0].customerName).toBe("Sampoerna");
-    expect(orders[0].customerEntityName).toBe("PT HM Sampoerna Tbk");
+    const orders = createOrdersFromDispatchableRows({ ...batch, rows: assignedRows }, assignedRows, "DSP-CLIENT");
+    expect(orders[0].clientId).toBe("CUS-SAMPOERNA");
+    expect(orders[0].clientName).toBe("Sampoerna");
+    expect(orders[0].clientEntityName).toBe("PT HM Sampoerna Tbk");
   });
 
   test("dispatch readiness only allows assigned, resolved, reviewed rows", () => {
@@ -241,6 +242,49 @@ test.describe("bulk order request import", () => {
     expect(readiness.remainingUnassignedCount).toBe(0);
   });
 
+  test("assignment rules use first-match priority and skip blocked rows", () => {
+    const duplicate = makeRecord({ "PO Number": "PO-RULE-DUP", Quantity: "9" });
+    const batch = buildImportBatch(
+      "assignment-rules.xlsx",
+      "Sheet1",
+      "Test",
+      parsedRows([
+        makeRecord({ "PO Number": "PO-RULE-A", Region: "Jakarta Barat", Catergory: "Sticker", "Brand Name PO": "MLA16 35K" }),
+        makeRecord({ "PO Number": "PO-RULE-B", Region: "Jakarta Barat", Catergory: "Sticker", "Brand Name PO": "MLA16 35K", Wcode: "WH071", "Sales Point": "Jakarta Selatan" }),
+        duplicate,
+        duplicate,
+      ]),
+    );
+
+    const draft = getAssignmentDraft({
+      ...batch,
+      assignmentRules: [
+        {
+          id: "RUL-1",
+          vendorId: "SUP-001",
+          vendorName: "CV Cetakan Terbaik Sejagat",
+          createdAt: "2026-06-09T00:00:00.000Z",
+          conditions: [
+            { field: "region", value: "Jakarta Barat" },
+            { field: "brand", value: "MLA16 35K" },
+          ],
+        },
+        {
+          id: "RUL-2",
+          vendorId: "SUP-002",
+          vendorName: "PT Print Solusi Indonesia",
+          createdAt: "2026-06-09T00:00:00.000Z",
+          conditions: [{ field: "salesPoint", value: "WH071 · Jakarta Selatan" }],
+        },
+      ],
+    });
+
+    expect(draft?.matchedRows).toHaveLength(2);
+    expect(draft?.matchedRows[0].ruleId).toBe("RUL-1");
+    expect(draft?.matchedRows[1].ruleId).toBe("RUL-1");
+    expect(draft?.matchedRows.every((match) => match.vendorId === "SUP-001")).toBe(true);
+  });
+
   test("uploads, assigns, dispatches, and shows created ORs in admin and vendor flows", async ({ page }, testInfo) => {
     const workbookPath = testInfo.outputPath("bulk-ui-upload.xlsx");
     fs.mkdirSync(path.dirname(workbookPath), { recursive: true });
@@ -252,7 +296,7 @@ test.describe("bulk order request import", () => {
       makeRecord({ "PO Number": "PO-UI-B", "PO Line": "1", Wcode: "WH055", "Sales Point": "Jakarta Barat", Quantity: "12" }),
     ]);
 
-    await page.goto(`${baseUrl}/customer/imports`);
+    await page.goto(`${baseUrl}/client/imports`);
     await page.locator('input[type="file"]').setInputFiles(workbookPath);
 
     await expect(page.getByText("Batch staged successfully")).toBeVisible({ timeout: 15_000 });
@@ -260,10 +304,14 @@ test.describe("bulk order request import", () => {
     await page.goto(`${baseUrl}/admin/imports`);
 
     await expect(page.getByText("5 visible rows")).toBeVisible();
-    await page.getByRole("button", { name: "Select all visible" }).click();
-    await page.getByText("Select vendor...").click({ force: true });
+    await page.getByLabel("Rule value 1").click();
+    await page.getByRole("option", { name: "Jakarta Inner" }).click();
+    await page.getByLabel("Rule vendor").click();
     await page.getByRole("option", { name: "CV Cetakan Terbaik Sejagat" }).click();
-    await page.getByRole("button", { name: /Assign selected rows/i }).click();
+    await page.getByRole("button", { name: /Create assignment rule/i }).click();
+    await page.getByRole("button", { name: /Preview draft/i }).click();
+    await expect(page.getByText("5 row(s) matched by rules")).toBeVisible();
+    await page.getByRole("button", { name: /Approve draft assignments/i }).click();
     await expect(page.getByText("0 visible rows · 0 assignable")).toBeVisible();
     const importAssignedButton = page.getByRole("button", { name: /Import assigned ORs/i });
     await importAssignedButton.scrollIntoViewIfNeeded();
@@ -287,7 +335,7 @@ test.describe("bulk order request import", () => {
       makeRecord({ "PO Number": "PO-REFRESH-A", "PO Line": "2", Wcode: "WH071", "Sales Point": "Jakarta Selatan", Quantity: "6" }),
     ]);
 
-    await page.goto(`${baseUrl}/customer/imports`);
+    await page.goto(`${baseUrl}/client/imports`);
     await page.locator('input[type="file"]').setInputFiles(workbookPath);
     await expect(page.getByText("Batch staged successfully")).toBeVisible({ timeout: 15_000 });
 
@@ -305,7 +353,7 @@ test.describe("bulk order request import", () => {
     const duplicate = makeRecord({ "PO Number": "PO-UI-DUP", "PO Line": "1", Quantity: "10" });
     writeOriginalStyleWorkbook(workbookPath, [duplicate, duplicate]);
 
-    await page.goto(`${baseUrl}/customer/imports`);
+    await page.goto(`${baseUrl}/client/imports`);
     await page.locator('input[type="file"]').setInputFiles(workbookPath);
     await expect(page.getByText("Batch staged successfully")).toBeVisible({ timeout: 15_000 });
     await page.goto(`${baseUrl}/admin/imports`);
@@ -317,7 +365,7 @@ test.describe("bulk order request import", () => {
     await importAnywayButtons.nth(1).click({ force: true });
     await importAnywayButtons.nth(0).click({ force: true });
     await page.getByRole("button", { name: "Select all visible" }).click();
-    await page.getByText("Select vendor...").click({ force: true });
+    await page.getByLabel("Manual vendor").click();
     await page.getByRole("option", { name: "CV Cetakan Terbaik Sejagat" }).click();
     await page.getByRole("button", { name: /Assign selected rows/i }).click();
 

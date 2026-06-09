@@ -1,6 +1,7 @@
 import { AlertCircle, CheckCircle2, Clock, Package, Truck, ChevronRight } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -21,14 +22,14 @@ export function ClientDashboard() {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role="customer" />
-      <div className="flex-1">
-        <Header title="Customer Dashboard" />
+      <Sidebar role="client" />
+      <ContentArea>
+        <Header title="Client Dashboard" />
 
         <main className="space-y-8 p-4 sm:p-6 lg:p-8">
           <Alert className="border-primary/20 bg-primary/5">
             <AlertCircle className="h-4 w-4 text-primary" />
-            <AlertTitle>Customer Viewer</AlertTitle>
+            <AlertTitle>Client Viewer</AlertTitle>
             <AlertDescription>
               Your current account has viewer permissions. You can monitor progress and view order details, but cannot initiate new requests.
             </AlertDescription>
@@ -56,7 +57,7 @@ export function ClientDashboard() {
             <Card className="border-border/70 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <div>
-                  <CardTitle className="text-base">Overview by Customer Ref PO</CardTitle>
+                  <CardTitle className="text-base">Overview by Client Ref PO</CardTitle>
                   <CardDescription>Current portfolio summary by PO reference</CardDescription>
                 </div>
                 <Button variant="ghost" size="sm" className="gap-1">
@@ -68,7 +69,7 @@ export function ClientDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Customer PO Ref</TableHead>
+                      <TableHead>Client PO Ref</TableHead>
                       <TableHead className="text-center">WT</TableHead>
                       <TableHead className="text-center">PR</TableHead>
                       <TableHead className="text-center">DL</TableHead>
@@ -153,7 +154,7 @@ export function ClientDashboard() {
             </CardContent>
           </Card>
         </main>
-      </div>
+      </ContentArea>
     </div>
   );
 }

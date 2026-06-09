@@ -2,6 +2,7 @@ import { Box, MoreHorizontal, Package, Plus, Search, Tag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ export function ProductList() {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role="admin" />
-      <div className="flex-1">
+      <ContentArea>
         <Header title="Product Catalog" />
 
         <main className="space-y-4 p-4 sm:p-6 lg:p-8">
@@ -103,7 +104,7 @@ export function ProductList() {
             </CardContent>
           </Card>
         </main>
-      </div>
+      </ContentArea>
     </div>
   );
 }

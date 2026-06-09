@@ -244,13 +244,13 @@
   overflow-wrap: anywhere;
 }
 
-.delivery-note-program {
+.delivery-note-project {
   margin-top: 28px;
   border-top: 1.5px solid #111;
   padding-top: 4px;
 }
 
-.delivery-note-program .delivery-note-key-value {
+.delivery-note-project .delivery-note-key-value {
   grid-template-columns: 92px 8px 1fr;
   min-height: 16px;
 }
@@ -375,7 +375,7 @@
   line-height: 1;
 }
 
-.packaging-label-program {
+.packaging-label-project {
   margin-top: 6px;
   max-width: 240px;
   font-size: 11px;

@@ -3,6 +3,7 @@ import { CalendarDays, CheckCheck, Download, Mail, MailOpen, Printer, Search, Tr
 
 import { Header } from "@/components/layout/Header";
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -90,7 +91,7 @@ export function InboxPage({ role }: InboxPageProps) {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role={role} />
-      <div className="flex-1">
+      <ContentArea>
         <Header title="Inbox" />
 
         <main className="space-y-6 p-4 sm:p-6 lg:p-8">
@@ -249,7 +250,7 @@ export function InboxPage({ role }: InboxPageProps) {
                 </section>
               </div>
         </main>
-      </div>
+      </ContentArea>
     </div>
   );
 }

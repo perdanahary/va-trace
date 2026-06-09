@@ -23,7 +23,7 @@ test.describe("Quantity complaint flow", () => {
           soNumber: "SO123928",
           supplier: "PT. HH Global Services Indonesia",
           salesPointId: "WH055",
-          picProgram: {
+          picProject: {
             name: "Chandra Sadikin",
             email: "Chandra.Sadikin@sampoerna.com",
           },
@@ -60,7 +60,7 @@ test.describe("Quantity complaint flow", () => {
           complaint: {
             id: "CMP-OR-2026-816972-TEST",
             status: "pending",
-            remarks: "Customer reported missing stock on the first line item after receipt.",
+            remarks: "Client reported missing stock on the first line item after receipt.",
             createdAt: "2026-06-08T02:24:27.084Z",
             createdBy: "Admin / PMG",
             items: [
@@ -101,7 +101,7 @@ test.describe("Quantity complaint flow", () => {
                 action: "created",
                 actor: "Admin / PMG",
                 timestamp: "2026-06-08T02:24:27.084Z",
-                note: "Customer reported missing stock on the first line item after receipt.",
+                note: "Client reported missing stock on the first line item after receipt.",
               },
             ],
           },

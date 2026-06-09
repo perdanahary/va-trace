@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { UserRole } from '@/components/layout/Sidebar';
-import { getCustomerSnapshot } from "@/lib/customerStore";
+import { getClientSnapshot } from "@/lib/clientStore";
 
 export type { UserRole } from '@/components/layout/Sidebar';
 
@@ -18,26 +18,26 @@ const USERS_UPDATED_EVENT = "va-trace-users-updated";
 
 const initialUsers: AppUser[] = [
   { id: '1', name: "Marco Polo", email: "marco@officebee.co", role: "vendor", company: "CV Cetakan Terbaik", status: "Active" },
-  { id: '2', name: "John Brand", email: "john@customer.com", role: "customer", company: "PT HM Sampoerna Tbk", status: "Active" },
+  { id: '2', name: "John Brand", email: "john@client.com", role: "client", company: "PT HM Sampoerna Tbk", status: "Active" },
   { id: '3', name: "Sarah Admin", email: "sarah@officebee.co", role: "admin", company: "Officebee HQ", status: "Active" },
   { id: '4', name: "Dev Vendor", email: "dev@vendor.co", role: "vendor", company: "PT Multi Print", status: "Inactive" },
   { id: '5', name: "Alex Operator", email: "alex@officebee.co", role: "operator", company: "Officebee Operations", status: "Active" },
   { id: '6', name: "Rita Analyst", email: "rita@officebee.co", role: "analyst", company: "Officebee Insights", status: "Active" },
 ];
 
-function applyCustomerAffiliations(users: AppUser[]) {
-  const customers = getCustomerSnapshot();
+function applyClientAffiliations(users: AppUser[]) {
+  const clients = getClientSnapshot();
 
   return users.map((user) => {
-    const linkedCustomer = customers.find((customer) => customer.linkedUserId === user.id);
+    const linkedClient = clients.find((client) => client.linkedUserId === user.id);
 
-    if (!linkedCustomer || user.role !== "customer") {
+    if (!linkedClient || user.role !== "client") {
       return user;
     }
 
     return {
       ...user,
-      company: linkedCustomer.entityName,
+      company: linkedClient.entityName,
     };
   });
 }
@@ -50,13 +50,13 @@ function readUsers(): AppUser[] {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
     if (!stored) {
-      return applyCustomerAffiliations(initialUsers);
+      return applyClientAffiliations(initialUsers);
     }
 
     const parsed = JSON.parse(stored) as AppUser[];
-    return Array.isArray(parsed) ? applyCustomerAffiliations(parsed) : applyCustomerAffiliations(initialUsers);
+    return Array.isArray(parsed) ? applyClientAffiliations(parsed) : applyClientAffiliations(initialUsers);
   } catch {
-    return applyCustomerAffiliations(initialUsers);
+    return applyClientAffiliations(initialUsers);
   }
 }
 

@@ -10,7 +10,7 @@ const roleLabels: Record<UserRole, string> = {
   admin: "Admin",
   operator: "Operator",
   analyst: "Analyst",
-  customer: "Customer",
+  client: "Client",
   vendor: "Vendor",
 };
 
@@ -18,7 +18,7 @@ const rolePaths: Record<UserRole, string> = {
   admin: "/admin",
   operator: "/operator",
   analyst: "/analyst",
-  customer: "/customer",
+  client: "/client",
   vendor: "/vendor",
 };
 

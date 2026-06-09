@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 
 import { Header } from "@/components/layout/Header";
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +26,7 @@ export function DeliveryNotePrint({ role = "admin" }: DeliveryNotePrintProps) {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role={role} />
-      <div className="flex-1">
+      <ContentArea>
         <Header
           title={`Delivery Note: ${deliveryNote.doNumber}`}
           breadcrumbs={[
@@ -92,10 +93,10 @@ export function DeliveryNotePrint({ role = "admin" }: DeliveryNotePrintProps) {
               </div>
             </section>
 
-            <section className="delivery-note-program">
+            <section className="delivery-note-project">
               <KeyValue label="PO No" value={deliveryNote.poNumber} />
-              <KeyValue label="Program" value={deliveryNote.programName} />
-              <KeyValue label="PIC Program" value={deliveryNote.picProgram} />
+              <KeyValue label="Project" value={deliveryNote.projectName} />
+              <KeyValue label="PIC Project" value={deliveryNote.picProject} />
             </section>
 
             <table className="delivery-note-table">
@@ -142,7 +143,7 @@ export function DeliveryNotePrint({ role = "admin" }: DeliveryNotePrintProps) {
             </footer>
           </article>
         </main>
-      </div>
+      </ContentArea>
     </div>
   );
 }

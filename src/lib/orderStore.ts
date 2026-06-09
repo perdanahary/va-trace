@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import {
-  getSalesPointCustomerBinding,
+  getSalesPointClientBinding,
   mockOrders,
   type ComplaintHistoryEntry,
   type ComplaintLineItem,
@@ -42,11 +42,12 @@ export interface ManualOrderDraft {
   soNumber: string;
   supplier: string;
   salesPointId: string;
-  picProgramName: string;
-  picProgramEmail: string;
+  picProjectName: string;
+  picProjectEmail: string;
   deadline: string;
   createdDate?: string;
   sourceType?: "manual";
+  note?: string;
   items: ManualOrderLineDraft[];
 }
 
@@ -215,7 +216,7 @@ export function createManualOrder(draft: ManualOrderDraft): StoredOrder {
     deliveredQuantity: 0,
     status: "Created",
   }));
-  const salesPointCustomer = getSalesPointCustomerBinding(draft.salesPointId);
+  const salesPointClient = getSalesPointClientBinding(draft.salesPointId);
 
   return {
     id: makeOrderId(),
@@ -227,14 +228,15 @@ export function createManualOrder(draft: ManualOrderDraft): StoredOrder {
     soNumber: draft.soNumber.trim(),
     supplier: draft.supplier.trim(),
     salesPointId: draft.salesPointId,
-    customerId: salesPointCustomer?.customerId,
-    customerName: salesPointCustomer?.customerName,
-    customerEntityName: salesPointCustomer?.customerEntityName,
-    picProgram: {
-      name: draft.picProgramName.trim(),
-      email: draft.picProgramEmail.trim(),
+    clientId: salesPointClient?.clientId,
+    clientName: salesPointClient?.clientName,
+    clientEntityName: salesPointClient?.clientEntityName,
+    picProject: {
+      name: draft.picProjectName.trim(),
+      email: draft.picProjectEmail.trim(),
     },
     sourceType: draft.sourceType ?? "manual",
+    note: draft.note?.trim(),
     items,
   };
 }

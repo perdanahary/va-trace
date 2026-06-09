@@ -50,8 +50,8 @@ export interface DeliveryNote {
   qrPayload: string;
   poNumber: string;
   soNumber: string;
-  programName: string;
-  picProgram: string;
+  projectName: string;
+  picProject: string;
   senderProfile: CompanyProfile;
   hhGlobalContacts: HHGlobalContact[];
   deliverySnapshot: SalesPointDeliveryProfile;
@@ -78,7 +78,7 @@ export interface PackagingLabel {
   destinationLocationName: string;
   destinationAddress: string;
   salesPointCode: string;
-  programName: string;
+  projectName: string;
 }
 
 export interface PackagingLabelsDocument {
@@ -120,59 +120,25 @@ const hhGlobalContacts: HHGlobalContact[] = [
   },
 ];
 
-const salesPointProfileOverrides: Record<string, Partial<SalesPointDeliveryProfile>> = {
-  WH020: {
-    deliveryCompanyName: "PT. HM. Sampoerna Tbk",
-    deliveryLocationName: "PT HMS Medan 1",
-    address: "Jl. Gatot Subroto no. 152-154, Kel. Sei Sikambing, Kec. Medan Helvetia, Kota Medan 20123",
-    phone: "085262632251",
-    picClient: "Charisma Parhimpunan Agung Pasaribu",
-  },
-  WH055: {
-    deliveryCompanyName: "PT Hanjaya Mandala Sampoerna Tbk",
-    deliveryLocationName: "PT HMS Jakarta Barat",
-    address: "Jl. Daan Mogot, Jakarta Barat, DKI Jakarta",
-    phone: "+62 21 515 7606",
-    picClient: "Saputra, Reno",
-  },
-  WH071: {
-    deliveryCompanyName: "PT Hanjaya Mandala Sampoerna Tbk",
-    deliveryLocationName: "PT HMS Jakarta Selatan",
-    address: "Jl. TB Simatupang, Jakarta Selatan, DKI Jakarta",
-    phone: "+62 21 515 7606",
-    picClient: "Saputra, Reno",
-  },
-  WH179: {
-    deliveryCompanyName: "PT Hanjaya Mandala Sampoerna Tbk",
-    deliveryLocationName: "PT HMS Palembang 2",
-    address: "Palembang 2, Sumatera Selatan",
-    phone: "+62 711 000 000",
-    picClient: "Area Team Palembang",
-  },
-};
-
 export function getSalesPointDeliveryProfile(salesPointId: string): SalesPointDeliveryProfile {
   const salesPoint =
     mockSalesPoints.find((entry) => entry.wcode === salesPointId) ??
     mockSalesPoints[0];
-  const override = salesPointProfileOverrides[salesPoint.wcode] ?? {};
 
   return {
     ...salesPoint,
     deliveryCompanyName:
-      override.deliveryCompanyName ??
       salesPoint.deliveryCompanyName ??
       "PT. HM. Sampoerna Tbk",
     deliveryLocationName:
-      override.deliveryLocationName ??
       salesPoint.deliveryLocationName ??
       `PT HMS ${salesPoint.salesPoint}`,
     address:
-      override.address ??
       salesPoint.address ??
+      salesPoint.shippingAddress.alamat ??
       `${salesPoint.salesPoint}, ${salesPoint.region}, ${salesPoint.zone}`,
-    phone: override.phone ?? salesPoint.phone ?? "",
-    picClient: override.picClient ?? salesPoint.picClient ?? "",
+    phone: salesPoint.phone ?? salesPoint.pic1.phone ?? "",
+    picClient: salesPoint.picClient ?? salesPoint.pic1.name ?? "",
   };
 }
 
@@ -208,8 +174,8 @@ export function generateDeliveryNote(order: Order): DeliveryNote {
     qrPayload: `va-trace://delivery-note/${doNumber}`,
     poNumber: order.clientPO,
     soNumber: order.soNumber,
-    programName: order.campaign,
-    picProgram: `${order.picProgram.name}(${order.picProgram.email})`,
+    projectName: order.campaign,
+    picProject: `${order.picProject.name}(${order.picProject.email})`,
     senderProfile,
     hhGlobalContacts,
     deliverySnapshot,
@@ -252,7 +218,7 @@ export function generatePackagingLabels(order: Order): PackagingLabelsDocument {
         destinationLocationName: deliverySnapshot.deliveryLocationName,
         destinationAddress: deliverySnapshot.address,
         salesPointCode: deliverySnapshot.wcode,
-        programName: order.campaign,
+        projectName: order.campaign,
       };
     })
     .filter((label): label is PackagingLabel => label !== null);
@@ -301,8 +267,8 @@ function getMissingRequiredFields(order: Order, salesPoint: SalesPointDeliveryPr
   const missing: string[] = [];
 
   if (!order.soNumber) missing.push("SO Number");
-  if (!order.campaign) missing.push("Campaign Name / Program");
-  if (!order.picProgram.name || !order.picProgram.email) missing.push("PIC Program");
+  if (!order.campaign) missing.push("Campaign Name / Project");
+  if (!order.picProject.name || !order.picProject.email) missing.push("PIC Project");
   if (!salesPoint.deliveryCompanyName) missing.push("Deliver-to company");
   if (!salesPoint.deliveryLocationName) missing.push("Deliver-to location");
   if (!salesPoint.address) missing.push("Deliver-to address");

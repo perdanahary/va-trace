@@ -1,6 +1,7 @@
 import { CheckCircle2, Clock, Package, Truck } from "lucide-react";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +18,7 @@ export function OrderProgress({ role }: OrderProgressProps) {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role={role} />
-      <div className="flex-1">
+      <ContentArea>
         <Header title={`${role.toUpperCase()} - Order Progress Tracking`} />
 
         <main className="mx-auto max-w-7xl space-y-8 p-4 sm:p-6 lg:p-8">
@@ -51,7 +52,7 @@ export function OrderProgress({ role }: OrderProgressProps) {
                       </div>
 
                       <div className="grid flex-1 grid-cols-2 items-center gap-4 md:grid-cols-4">
-                        <MiniProgress label="Production" current={750} total={750} isDone />
+                        <MiniProgress label="In Production" current={750} total={750} isDone />
                         <MiniProgress label="Ready" current={400} total={750} isActive />
                         <MiniProgress label="Shipping" current={150} total={750} />
                         <MiniProgress label="Delivered" current={0} total={750} />
@@ -69,7 +70,7 @@ export function OrderProgress({ role }: OrderProgressProps) {
             </div>
           </section>
         </main>
-      </div>
+      </ContentArea>
     </div>
   );
 }

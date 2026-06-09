@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -154,30 +155,30 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
 
   const headerActions = (
     <>
-      <Button asChild>
+      <Button asChild size="sm">
         <Link to={deliveryNotePath}>
           <Printer className="h-4 w-4" />
           Delivery Note
         </Link>
       </Button>
-      <Button asChild variant="outline">
+      <Button asChild variant="outline" size="sm">
         <Link to={packagingLabelsPath}>
           <Package className="h-4 w-4" />
-          Packaging Labels
+          Labels
         </Link>
       </Button>
-      <Button variant="outline">
+      <Button variant="outline" size="sm">
         <Edit3 className="h-4 w-4" />
-        Edit Order
+        Edit
       </Button>
-      <Button variant="destructive">
+      <Button variant="destructive" size="sm">
         <Trash2 className="h-4 w-4" />
-        Cancel OR
+        Cancel
       </Button>
       {canRaiseComplaint ? (
-        <Button onClick={openComplaintDialog} variant={complaint ? "outline" : "default"}>
+        <Button onClick={openComplaintDialog} variant={complaint ? "outline" : "default"} size="sm">
           <AlertTriangle className="h-4 w-4" />
-          {complaint ? "Review Complaint" : "Raise Complaint"}
+          {complaint ? "Review" : "Raise Complaint"}
         </Button>
       ) : null}
     </>
@@ -186,7 +187,7 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role={role} />
-      <div className="flex-1">
+      <ContentArea>
         <Header
           title={order.id}
           breadcrumbs={[
@@ -196,8 +197,9 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
           actions={headerActions}
         />
 
-        <main className="mx-auto max-w-[1280px] space-y-6 p-4 sm:p-6 lg:p-8">
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_389px]">
+        <main className="p-4 sm:p-6 lg:p-8">
+          <div className="mx-auto max-w-[1280px]">
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_389px]">
             <div className="space-y-6">
               <Card className="border-border/70 shadow-sm">
                 <CardHeader className="flex flex-row items-start justify-between space-y-0 border-b bg-muted/20">
@@ -245,12 +247,12 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
                     <DetailRow label="Customer PO Ref" value={<span className="text-sm font-medium text-foreground">{order.clientPO}</span>} />
                     <DetailRow label="Destination" value={<span className="text-sm font-medium text-foreground">{`${deliverySnapshot.wcode} · ${deliverySnapshot.deliveryLocationName}`}</span>} />
                     <DetailRow label="Deadline" value={<span className={cn("text-sm font-medium", order.deadline === "Overdue" ? "text-destructive" : "text-foreground")}>{order.deadline}</span>} />
-                    <DetailRow label="Program" value={<span className="text-sm font-medium text-foreground">{deliveryNote.programName}</span>} note="Mapped from campaign name on create form" />
-                    <DetailRow label="SO Number" value={<span className="text-sm font-medium text-foreground">{deliveryNote.soNumber}</span>} note="Used by the delivery note" />
-                    <DetailRow label="PIC Program" value={<span className="text-sm font-medium text-foreground">{deliveryNote.picProgram}</span>} note="Entered alongside the order request" />
-                    <DetailRow label="Deliver to" value={<span className="text-sm font-medium text-foreground">{deliverySnapshot.deliveryCompanyName}</span>} note={deliverySnapshot.deliveryLocationName} />
-                    <DetailRow label="Address" value={<span className="text-sm font-medium text-foreground">{deliverySnapshot.address}</span>} note={deliverySnapshot.phone} />
-                    <DetailRow label="PIC Client" value={<span className="text-sm font-medium text-foreground">{deliverySnapshot.picClient}</span>} note={deliverySnapshot.wcode} />
+                    <DetailRow label="Project" value={<span className="text-sm font-medium text-foreground">{deliveryNote.projectName}</span>} />
+                    <DetailRow label="SO Number" value={<span className="text-sm font-medium text-foreground">{deliveryNote.soNumber}</span>} />
+                    <DetailRow label="PIC Project" value={<span className="text-sm font-medium text-foreground">{deliveryNote.picProject}</span>} />
+                    <DetailRow label="Deliver to" value={<span className="text-sm font-medium text-foreground">{deliverySnapshot.deliveryCompanyName}</span>} />
+                    <DetailRow label="Address" value={<span className="text-sm font-medium text-foreground">{deliverySnapshot.address}</span>} />
+                    <DetailRow label="PIC Client" value={<span className="text-sm font-medium text-foreground">{deliverySnapshot.picClient}</span>} />
                   </div>
 
                   <div className="border-t border-border/70 px-6 py-4">
@@ -335,7 +337,7 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
                       </Button>
                     </div>
                     <div className="space-y-4">
-                      <ProgressRow label="Production" current={200} total={750} />
+                      <ProgressRow label="In Production" current={200} total={750} />
                       <ProgressRow label="Ready to Ship" current={100} total={750} />
                       <ProgressRow label="On Delivery" current={0} total={750} opacity />
                       <ProgressRow label="Delivered" current={0} total={750} opacity />
@@ -378,13 +380,15 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
               </Card>
             </div>
 
-            <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
+            <div className="space-y-6 xl:sticky xl:top-[73px] xl:self-start">
               <Card className="border-border/70 shadow-sm">
                 <CardHeader className="border-b bg-muted/20">
                   <CardTitle className="text-base">Internal Notes</CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <p className="text-sm italic leading-6 text-muted-foreground">{deliveryNote.note}</p>
+                  <p className="text-sm italic leading-6 text-muted-foreground">
+                    {order.note?.trim() || "No internal notes for this order."}
+                  </p>
                 </CardContent>
               </Card>
 
@@ -409,30 +413,11 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
                 </Card>
               ) : null}
 
-              <Card className="border-border/70 shadow-sm">
-                <CardHeader className="border-b bg-muted/20">
-                  <CardTitle className="text-base">Direct Actions</CardTitle>
-                  <CardDescription>Print and workflow shortcuts</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2 p-6">
-                  <Button asChild className="w-full">
-                    <Link to={deliveryNotePath}>
-                      <Printer className="h-4 w-4" />
-                      Delivery Note
-                    </Link>
-                  </Button>
-                  <Button asChild variant="outline" className="w-full">
-                    <Link to={packagingLabelsPath}>
-                      <Package className="h-4 w-4" />
-                      Packaging Labels
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
             </div>
           </div>
+          </div>
         </main>
-      </div>
+      </ContentArea>
 
       <Dialog open={isComplaintDialogOpen} onOpenChange={setIsComplaintDialogOpen}>
         <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto">
@@ -574,13 +559,12 @@ function formatTimeLabel(value: string) {
   });
 }
 
-function DetailRow({ label, value, note }: { label: string; value: ReactNode; note?: ReactNode }) {
+function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="grid gap-2 px-6 py-3 sm:grid-cols-[160px_minmax(0,1fr)] sm:items-start">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <div className="space-y-1">
+    <div className="flex items-start gap-4 px-6 py-3">
+      <p className="w-32 text-sm text-muted-foreground shrink-0">{label}</p>
+      <div className="flex-1 min-w-0 space-y-1">
         <div>{value}</div>
-        {note ? <p className="text-sm text-muted-foreground">{note}</p> : null}
       </div>
     </div>
   );

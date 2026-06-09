@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Download, Filter, MoreHorizontal, Plus, Search } from "lucide-react";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { FilterField, FilterSection } from "@/components/shared/FilterSection";
 import { Header } from "@/components/layout/Header";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -84,7 +85,7 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role={role} />
-      <div className="flex-1">
+      <ContentArea>
         <Header title="All Order Requests" />
 
         <main className="space-y-6 p-4 sm:p-6 lg:p-8">
@@ -175,8 +176,8 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Order Request</TableHead>
                     <TableHead>Client PO</TableHead>
+                    <TableHead>Order Request</TableHead>
                     {showVendorColumn ? <TableHead>Vendor</TableHead> : null}
                     <TableHead>Date Created</TableHead>
                     <TableHead>Deadline</TableHead>
@@ -196,7 +197,7 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
                     </TableRow>
                   ) : (
                     visibleOrders.map((order) => {
-                      const deadlineInfo = getDeadlineInfo(order.deadline);
+                      const deadlineInfo = getDeadlineInfo(order.deadline, order.createdDate);
                       const tone = getOrderTone(order);
 
                       return (
@@ -208,11 +209,11 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
                           )}
                         >
                           <TableCell>
-                            <Link to={detailPath(order.id)} className="font-mono text-xs font-semibold text-primary hover:underline">
-                              {order.id}
+                            <Link to={detailPath(order.id)} className="text-sm font-semibold text-primary hover:underline">
+                              {order.clientPO || <span className="italic text-muted-foreground">—</span>}
                             </Link>
                           </TableCell>
-                          <TableCell className="text-sm">{order.clientPO}</TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground">{order.id}</TableCell>
                           {showVendorColumn ? (
                             <TableCell className={cn("text-sm", order.supplier === "Pending" && "italic text-destructive")}>{order.supplier}</TableCell>
                           ) : null}
@@ -262,7 +263,7 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
             </div>
           </div>
         </main>
-      </div>
+      </ContentArea>
     </div>
   );
 }
@@ -275,7 +276,31 @@ function formatCreatedDate(date: string) {
   return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-function getDeadlineInfo(deadline: string) {
+function getDeadlineInfo(deadline: string, createdDate?: string) {
+  const now = new Date();
+  const normalizeDate = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  const parsedDate = new Date(deadline);
+  if (!Number.isNaN(parsedDate.getTime()) && deadline.includes(parsedDate.getFullYear().toString())) {
+    const diffMs = normalizeDate(parsedDate).getTime() - normalizeDate(now).getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays > 0) {
+      return { label: `${diffDays} day${diffDays !== 1 ? "s" : ""} left`, isOverdue: false, daysLeft: diffDays };
+    }
+    if (diffDays === 0) {
+      return { label: "Due today", isOverdue: false, daysLeft: 0 };
+    }
+    const overdue = Math.abs(diffDays);
+    return { label: `${overdue} day${overdue !== 1 ? "s" : ""} overdue`, isOverdue: true, daysLeft: null };
+  }
+
+  if (deadline === "Overdue" && createdDate) {
+    const parsedCreated = new Date(createdDate);
+    if (!Number.isNaN(parsedCreated.getTime())) {
+      const daysSince = Math.floor((normalizeDate(now).getTime() - normalizeDate(parsedCreated).getTime()) / (1000 * 60 * 60 * 24));
+      return { label: `${daysSince} days overdue`, isOverdue: true, daysLeft: null };
+    }
+  }
   if (deadline === "Overdue") {
     return { label: "Overdue", isOverdue: true, daysLeft: null };
   }

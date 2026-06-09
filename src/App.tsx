@@ -10,7 +10,7 @@ import { ProductList } from './pages/admin/ProductList';
 import { ProductDetail } from './pages/admin/ProductDetail';
 import { BrandList } from './pages/admin/BrandList';
 import { SalesPointList } from './pages/admin/SalesPointList';
-import { CustomerList } from './pages/admin/CustomerList';
+import { ClientList } from './pages/admin/ClientList';
 import { AdminCreateOrder } from './pages/admin/AdminCreateOrder';
 import { ClientDashboard } from './pages/client/ClientDashboard';
 import { CreateOrder } from './pages/client/CreateOrder';
@@ -53,7 +53,7 @@ function App() {
                 <Route path="/admin/products/:code" element={<ProductDetail />} />
                 <Route path="/admin/brands" element={<BrandList />} />
                 <Route path="/admin/sales-points" element={<SalesPointList />} />
-                <Route path="/admin/customers" element={<CustomerList />} />
+                <Route path="/admin/clients" element={<ClientList />} />
 
               {/* Operator Routes */}
                 <Route path="/operator" element={<AdminDashboard role="operator" />} />
@@ -74,12 +74,12 @@ function App() {
                 <Route path="/analyst/inbox" element={<InboxPage role="analyst" />} />
                 <Route path="/analyst/users" element={<UserList role="analyst" />} />
 
-              {/* Customer Routes */}
-                <Route path="/customer" element={<ClientDashboard />} />
-                <Route path="/customer/progress" element={<OrderProgress role="customer" />} />
-                <Route path="/customer/create" element={<CreateOrder />} />
-                <Route path="/customer/imports" element={<ImportUploadPage role="customer" />} />
-                <Route path="/customer/inbox" element={<InboxPage role="customer" />} />
+              {/* Client Routes */}
+                <Route path="/client" element={<ClientDashboard />} />
+                <Route path="/client/progress" element={<OrderProgress role="client" />} />
+                <Route path="/client/create" element={<CreateOrder />} />
+                <Route path="/client/imports" element={<ImportUploadPage role="client" />} />
+                <Route path="/client/inbox" element={<InboxPage role="client" />} />
               
               {/* Vendor Routes */}
                 <Route path="/vendor" element={<VendorDashboard />} />

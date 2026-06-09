@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Edit2, Eye, MoreHorizontal, Plus, Search, Shield, Trash2, User as UserIcon } from "lucide-react";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,7 +53,7 @@ export function UserList({ role = "admin" }: UserListProps) {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role={role} />
-      <div className="flex-1">
+      <ContentArea>
         <Header title={canManageUsers ? "User Management" : "User Directory"} />
 
         <main className="flex flex-col gap-4 p-4 sm:p-6 lg:p-8">
@@ -181,7 +182,7 @@ export function UserList({ role = "admin" }: UserListProps) {
             </CardContent>
           </Card>
         </main>
-      </div>
+      </ContentArea>
 
       {canManageUsers ? (
         <UserModal

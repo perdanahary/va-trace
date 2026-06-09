@@ -26,7 +26,7 @@ test.describe("Packaging labels print flow", () => {
     await expect(cards.first()).toContainText("PO Line");
     await expect(cards.first()).toContainText("1");
     await expect(cards.first()).toContainText("50 Pcs");
-    await expect(cards.first()).toContainText("PT Hanjaya Mandala Sampoerna Tbk / PT HMS Jakarta Barat");
+    await expect(cards.first()).toContainText("PT. HM. Sampoerna Tbk / PT HMS Jakarta Barat");
 
     await expect(page.getByText("2026-00194983-0040")).toHaveCount(0);
     await expect(page.getByText("2026-00194983-0041")).toHaveCount(0);
@@ -37,7 +37,7 @@ test.describe("Packaging labels print flow", () => {
 
     await expect(page.getByText("Missing data before print")).toBeVisible();
     await expect(page.getByText("Deliver-to phone")).toBeVisible();
-    await expect(page.getByText("PIC Program")).toHaveCount(0);
+    await expect(page.getByText("PIC Project")).toHaveCount(0);
     await expect(page.getByText("No delivered items available for labeling")).toBeVisible();
     await expect(page.locator(".packaging-label-card")).toHaveCount(0);
   });

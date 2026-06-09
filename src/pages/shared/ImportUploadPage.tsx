@@ -5,6 +5,7 @@ import { AlertCircle, ArrowRight, CheckCircle2, FileSpreadsheet, Inbox, Loader2,
 import { toast } from "sonner";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -18,15 +19,15 @@ interface ImportUploadPageProps {
   role?: UserRole;
 }
 
-export function ImportUploadPage({ role = "customer" }: ImportUploadPageProps) {
+export function ImportUploadPage({ role = "client" }: ImportUploadPageProps) {
   const { batches, isHydrating, uploadWorkbook } = useImportStore();
   const [dragActive, setDragActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastUploadedBatch, setLastUploadedBatch] = useState<Awaited<ReturnType<typeof uploadWorkbook>> | null>(null);
 
-  const batchLinkBase = role === "customer" ? "/admin/imports" : `/${role}/imports`;
-  const pageTitle = role === "customer" ? "Bulk PO Upload" : "Import Inbox";
+  const batchLinkBase = role === "client" ? "/admin/imports" : `/${role}/imports`;
+  const pageTitle = role === "client" ? "Bulk PO Upload" : "Import Inbox";
   const visibleBatches = useMemo(() => batches.slice(0, 8), [batches]);
 
   const handleUpload = async (file: File | null) => {
@@ -37,7 +38,7 @@ export function ImportUploadPage({ role = "customer" }: ImportUploadPageProps) {
     setIsUploading(true);
 
     try {
-      const nextBatch = await uploadWorkbook(file, role === "customer" ? "Customer Portal" : "Operations Desk");
+      const nextBatch = await uploadWorkbook(file, role === "client" ? "Client Portal" : "Operations Desk");
       setLastUploadedBatch(nextBatch);
       toast.success(`Uploaded ${nextBatch.fileName}. Review the staged batch next.`);
     } catch (error) {
@@ -50,7 +51,7 @@ export function ImportUploadPage({ role = "customer" }: ImportUploadPageProps) {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role={role} />
-      <div className="flex-1">
+      <ContentArea>
         <Header title={pageTitle} />
 
         <main className="mx-auto max-w-7xl space-y-8 p-4 sm:p-6 lg:p-8">
@@ -225,7 +226,7 @@ export function ImportUploadPage({ role = "customer" }: ImportUploadPageProps) {
             </motion.aside>
           </section>
         </main>
-      </div>
+      </ContentArea>
     </div>
   );
 }

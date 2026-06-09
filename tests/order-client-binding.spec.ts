@@ -2,16 +2,16 @@ import { expect, test } from "@playwright/test";
 
 import { createManualOrder } from "@/lib/orderStore";
 
-test.describe("manual order customer binding", () => {
-  test("derives the Sampoerna customer from the selected sales point", () => {
+test.describe("manual order client binding", () => {
+  test("derives the Sampoerna client from the selected sales point", () => {
     const order = createManualOrder({
-      campaign: "Customer Binding Check",
-      clientPO: "PO-CUST-1",
-      soNumber: "SO-CUST-1",
+      campaign: "Client Binding Check",
+      clientPO: "PO-CLNT-1",
+      soNumber: "SO-CLNT-1",
       supplier: "Pending",
       salesPointId: "WH020",
-      picProgramName: "Test PIC",
-      picProgramEmail: "test@sampoerna.com",
+      picProjectName: "Test PIC",
+      picProjectEmail: "test@sampoerna.com",
       deadline: "7 days left",
       items: [
         {
@@ -23,8 +23,8 @@ test.describe("manual order customer binding", () => {
       ],
     });
 
-    expect(order.customerId).toBe("CUS-SAMPOERNA");
-    expect(order.customerName).toBe("Sampoerna");
-    expect(order.customerEntityName).toBe("PT HM Sampoerna Tbk");
+    expect(order.clientId).toBe("CUS-SAMPOERNA");
+    expect(order.clientName).toBe("Sampoerna");
+    expect(order.clientEntityName).toBe("PT HM Sampoerna Tbk");
   });
 });

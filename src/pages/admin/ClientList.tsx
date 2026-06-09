@@ -3,77 +3,78 @@ import { Building2, Mail, MapPin, MoreHorizontal, Phone, Plus, Search, Trash2, U
 
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { type Customer, useCustomerStore } from "@/lib/customerStore";
+import { type Client, useClientStore } from "@/lib/clientStore";
 import { mockSalesPoints } from "@/lib/mockData";
 import { useUserStore } from "@/lib/userStore";
-import { CustomerModal } from "./CustomerModal";
+import { ClientModal } from "./ClientModal";
 
-function formatShippingAddress(customer: Customer) {
-  const { address, city, province, postalCode, country } = customer.shippingAddress;
+function formatShippingAddress(client: Client) {
+  const { address, city, province, postalCode, country } = client.shippingAddress;
   return [address, city, province, postalCode, country].filter(Boolean).join(", ");
 }
 
-export function CustomerList() {
-  const { customers, addCustomer, updateCustomer, deleteCustomer } = useCustomerStore();
+export function ClientList() {
+  const { clients, addClient, updateClient, deleteClient } = useClientStore();
   const { users } = useUserStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
-  const filteredCustomers = useMemo(() => {
+  const filteredClients = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return customers;
+    if (!query) return clients;
 
-    return customers.filter((customer) =>
+    return clients.filter((client) =>
       [
-        customer.name,
-        customer.entityName,
-        customer.email,
-        customer.phone,
-        customer.npwp,
-        customer.additionalInfo,
-        formatShippingAddress(customer),
+        client.name,
+        client.entityName,
+        client.email,
+        client.phone,
+        client.npwp,
+        client.additionalInfo,
+        formatShippingAddress(client),
       ]
         .join(" ")
         .toLowerCase()
         .includes(query),
     );
-  }, [customers, searchQuery]);
+  }, [clients, searchQuery]);
 
-  const handleSave = (customerData: Omit<Customer, "id"> | Customer) => {
-    if ("id" in customerData) {
-      updateCustomer(customerData.id, customerData);
+  const handleSave = (clientData: Omit<Client, "id"> | Client) => {
+    if ("id" in clientData) {
+      updateClient(clientData.id, clientData);
     } else {
-      addCustomer(customerData);
+      addClient(clientData);
     }
 
     setIsModalOpen(false);
-    setSelectedCustomer(null);
+    setSelectedClient(null);
   };
 
   const handleDelete = (id: string) => {
-    if (confirm("Delete this customer record? The linked user will remain, but the customer master data will be removed.")) {
-      deleteCustomer(id);
+    if (confirm("Delete this client record? The linked user will remain, but the client master data will be removed.")) {
+      deleteClient(id);
     }
   };
 
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role="admin" />
-      <div className="flex-1">
-        <Header title="Customer Management" />
+      <ContentArea>
+        <Header title="Client Management" />
 
         <main className="space-y-6 p-4 sm:p-6 lg:p-8">
           <section className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="relative w-full xl:max-w-xl">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search customers by name, entity, contact, or address..."
+                placeholder="Search clients by name, entity, contact, or address..."
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 className="pl-9"
@@ -81,12 +82,12 @@ export function CustomerList() {
             </div>
             <Button
               onClick={() => {
-                setSelectedCustomer(null);
+                setSelectedClient(null);
                 setIsModalOpen(true);
               }}
             >
               <Plus className="h-4 w-4" />
-              Add Customer
+              Add Client
             </Button>
           </section>
 
@@ -95,7 +96,7 @@ export function CustomerList() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Customer</TableHead>
+                    <TableHead>Client</TableHead>
                     <TableHead>Bound User</TableHead>
                     <TableHead>Sales Points</TableHead>
                     <TableHead>Contact</TableHead>
@@ -104,22 +105,22 @@ export function CustomerList() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCustomers.map((customer) => {
-                    const linkedUser = users.find((user) => user.id === customer.linkedUserId);
-                    const boundSalesPoints = mockSalesPoints.filter((salesPoint) => salesPoint.customerId === customer.id);
+                  {filteredClients.map((client) => {
+                    const linkedUser = users.find((user) => user.id === client.linkedUserId);
+                    const boundSalesPoints = mockSalesPoints.filter((salesPoint) => salesPoint.clientId === client.id);
 
                     return (
-                      <TableRow key={customer.id}>
+                      <TableRow key={client.id}>
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-primary/5 text-primary">
                               <Building2 className="h-4 w-4" />
                             </div>
                             <div>
-                              <p className="text-sm font-medium">{customer.name}</p>
-                              <p className="mt-1 text-xs text-muted-foreground">{customer.entityName}</p>
-                              {customer.npwp ? (
-                                <p className="mt-1 text-[10px] uppercase tracking-[0.24em] text-muted-foreground">NPWP: {customer.npwp}</p>
+                              <p className="text-sm font-medium">{client.name}</p>
+                              <p className="mt-1 text-xs text-muted-foreground">{client.entityName}</p>
+                              {client.npwp ? (
+                                <p className="mt-1 text-[10px] uppercase tracking-[0.24em] text-muted-foreground">NPWP: {client.npwp}</p>
                               ) : null}
                             </div>
                           </div>
@@ -141,24 +142,24 @@ export function CustomerList() {
                           <div className="space-y-1">
                             <p className="text-sm font-medium">{boundSalesPoints.length}</p>
                             <p className="text-xs text-muted-foreground">
-                              {boundSalesPoints.length === 1 ? "sales point" : "sales points"} bound to this customer
+                              {boundSalesPoints.length === 1 ? "sales point" : "sales points"} bound to this client
                             </p>
                           </div>
                         </TableCell>
                         <TableCell className="space-y-1">
                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <Mail className="h-3 w-3" />
-                            {customer.email || "—"}
+                            {client.email || "—"}
                           </div>
                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <Phone className="h-3 w-3" />
-                            {customer.phone || "—"}
+                            {client.phone || "—"}
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
                             <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
-                            <span>{formatShippingAddress(customer) || "—"}</span>
+                            <span>{formatShippingAddress(client) || "—"}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
@@ -171,15 +172,15 @@ export function CustomerList() {
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
                                 onClick={() => {
-                                  setSelectedCustomer(customer);
+                                  setSelectedClient(client);
                                   setIsModalOpen(true);
                                 }}
                               >
-                                Edit Customer
+                                Edit Client
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleDelete(customer.id)} className="text-destructive focus:text-destructive">
+                              <DropdownMenuItem onClick={() => handleDelete(client.id)} className="text-destructive focus:text-destructive">
                                 <Trash2 className="mr-2 h-4 w-4" />
-                                Delete Customer
+                                Delete Client
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -187,10 +188,10 @@ export function CustomerList() {
                       </TableRow>
                     );
                   })}
-                  {filteredCustomers.length === 0 ? (
+                  {filteredClients.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
-                        No customers found matching your search.
+                        No clients found matching your search.
                       </TableCell>
                     </TableRow>
                   ) : null}
@@ -199,16 +200,16 @@ export function CustomerList() {
             </CardContent>
           </Card>
         </main>
-      </div>
+      </ContentArea>
 
-      <CustomerModal
+      <ClientModal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
-          setSelectedCustomer(null);
+          setSelectedClient(null);
         }}
         onSave={handleSave}
-        customer={selectedCustomer}
+        client={selectedClient}
       />
     </div>
   );

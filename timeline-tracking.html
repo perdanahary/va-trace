@@ -1,0 +1,206 @@
+  <div class="step-line-left line-pending"></div>
+<section id="timeline-tracker" class="min-h-screen w-full pb-24 flex items-center justify-center">
+  <div class="w-full max-w-[1200px] mx-auto px-6">
+    <!-- Section Title -->
+    <div class="text-center mb-20">
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[11px] uppercase tracking-[0.2em] font-medium bg-[#f5f3ef] text-[#8b5a2b] mb-6">
+        Progress Status
+      </div>
+      <h1 class="text-4xl md:text-5xl lg:text-6xl font-medium text-[#1a1a1a] tracking-tight leading-[1.1]" style="font-family: 'PP Editorial New', 'Playfair Display', Georgia, serif;">
+        Timeline Tracking
+      </h1>
+      <p class="mt-4 text-lg text-[#777] max-w-2xl mx-auto leading-relaxed" style="font-family: 'Geist', system-ui, sans-serif;">
+        Your journey from application to on-site execution, step by step.
+      </p>
+    </div>
+
+    <!-- Vertical Steps Container -->
+    <div id="steps-container" class="relative max-w-3xl mx-auto">
+      <!-- Vertical Connecting Line (Background) -->
+      <div aria-hidden="true" class="absolute left-[29px] top-4 bottom-4 w-0.5 bg-[#E5E2DA] md:left-[27px] hidden md:block" style="z-index: 0;"></div>
+
+      <!-- Steps -->
+      <div id="steps-list" class="space-y-0">
+        <!-- Steps will be injected here via JavaScript -->
+      </div>
+    </div>
+  </div>
+</section>
+<script>
+  (function () {
+    const steps = [
+      {
+        id: 1,
+        title: 'Application Submitted',
+        date: 'Mar 15, 2024',
+        time: '09:24 AM',
+        description: 'Your worker placement application has been successfully received and logged in our system.',
+        status: 'completed',
+      },
+      {
+        id: 2,
+        title: 'Document Verification',
+        date: 'Mar 18, 2024',
+        time: '02:15 PM',
+        description: 'All submitted documents are under review by our compliance team for authenticity.',
+        status: 'completed',
+      },
+      {
+        id: 3,
+        title: 'Background Check',
+        date: 'Mar 22, 2024',
+        time: '11:03 AM',
+        description: 'Comprehensive background screening is currently in progress for this candidate.',
+        status: 'completed',
+      },
+      {
+        id: 4,
+        title: 'Interview Scheduled',
+        date: 'Mar 28, 2024',
+        time: '10:00 AM',
+        description: 'Client-facing interview has been booked. Please confirm your availability.',
+        status: 'active',
+      },
+      {
+        id: 5,
+        title: 'Client Approval',
+        date: 'Apr 02, 2024',
+        time: '—',
+        description: 'Awaiting final confirmation and approval from the hiring manager and client.',
+        status: 'pending',
+      },
+      {
+        id: 6,
+        title: 'On-site Placement',
+        date: 'Apr 10, 2024',
+        time: '—',
+        description: 'Final stage: worker deployment to the designated project or job site.',
+        status: 'pending',
+      },
+    ];
+
+    const stepsList = document.getElementById('steps-list');
+    const container = document.getElementById('steps-container');
+    const skeletonLine = container.querySelector('[aria-hidden="true"]');
+
+    function getStatusConfig(status) {
+      switch (status) {
+        case 'completed':
+          return {
+            circle: 'bg-[#1a1a1a] border-[#1a1a1a]',
+            icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+            text: 'text-[#1a1a1a]',
+            desc: 'text-[#777]',
+            date: 'text-[#777]',
+            lineBg: 'bg-[#1a1a1a]',
+            label: 'Completed',
+            badge: 'bg-[#1a1a1a] text-white',
+          };
+        case 'active':
+          return {
+            circle: 'bg-[#1a1a1a] border-[#1a1a1a] ring-4 ring-[#1a1a1a]/10',
+            icon: `<span class="block w-2 h-2 bg-white rounded-full animate-pulse"></span>`,
+            text: 'text-[#1a1a1a]',
+            desc: 'text-[#555]',
+            date: 'text-[#1a1a1a] font-medium',
+            lineBg: 'bg-[#E5E2DA]',
+            label: 'In Progress',
+            badge: 'bg-[#F5F3EF] text-[#8B5A2B] ring-1 ring-[#8B5A2B]/20',
+          };
+        default: // pending
+          return {
+            circle: 'bg-white border-2 border-[#E5E2DA]',
+            icon: `<span class="block w-2 h-2 bg-[#E5E2DA] rounded-full"></span>`,
+            text: 'text-[#A9A5A0]',
+            desc: 'text-[#A9A5A0]',
+            date: 'text-[#A9A5A0]',
+            lineBg: 'bg-[#E5E2DA]',
+            label: 'Pending',
+            badge: 'bg-[#F5F3EF] text-[#A9A5A0]',
+          };
+      }
+    }
+
+    let stepsHtml = '';
+    steps.forEach((step, index) => {
+      const config = getStatusConfig(step.status);
+      const isLast = index === steps.length - 1;
+
+      stepsHtml += `
+        <div class="step-item flex gap-6 md:gap-10 ${isLast ? '' : 'pb-12 md:pb-16'}">
+          <!-- Timeline Visuals -->
+          <div class="relative flex flex-col items-center flex-shrink-0" style="width: 60px;">
+            <!-- Circle -->
+            <div class="w-[60px] h-[60px] md:w-[56px] md:h-[56px] rounded-full flex items-center justify-center ${config.circle} transition-all duration-500">
+              ${config.icon}
+            </div>
+            ${!isLast ? `<div class="w-0.5 flex-1 min-h-[40px] ${config.lineBg} mt-2 mb-0 transition-colors duration-500" style="z-index: 0;"></div>` : ''}
+          </div>
+
+          <!-- Content Card -->
+          <div class="flex-1 pt-2">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+              <h3 class="text-lg md:text-xl font-semibold ${config.text} tracking-tight" style="font-family: 'Geist', system-ui, sans-serif;">
+                ${step.title}
+              </h3>
+              <div class="flex items-center gap-3">
+                <span class="text-sm ${config.date}" style="font-family: 'Geist', system-ui, sans-serif;">
+                  ${step.date}
+                </span>
+                <span class="text-xs px-2.5 py-0.5 rounded-full font-medium ${config.badge}">
+                  ${config.label}
+                </span>
+              </div>
+            </div>
+            <p class="text-[14px] md:text-[15px] leading-relaxed max-w-xl ${config.desc}" style="font-family: 'Geist', system-ui, sans-serif;">
+              ${step.description}
+            </p>
+          </div>
+        </div>
+      `;
+    });
+
+    stepsList.innerHTML = stepsHtml;
+  })();
+</script>
+<style>
+  #timeline-tracker {
+    background-color: #FEFDFB;
+    font-family: 'Geist', system-ui, -apple-system, sans-serif;
+  }
+
+  /* Hide the old Tailwind skeleton line since we now draw inline per step */
+  #steps-container > [aria-hidden="true"] {
+    display: none !important;
+  }
+
+  .step-item {
+    opacity: 0;
+    transform: translateY(30px);
+    animation: fadeUp 0.7s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  }
+
+  .step-item:nth-child(1) { animation-delay: 0.1s; }
+  .step-item:nth-child(2) { animation-delay: 0.25s; }
+  .step-item:nth-child(3) { animation-delay: 0.4s; }
+  .step-item:nth-child(4) { animation-delay: 0.55s; }
+  .step-item:nth-child(5) { animation-delay: 0.7s; }
+  .step-item:nth-child(6) { animation-delay: 0.85s; }
+
+  @keyframes fadeUp {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Pulse animation for the active step dot */
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.15); }
+  }
+</style>

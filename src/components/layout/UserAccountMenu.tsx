@@ -42,7 +42,7 @@ const accountByRole: Record<
     initials: "AU",
     status: "Active",
   },
-  customer: {
+  client: {
     name: "Admin User",
     title: "Procurement Manager",
     initials: "AU",

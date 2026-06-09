@@ -5,14 +5,15 @@ import { Calendar, CheckCircle, ChevronDown, ChevronUp, GripVertical, Info, Pack
 import { toast } from "sonner";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { SearchableCombobox, type ComboboxOption } from "@/components/ui/searchable-combobox";
-import { getSalesPointCustomerBinding, mockSalesPoints } from "@/lib/mockData";
+import { getSalesPointClientBinding, mockSalesPoints } from "@/lib/mockData";
 import { useProjectStore } from "@/lib/projectStore";
 import { mockProducts } from "@/lib/productMaster";
 import { appendOrders, createManualOrder } from "@/lib/orderStore";
@@ -32,19 +33,19 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
   const [clientPO, setClientPO] = useState("");
   const [campaignName, setCampaignName] = useState("");
   const [soNumber, setSoNumber] = useState("");
-  const [picProgramName, setPicProgramName] = useState("");
-  const [picProgramEmail, setPicProgramEmail] = useState("");
+  const [picProjectName, setPicProjectName] = useState("");
+  const [picProjectEmail, setPicProjectEmail] = useState("");
   const [selectedSupplier, setSelectedSupplier] = useState("");
   const [selectedSalesPoint, setSelectedSalesPoint] = useState("WH020");
-  const [deadlinePreset, setDeadlinePreset] = useState("7-days");
   const [customDeadline, setCustomDeadline] = useState("");
+  const [note, setNote] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { suppliers } = useSupplierStore();
   const { projects, addProject } = useProjectStore();
 
   const salesPoint = mockSalesPoints.find((entry) => entry.wcode === selectedSalesPoint) ?? mockSalesPoints[0];
-  const salesPointCustomer = getSalesPointCustomerBinding(salesPoint.wcode);
+  const salesPointClient = getSalesPointClientBinding(salesPoint.wcode);
   const selectedSupplierRecord = suppliers.find((supplier) => supplier.id === selectedSupplier) ?? null;
   const selectedSupplierName = selectedSupplierRecord?.name ?? "Not Selected";
   const totalQuantity = items.reduce((total, item) => total + item.quantity, 0);
@@ -92,22 +93,19 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
     [],
   );
 
-  const deadlineLabel =
-    deadlinePreset === "custom"
-      ? formatDeadlineDate(customDeadline)
-      : (deadlineOptions.find((option) => option.value === deadlinePreset)?.label ?? "");
+  const deadlineLabel = formatDeadlineDate(customDeadline);
 
   const validationErrors = useMemo(() => {
     const errors: string[] = [];
 
-    if (!clientPO.trim()) errors.push("Customer PO Ref is required.");
+    if (!clientPO.trim()) errors.push("Client PO Ref is required.");
     if (!campaignName.trim()) errors.push("Project is required.");
     if (!soNumber.trim()) errors.push("SO Number is required.");
-    if (!picProgramName.trim()) errors.push("PIC Program Name is required.");
-    if (!picProgramEmail.trim()) errors.push("PIC Program Email is required.");
+    if (!picProjectName.trim()) errors.push("PIC Project Name is required.");
+    if (!picProjectEmail.trim()) errors.push("PIC Project Email is required.");
     if (!selectedSupplierRecord) errors.push("Supplier assignment is required.");
     if (!selectedSalesPoint) errors.push("Sales point is required.");
-    if (deadlinePreset === "custom" ? !customDeadline.trim() : !deadlineLabel.trim()) errors.push("Deadline is required.");
+    if (!customDeadline.trim()) errors.push("Deadline is required.");
 
     items.forEach((item, index) => {
       const product = mockProducts.find((entry) => entry.code === item.productCode);
@@ -123,10 +121,9 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
     clientPO,
     customDeadline,
     deadlineLabel,
-    deadlinePreset,
     items,
-    picProgramEmail,
-    picProgramName,
+    picProjectEmail,
+    picProjectName,
     selectedSalesPoint,
     selectedSupplierRecord,
     soNumber,
@@ -213,9 +210,10 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
       soNumber,
       supplier: selectedSupplierName,
       salesPointId: selectedSalesPoint,
-      picProgramName,
-      picProgramEmail,
+      picProjectName,
+      picProjectEmail,
       deadline: deadlineLabel,
+      note,
       items: items.map((item, index) => {
         const product = mockProducts.find((entry) => entry.code === item.productCode);
 
@@ -249,7 +247,7 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role={role} />
-      <div className="flex-1">
+      <ContentArea>
         <Header title={`Create Order Request (${role.charAt(0).toUpperCase() + role.slice(1)})`} />
 
         <main className="mx-auto max-w-7xl space-y-8 p-4 sm:p-6 lg:p-8">
@@ -284,7 +282,7 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-4 md:grid-cols-2">
-                    <FormField label="Customer PO Ref" required htmlFor="client-po">
+                    <FormField label="Client PO Ref" required htmlFor="client-po">
                       <Input id="client-po" placeholder="e.g. 123928098" value={clientPO} onChange={(e) => setClientPO(e.target.value)} />
                     </FormField>
                     <FormField label="SO Number" required htmlFor="so-number">
@@ -305,58 +303,42 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                       />
                     </FormField>
                     <FormField label="Deadline" required>
-                      <Select value={deadlinePreset} onValueChange={setDeadlinePreset}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {deadlineOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="relative">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-between border-input bg-background px-3 py-2.5 text-left font-normal text-foreground shadow-none hover:bg-accent",
+                            !customDeadline && "text-muted-foreground",
+                          )}
+                          onClick={openExactDeadlinePicker}
+                        >
+                          <span>{customDeadline ? formatDeadlineDate(customDeadline) : "Pick a date"}</span>
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                        <Input
+                          ref={exactDeadlineInputRef}
+                          id="custom-deadline"
+                          type="date"
+                          value={customDeadline}
+                          onChange={(e) => setCustomDeadline(e.target.value)}
+                          className="sr-only"
+                          tabIndex={-1}
+                          aria-hidden="true"
+                        />
+                      </div>
                     </FormField>
-                    {deadlinePreset === "custom" ? (
-                      <FormField label="Exact Deadline" required htmlFor="custom-deadline">
-                        <div className="relative">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-between border-input bg-background px-3 py-2.5 text-left font-normal text-foreground shadow-none hover:bg-accent",
-                              !customDeadline && "text-muted-foreground",
-                            )}
-                            onClick={openExactDeadlinePicker}
-                          >
-                            <span>{customDeadline ? formatDeadlineDate(customDeadline) : "Pick a date"}</span>
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                          <Input
-                            ref={exactDeadlineInputRef}
-                            id="custom-deadline"
-                            type="date"
-                            value={customDeadline}
-                            onChange={(e) => setCustomDeadline(e.target.value)}
-                            className="sr-only"
-                            tabIndex={-1}
-                            aria-hidden="true"
-                          />
-                        </div>
-                      </FormField>
-                    ) : null}
-                    <FormField label="PIC Program Email" required htmlFor="pic-program-email">
+                    <FormField label="PIC Project Email" required htmlFor="pic-project-email">
                       <Input
-                        id="pic-program-email"
+                        id="pic-project-email"
                         type="email"
                         placeholder="e.g. chandra.sadikin@sampoerna.com"
-                        value={picProgramEmail}
-                        onChange={(e) => setPicProgramEmail(e.target.value)}
+                        value={picProjectEmail}
+                        onChange={(e) => setPicProjectEmail(e.target.value)}
                       />
                     </FormField>
-                    <FormField label="PIC Program Name" required htmlFor="pic-program-name">
-                      <Input id="pic-program-name" placeholder="e.g. Chandra Sadikin" value={picProgramName} onChange={(e) => setPicProgramName(e.target.value)} />
+                    <FormField label="PIC Project Name" required htmlFor="pic-project-name">
+                      <Input id="pic-project-name" placeholder="e.g. Chandra Sadikin" value={picProjectName} onChange={(e) => setPicProjectName(e.target.value)} />
                     </FormField>
                     <FormField label="Assign Supplier" required>
                       <SearchableCombobox
@@ -376,6 +358,15 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                         placeholder="Select a sales point..."
                         searchPlaceholder="Search sales point, zone, region, or code..."
                         emptyText="No sales points match your search."
+                      />
+                    </FormField>
+                    <FormField label="Internal Notes" htmlFor="order-note">
+                      <Textarea
+                        id="order-note"
+                        placeholder="Add any internal notes about this order..."
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        className="min-h-[80px] resize-none"
                       />
                     </FormField>
                   </div>
@@ -441,19 +432,19 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                     <ReviewRow label="Assigned Supplier" value={selectedSupplierName} />
                     <ReviewRow label="Sales Point" value={`${salesPoint.wcode} - ${salesPoint.salesPoint}`} />
                     <ReviewRow
-                      label="Customer"
+                      label="Client"
                       value={
-                        salesPointCustomer
-                          ? `${salesPointCustomer.customerName} · ${salesPointCustomer.customerEntityName}`
+                        salesPointClient
+                          ? `${salesPointClient.clientName} · ${salesPointClient.clientEntityName}`
                           : "Unbound"
                       }
                     />
                     <ReviewRow label="SO Number" value={soNumber || "Missing"} />
-                    <ReviewRow label="PIC Program" value={picProgramName || "Missing"} />
+                    <ReviewRow label="PIC Project" value={picProjectName || "Missing"} />
                     <ReviewRow label="Total Qty" value={`${totalQuantity} qty`} />
                     <ReviewRow
                       label="Deadline"
-                      value={deadlineLabel || (deadlineOptions.find((option) => option.value === deadlinePreset)?.label ?? "Unknown")}
+                      value={deadlineLabel || "Unknown"}
                     />
                   </div>
                   <Button
@@ -468,18 +459,11 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
             </div>
           </div>
         </main>
-      </div>
+      </ContentArea>
     </div>
   );
 }
 
-const deadlineOptions = [
-  { value: "3-days", label: "Due in 3 days" },
-  { value: "7-days", label: "Due in 1 week" },
-  { value: "14-days", label: "Due in 2 weeks" },
-  { value: "30-days", label: "Due in 1 month" },
-  { value: "custom", label: "Pick exact date" },
-];
 
 function formatDeadlineDate(value: string) {
   if (!value.trim()) {

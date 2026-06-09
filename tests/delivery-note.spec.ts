@@ -11,23 +11,23 @@ test.describe("Delivery note print mapping", () => {
     await expect(page.getByText("Order to Delivery Alignment")).toBeVisible();
     await expect(page.getByText("Sunscreen Campaign Q2")).toBeVisible();
     await expect(page.getByText("SO123928")).toBeVisible();
-    await expect(page.getByText("Chandra Sadikin(Chandra.Sadikin@sampoerna.com)")).toBeVisible();
-    await expect(page.getByText("PT Hanjaya Mandala Sampoerna Tbk")).toBeVisible();
+    await expect(page.getByText("Muhammad Luthfi Sobana(MuhammadLuthfi.Sobana@Panamas.com)")).toBeVisible();
+    await expect(page.getByText("PT. HM. Sampoerna Tbk")).toBeVisible();
     await expect(page.getByText("PT HMS Jakarta Barat", { exact: true })).toBeVisible();
   });
 
-  test("maps campaign to Program and WH020 to PT HMS Medan 1", async ({ page }) => {
+  test("maps campaign to Project and WH020 to PT HMS Medan 1", async ({ page }) => {
     await page.goto(`${baseUrl}/admin/orders/OR-2026-715187/delivery-note`);
 
     const note = page.locator(".delivery-note-page");
     await expect(note).toContainText("DO Number : DEL20260520715187");
     await expect(note).toContainText("PO No");
     await expect(note).toContainText("5701749081");
-    await expect(note).toContainText("Program");
+    await expect(note).toContainText("Project");
     await expect(note).toContainText("WOC12026 - POSM Networking - Production - PPOSM PPOSM VEEV");
     await expect(note).toContainText("PT HMS Medan 1");
     await expect(note).toContainText("SO178056");
-    await expect(note).toContainText("Chandra Sadikin(Chandra.Sadikin@sampoerna.com)");
+    await expect(note).toContainText("Abdul Khalid(Abdul.Khalid@panamas.com)");
 
     const table = page.locator(".delivery-note-table");
     await expect(table).toContainText("Photopaper_GT SRC - Snap Frame (V)");

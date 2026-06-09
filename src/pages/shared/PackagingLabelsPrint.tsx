@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 
 import { Header } from "@/components/layout/Header";
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { generatePackagingLabels, type PackagingLabel } from "@/lib/deliveryNote";
@@ -23,7 +24,7 @@ export function PackagingLabelsPrint({ role = "admin" }: PackagingLabelsPrintPro
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role={role} />
-      <div className="flex-1">
+      <ContentArea>
         <Header
           title={`Packaging Labels: ${labelsDocument.doNumber}`}
           breadcrumbs={[
@@ -68,7 +69,7 @@ export function PackagingLabelsPrint({ role = "admin" }: PackagingLabelsPrintPro
             </article>
           )}
         </main>
-      </div>
+      </ContentArea>
     </div>
   );
 }
@@ -80,7 +81,7 @@ function PackagingLabelCard({ label }: { label: PackagingLabel }) {
         <div>
           <p className="packaging-label-kicker">Packaging Label</p>
           <h1 className="packaging-label-order">{label.orderId}</h1>
-          <p className="packaging-label-program">{label.programName}</p>
+          <p className="packaging-label-project">{label.projectName}</p>
         </div>
         <div className="packaging-label-code-block">
           <p className="packaging-label-kicker">Label Code</p>

@@ -1,4 +1,6 @@
 import { getOrderRequestStatus, type OrderItemProgress, type OrderRequestStatus } from "@/lib/orderStatus";
+import { salesPointSeeds } from "@/lib/salesPointSeed";
+import type { SalesPointPic, ShippingAddress } from "@/lib/salesPointSeed";
 
 export interface OrderLine extends OrderItemProgress {
   productCode: string;
@@ -50,10 +52,10 @@ export interface Order {
   soNumber: string;
   supplier: string;
   salesPointId: string;
-  customerId?: string;
-  customerName?: string;
-  customerEntityName?: string;
-  picProgram: {
+  clientId?: string;
+  clientName?: string;
+  clientEntityName?: string;
+  picProject: {
     name: string;
     email: string;
   };
@@ -61,6 +63,7 @@ export interface Order {
   complaint?: OrderComplaint;
   complaintStatus?: ComplaintStatus;
   revisionStatus?: ComplaintStatus;
+  note?: string;
 }
 
 const mockOrderSeeds: Omit<Order, "status">[] = [
@@ -73,10 +76,10 @@ const mockOrderSeeds: Omit<Order, "status">[] = [
     soNumber: "SO123928",
     supplier: "PT. HH Global Services Indonesia",
     salesPointId: "WH055",
-    customerId: "CUS-SAMPOERNA",
-    customerName: "Sampoerna",
-    customerEntityName: "PT HM Sampoerna Tbk",
-    picProgram: {
+    clientId: "CUS-SAMPOERNA",
+    clientName: "Sampoerna",
+    clientEntityName: "PT HM Sampoerna Tbk",
+    picProject: {
       name: "Chandra Sadikin",
       email: "Chandra.Sadikin@sampoerna.com",
     },
@@ -95,10 +98,10 @@ const mockOrderSeeds: Omit<Order, "status">[] = [
     soNumber: "SO178056",
     supplier: "PT Print Solusi",
     salesPointId: "WH020",
-    customerId: "CUS-SAMPOERNA",
-    customerName: "Sampoerna",
-    customerEntityName: "PT HM Sampoerna Tbk",
-    picProgram: {
+    clientId: "CUS-SAMPOERNA",
+    clientName: "Sampoerna",
+    clientEntityName: "PT HM Sampoerna Tbk",
+    picProject: {
       name: "Chandra Sadikin",
       email: "Chandra.Sadikin@sampoerna.com",
     },
@@ -117,10 +120,10 @@ const mockOrderSeeds: Omit<Order, "status">[] = [
     soNumber: "SO998271",
     supplier: "CV Cetakan Terbaik Sejagat",
     salesPointId: "WH071",
-    customerId: "CUS-SAMPOERNA",
-    customerName: "Sampoerna",
-    customerEntityName: "PT HM Sampoerna Tbk",
-    picProgram: {
+    clientId: "CUS-SAMPOERNA",
+    clientName: "Sampoerna",
+    clientEntityName: "PT HM Sampoerna Tbk",
+    picProject: {
       name: "Reno Saputra",
       email: "Reno.Saputra@panamas.com",
     },
@@ -139,10 +142,10 @@ const mockOrderSeeds: Omit<Order, "status">[] = [
     soNumber: "SO772615",
     supplier: "Pending",
     salesPointId: "WH069",
-    customerId: "CUS-SAMPOERNA",
-    customerName: "Sampoerna",
-    customerEntityName: "PT HM Sampoerna Tbk",
-    picProgram: {
+    clientId: "CUS-SAMPOERNA",
+    clientName: "Sampoerna",
+    clientEntityName: "PT HM Sampoerna Tbk",
+    picProject: {
       name: "Joko Santoso",
       email: "Joko.Santoso@sampoerna.com",
     },
@@ -160,10 +163,10 @@ const mockOrderSeeds: Omit<Order, "status">[] = [
     soNumber: "SO445162",
     supplier: "PT Multi Print",
     salesPointId: "WH179",
-    customerId: "CUS-SAMPOERNA",
-    customerName: "Sampoerna",
-    customerEntityName: "PT HM Sampoerna Tbk",
-    picProgram: {
+    clientId: "CUS-SAMPOERNA",
+    clientName: "Sampoerna",
+    clientEntityName: "PT HM Sampoerna Tbk",
+    picProject: {
       name: "Chandra Sadikin",
       email: "Chandra.Sadikin@sampoerna.com",
     },
@@ -174,10 +177,7 @@ const mockOrderSeeds: Omit<Order, "status">[] = [
   }
 ];
 
-export const mockOrders: Order[] = mockOrderSeeds.map((order) => ({
-  ...order,
-  status: getOrderRequestStatus(order.items),
-}));
+
 
 export interface Supplier {
   id: string;
@@ -2051,17 +2051,16 @@ export interface BrandSeed {
   alias: string;
   name: string;
   sysname: string;
-  priceLabel?: string;
 }
 
 export const mockBrands: BrandSeed[] = [
-  { alias: "A-Mild 16", name: "MLA16 35", sysname: "mla16-35", priceLabel: "35K" },
+  { alias: "A-Mild 16", name: "MLA16 35", sysname: "mla16-35" },
   { alias: "Avolution 20", name: "AVO20", sysname: "avo20" },
-  { alias: "Dji Sam Soe", name: "DPP12 20", sysname: "dpp12-20", priceLabel: "20K" },
-  { alias: "DSS Magnum Filter 12 Edisi Bintang", name: "DSE12 25", sysname: "dse12-25", priceLabel: "25K" },
+  { alias: "Dji Sam Soe", name: "DPP12 20", sysname: "dpp12-20" },
+  { alias: "DSS Magnum Filter 12 Edisi Bintang", name: "DSE12 25", sysname: "dse12-25" },
   { alias: "Dji Sam Soe Snap Box 12", name: "DSB12", sysname: "dsb12" },
-  { alias: "Sampoerna Prima", name: "SPS12 15", sysname: "sps12-15", priceLabel: "15K" },
-  { alias: "Sampoerna Prima", name: "SAI12 16", sysname: "sai12-16", priceLabel: "16K" },
+  { alias: "Sampoerna Prima", name: "SPS12 15", sysname: "sps12-15" },
+  { alias: "Sampoerna Prima", name: "SAI12 16", sysname: "sai12-16" },
 ];
 
 export const getBrandSeedByAlias = (alias: string) =>
@@ -2078,14 +2077,20 @@ export const adminMetrics = [
 ];
 
 export interface SalesPointMapping {
-  customerId: string;
-  customerName: string;
-  customerEntityName: string;
+  clientId: string;
+  clientName: string;
+  clientEntityName: string;
   zone: string;
   region: string;
   area: string;
+  subArea: string;
   wcode: string;
   salesPoint: string;
+  pic1: SalesPointPic;
+  pic2: SalesPointPic;
+  remarks: string;
+  note: string;
+  shippingAddress: ShippingAddress;
   deliveryCompanyName?: string;
   deliveryLocationName?: string;
   address?: string;
@@ -2093,13 +2098,13 @@ export interface SalesPointMapping {
   picClient?: string;
 }
 
-const boundCustomer = {
-  customerId: "CUS-SAMPOERNA",
-  customerName: "Sampoerna",
-  customerEntityName: "PT HM Sampoerna Tbk",
+const boundClient = {
+  clientId: "CUS-SAMPOERNA",
+  clientName: "Sampoerna",
+  clientEntityName: "PT HM Sampoerna Tbk",
 } as const;
 
-const baseSalesPoints: Omit<SalesPointMapping, "customerId" | "customerName" | "customerEntityName">[] = [
+const baseSalesPoints: Omit<SalesPointMapping, "clientId" | "clientName" | "clientEntityName" | "pic1" | "pic2" | "remarks" | "note" | "shippingAddress" | "subArea">[] = [
   {
     "zone": "Jakarta",
     "region": "Jakarta Inner",
@@ -2977,12 +2982,66 @@ const baseSalesPoints: Omit<SalesPointMapping, "customerId" | "customerName" | "
   }
 ];
 
-export const mockSalesPoints: SalesPointMapping[] = baseSalesPoints.map((salesPoint) => ({
-  ...salesPoint,
-  ...boundCustomer,
-}));
+const emptyPic = { name: "", email: "", phone: "" };
+const emptyAddress = { provinsi: "", kotaKabupaten: "", kecamatan: "", alamat: "", kodePos: "" };
 
-export function getSalesPointCustomerBinding(salesPointId: string) {
+function findSeed(zone: string, region: string, area: string, salesPointName: string) {
+  const areaSeeds = salesPointSeeds.filter(
+    (s) => s.zone === zone && s.region === region && s.area === area,
+  );
+
+  let best = areaSeeds.find((s) => s.subArea === salesPointName);
+  if (best) return best;
+
+  best = areaSeeds.find((s) => s.subArea.toLowerCase() === salesPointName.toLowerCase());
+  if (best) return best;
+
+  best = areaSeeds.find(
+    (s) =>
+      s.subArea.toLowerCase().includes(salesPointName.toLowerCase()) ||
+      salesPointName.toLowerCase().includes(s.subArea.toLowerCase()),
+  );
+  if (best) return best;
+
+  return areaSeeds[0] ?? null;
+}
+
+export const mockSalesPoints: SalesPointMapping[] = baseSalesPoints.map((salesPoint) => {
+  const seed = findSeed(salesPoint.zone, salesPoint.region, salesPoint.area, salesPoint.salesPoint);
+
+  return {
+    ...salesPoint,
+    subArea: seed?.subArea ?? salesPoint.salesPoint,
+    pic1: seed?.pic1 ?? emptyPic,
+    pic2: seed?.pic2 ?? emptyPic,
+    remarks: seed?.remarks ?? "",
+    note: seed?.note ?? "",
+    shippingAddress: seed?.shippingAddress ?? emptyAddress,
+    ...boundClient,
+  };
+});
+
+export function getSalesPointPicByWcode(wcode: string): { name: string; email: string } {
+  const salesPoint = mockSalesPoints.find((sp) => sp.wcode === wcode);
+  return {
+    name: salesPoint?.pic1?.name || "",
+    email: salesPoint?.pic1?.email || "",
+  };
+}
+
+export const mockOrders: Order[] = mockOrderSeeds.map((order) => {
+  const pic = getSalesPointPicByWcode(order.salesPointId);
+  return {
+    ...order,
+    picProject: {
+      name: pic.name || order.picProject.name,
+      email: pic.email || order.picProject.email,
+    },
+    status: getOrderRequestStatus(order.items),
+  };
+});
+
+export function getSalesPointClientBinding(salesPointId: string) {
   const salesPoint = mockSalesPoints.find((entry) => entry.wcode === salesPointId);
 
   if (!salesPoint) {
@@ -2990,8 +3049,8 @@ export function getSalesPointCustomerBinding(salesPointId: string) {
   }
 
   return {
-    customerId: salesPoint.customerId,
-    customerName: salesPoint.customerName,
-    customerEntityName: salesPoint.customerEntityName,
+    clientId: salesPoint.clientId,
+    clientName: salesPoint.clientName,
+    clientEntityName: salesPoint.clientEntityName,
   };
 }

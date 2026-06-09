@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import * as XLSX from "xlsx";
-import { getSalesPointCustomerBinding, mockSalesPoints, type SalesPointMapping } from "@/lib/mockData";
+import { getSalesPointClientBinding, mockSalesPoints, type SalesPointMapping } from "@/lib/mockData";
 import { mockProducts } from "@/lib/productMaster";
 import { getSupplierSnapshot } from "@/lib/supplierStore";
 import { appendOrders, getOrdersSnapshot, type StoredOrder } from "@/lib/orderStore";
@@ -56,9 +56,9 @@ export interface ImportRowMatch {
   productName: string | null;
   salesPointId: string | null;
   salesPointName: string | null;
-  customerId: string | null;
-  customerName: string | null;
-  customerEntityName: string | null;
+  clientId: string | null;
+  clientName: string | null;
+  clientEntityName: string | null;
   brandName: string | null;
   categoryName: string | null;
   issues: string[];
@@ -69,6 +69,33 @@ export interface ImportRowAssignment {
   vendorName: string;
   assignedAt: string;
   assignedBy: string;
+}
+
+export type ImportAssignmentRuleField = "region" | "brand" | "category" | "salesPoint";
+
+export interface ImportAssignmentRuleCondition {
+  field: ImportAssignmentRuleField;
+  value: string;
+}
+
+export interface ImportAssignmentRule {
+  id: string;
+  vendorId: string;
+  vendorName: string;
+  conditions: ImportAssignmentRuleCondition[];
+  createdAt: string;
+}
+
+export interface ImportAssignmentDraftMatch {
+  rowId: string;
+  ruleId: string;
+  vendorId: string;
+  vendorName: string;
+}
+
+export interface ImportAssignmentDraft {
+  generatedAt: string;
+  matchedRows: ImportAssignmentDraftMatch[];
 }
 
 export interface ImportBatchRow {
@@ -121,6 +148,8 @@ export interface ImportBatch {
   progressPercent: number;
   validationStatus: ImportValidationStatus;
   importJob: ImportJob | null;
+  assignmentRules: ImportAssignmentRule[];
+  assignmentDraft: ImportAssignmentDraft | null;
   rows: ImportBatchRow[];
   dispatchRuns: DispatchRun[];
 }
@@ -464,6 +493,66 @@ function normalizeKeyPart(value: string | number | null | undefined) {
   return String(value ?? "").trim().toLowerCase();
 }
 
+function isRowAssignable(row: ImportBatchRow) {
+  return (
+    row.status === "unassigned" &&
+    row.match.issues.length === 0 &&
+    (!row.possibleDuplicate || row.duplicateDecision === "include")
+  );
+}
+
+function getRuleFieldValue(row: ImportBatchRow, field: ImportAssignmentRuleField) {
+  if (field === "region") {
+    return row.raw.region;
+  }
+
+  if (field === "brand") {
+    return row.raw.brandNamePo || row.raw.brand || row.match.brandName || "";
+  }
+
+  if (field === "category") {
+    return row.raw.category || row.match.categoryName || "";
+  }
+
+  return `${row.raw.wcode} · ${row.raw.salesPoint}`;
+}
+
+function buildAssignmentDraft(batch: ImportBatch): ImportAssignmentDraft | null {
+  if (batch.assignmentRules.length === 0) {
+    return null;
+  }
+
+  const matchedRows = batch.rows.reduce<ImportAssignmentDraftMatch[]>((accumulator, row) => {
+    if (!isRowAssignable(row)) {
+      return accumulator;
+    }
+
+    const matchedRule = batch.assignmentRules.find((rule) =>
+      rule.conditions.every((condition) => normalizeKeyPart(getRuleFieldValue(row, condition.field)) === normalizeKeyPart(condition.value)),
+    );
+
+    if (!matchedRule) {
+      return accumulator;
+    }
+
+    accumulator.push({
+      rowId: row.id,
+      ruleId: matchedRule.id,
+      vendorId: matchedRule.vendorId,
+      vendorName: matchedRule.vendorName,
+    });
+
+    return accumulator;
+  }, []);
+
+  return matchedRows.length > 0
+    ? {
+        generatedAt: new Date().toISOString(),
+        matchedRows,
+      }
+    : null;
+}
+
 function buildMandatoryDuplicateKey(raw: ImportRowRaw, quantity: number) {
   return [
     raw.poNumber,
@@ -548,7 +637,7 @@ function resolveRowMatch(raw: ImportRowRaw, quantity: number): ImportRowMatch {
   const salesPoint =
     mockSalesPoints.find((entry) => entry.wcode === raw.wcode) ??
     mockSalesPoints.find((entry) => entry.salesPoint.toLowerCase() === raw.salesPoint.toLowerCase());
-  const customerBinding = salesPoint ? getSalesPointCustomerBinding(salesPoint.wcode) : null;
+  const clientBinding = salesPoint ? getSalesPointClientBinding(salesPoint.wcode) : null;
   const issues: string[] = [];
 
   if (!raw.poNumber) issues.push("Missing PO Number");
@@ -568,9 +657,9 @@ function resolveRowMatch(raw: ImportRowRaw, quantity: number): ImportRowMatch {
     productName: product?.name ?? null,
     salesPointId: salesPoint?.wcode ?? null,
     salesPointName: salesPoint?.salesPoint ?? null,
-    customerId: customerBinding?.customerId ?? null,
-    customerName: customerBinding?.customerName ?? null,
-    customerEntityName: customerBinding?.customerEntityName ?? null,
+    clientId: clientBinding?.clientId ?? null,
+    clientName: clientBinding?.clientName ?? null,
+    clientEntityName: clientBinding?.clientEntityName ?? null,
     brandName: product?.brand ?? (raw.brand || null),
     categoryName: product?.productType ?? (raw.category || null),
     issues,
@@ -709,6 +798,8 @@ export function buildImportBatch(
     progressPercent: 100,
     validationStatus: hasBlockers ? "blocked" : "ready_for_assignment",
     importJob: null,
+    assignmentRules: [],
+    assignmentDraft: null,
     rows,
     dispatchRuns: [],
   };
@@ -729,6 +820,8 @@ function buildInitialBatches(): ImportBatch[] {
       progressPercent: 40,
       validationStatus: "blocked",
       importJob: null,
+      assignmentRules: [],
+      assignmentDraft: null,
       dispatchRuns: [],
       rows: [
         {
@@ -769,9 +862,9 @@ function buildInitialBatches(): ImportBatch[] {
             productName: "TPOSM - Sunscreen Without Velcro - 0.5x1 m - Vinyl FF Frontlight 10 Oz - DPP12 20K",
             salesPointId: "WH059",
             salesPointName: "Depok",
-            customerId: "CUST-001",
-            customerName: "Sampoerna",
-            customerEntityName: "PT HM Sampoerna Tbk",
+            clientId: "CLNT-001",
+            clientName: "Sampoerna",
+            clientEntityName: "PT HM Sampoerna Tbk",
             brandName: "Sunscreen",
             categoryName: "POSM",
             issues: [],
@@ -823,9 +916,9 @@ function buildInitialBatches(): ImportBatch[] {
             productName: "Shelf Strip Highlight",
             salesPointId: "WH059",
             salesPointName: "Depok",
-            customerId: "CUST-001",
-            customerName: "Sampoerna",
-            customerEntityName: "PT HM Sampoerna Tbk",
+            clientId: "CLNT-001",
+            clientName: "Sampoerna",
+            clientEntityName: "PT HM Sampoerna Tbk",
             brandName: "A Mild",
             categoryName: "POSM",
             issues: [],
@@ -882,9 +975,9 @@ function buildInitialBatches(): ImportBatch[] {
             productName: null,
             salesPointId: "WH021",
             salesPointName: "Bogor",
-            customerId: "CUST-001",
-            customerName: "Sampoerna",
-            customerEntityName: "PT HM Sampoerna Tbk",
+            clientId: "CLNT-001",
+            clientName: "Sampoerna",
+            clientEntityName: "PT HM Sampoerna Tbk",
             brandName: "Dji Sam Soe",
             categoryName: "Display",
             issues: ["Item code not found in product master", "Review vendor-ready substitute"],
@@ -941,9 +1034,9 @@ function buildInitialBatches(): ImportBatch[] {
             productName: "Hanging Mobile Banner",
             salesPointId: "WH001",
             salesPointName: "Menteng",
-            customerId: "CUST-001",
-            customerName: "Sampoerna",
-            customerEntityName: "PT HM Sampoerna Tbk",
+            clientId: "CLNT-001",
+            clientName: "Sampoerna",
+            clientEntityName: "PT HM Sampoerna Tbk",
             brandName: "Marlboro",
             categoryName: "POSM",
             issues: [],
@@ -1000,9 +1093,9 @@ function buildInitialBatches(): ImportBatch[] {
             productName: "Window Takeover Strip",
             salesPointId: "WH077",
             salesPointName: "Bandung",
-            customerId: "CUST-001",
-            customerName: "Sampoerna",
-            customerEntityName: "PT HM Sampoerna Tbk",
+            clientId: "CLNT-001",
+            clientName: "Sampoerna",
+            clientEntityName: "PT HM Sampoerna Tbk",
             brandName: "Sampoerna Kretek",
             categoryName: "POSM",
             issues: [],
@@ -1090,6 +1183,8 @@ function syncBatch(batch: ImportBatch): ImportBatch {
     ...batch,
     rows,
     importJob: batch.importJob ?? null,
+    assignmentRules: batch.assignmentRules ?? [],
+    assignmentDraft: batch.assignmentDraft ?? null,
   };
 
   return {
@@ -1134,11 +1229,20 @@ function updateBatchRows(
     batch.id === batchId
       ? syncBatch({
           ...batch,
+          assignmentDraft: null,
           rows: updater(batch.rows),
         })
       : batch,
   );
 
+  saveBatches(nextBatches);
+}
+
+function updateBatch(
+  batchId: string,
+  updater: (batch: ImportBatch) => ImportBatch,
+) {
+  const nextBatches = readStoredBatches().map((batch) => (batch.id === batchId ? syncBatch(updater(batch)) : batch));
   saveBatches(nextBatches);
 }
 
@@ -1172,6 +1276,10 @@ export function getDispatchReadiness(batch: ImportBatch) {
   };
 }
 
+export function getAssignmentDraft(batch: ImportBatch) {
+  return buildAssignmentDraft(batch);
+}
+
 function makeImportGroupKey(batch: ImportBatch, rows: ImportBatchRow[]) {
   const firstRow = rows[0];
   const salesPointId = firstRow.match.salesPointId ?? firstRow.raw.wcode;
@@ -1184,8 +1292,8 @@ function makeImportGroupKey(batch: ImportBatch, rows: ImportBatchRow[]) {
 export function createOrdersFromDispatchableRows(batch: ImportBatch, dispatchableRows: ImportBatchRow[], dispatchRunId = "") {
   const groupedRows = dispatchableRows.reduce<Record<string, ImportBatchRow[]>>((accumulator, row) => {
     const salesPointId = row.match.salesPointId ?? row.raw.wcode;
-    const customerId = row.match.customerId ?? getSalesPointCustomerBinding(salesPointId)?.customerId ?? "";
-    const key = `${row.raw.poNumber}::${salesPointId}::${customerId}::${row.assignment?.vendorId}`;
+    const clientId = row.match.clientId ?? getSalesPointClientBinding(salesPointId)?.clientId ?? "";
+    const key = `${row.raw.poNumber}::${salesPointId}::${clientId}::${row.assignment?.vendorId}`;
     accumulator[key] = [...(accumulator[key] ?? []), row];
     return accumulator;
   }, {});
@@ -1194,20 +1302,20 @@ export function createOrdersFromDispatchableRows(batch: ImportBatch, dispatchabl
     const firstRow = rows[0];
     const vendor = firstRow.assignment!;
     const salesPointId = firstRow.match.salesPointId ?? firstRow.raw.wcode;
-    const customerBinding = firstRow.match.customerId
+    const clientBinding = firstRow.match.clientId
       ? {
-          customerId: firstRow.match.customerId,
-          customerName: firstRow.match.customerName,
-          customerEntityName: firstRow.match.customerEntityName,
+          clientId: firstRow.match.clientId,
+          clientName: firstRow.match.clientName,
+          clientEntityName: firstRow.match.clientEntityName,
         }
-      : getSalesPointCustomerBinding(salesPointId);
+      : getSalesPointClientBinding(salesPointId);
     const sourcePoNumber = firstRow.raw.poNumber;
-    const topProgramName = rows.reduce<Record<string, number>>((accumulator, row) => {
-      const key = row.raw.brandNamePo || row.raw.brand || "Imported Program";
+    const topProjectName = rows.reduce<Record<string, number>>((accumulator, row) => {
+      const key = row.raw.brandNamePo || row.raw.brand || "Imported Project";
       accumulator[key] = (accumulator[key] ?? 0) + 1;
       return accumulator;
     }, {});
-    const campaign = Object.entries(topProgramName).sort((left, right) => right[1] - left[1])[0]?.[0] ?? "Imported Program";
+    const campaign = Object.entries(topProjectName).sort((left, right) => right[1] - left[1])[0]?.[0] ?? "Imported Project";
     const id = `OR-${new Date().getFullYear()}-${Math.floor(Math.random() * 900000 + 100000)}`;
     const items = rows.map((row) => ({
       id: makeId("ITEM"),
@@ -1233,10 +1341,10 @@ export function createOrdersFromDispatchableRows(batch: ImportBatch, dispatchabl
       soNumber: "",
       supplier: vendor.vendorName,
       salesPointId,
-      customerId: customerBinding?.customerId ?? undefined,
-      customerName: customerBinding?.customerName ?? undefined,
-      customerEntityName: customerBinding?.customerEntityName ?? undefined,
-      picProgram: {
+      clientId: clientBinding?.clientId ?? undefined,
+      clientName: clientBinding?.clientName ?? undefined,
+      clientEntityName: clientBinding?.clientEntityName ?? undefined,
+      picProject: {
         name: "",
         email: "",
       },
@@ -1376,7 +1484,7 @@ export function useImportBatches() {
 export function useImportStore() {
   const { batches, isHydrating } = useImportBatches();
 
-  const uploadWorkbook = async (file: File, uploadedBy = "Customer Portal") => {
+  const uploadWorkbook = async (file: File, uploadedBy = "Client Portal") => {
     await ensureImportBatchCacheHydrated();
 
     const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
@@ -1431,6 +1539,113 @@ export function useImportStore() {
     );
   };
 
+  const createAssignmentRule = (
+    batchId: string,
+    payload: {
+      vendorId: string;
+      conditions: ImportAssignmentRuleCondition[];
+    },
+  ) => {
+    const vendor = getSupplierSnapshot().find((entry) => entry.id === payload.vendorId);
+    const conditions = payload.conditions
+      .map((condition) => ({
+        field: condition.field,
+        value: condition.value.trim(),
+      }))
+      .filter((condition) => condition.value.length > 0);
+
+    if (!vendor || conditions.length === 0) {
+      return;
+    }
+
+    updateBatch(batchId, (batch) => ({
+      ...batch,
+      assignmentDraft: null,
+      assignmentRules: [
+        ...batch.assignmentRules,
+        {
+          id: makeId("RUL"),
+          vendorId: vendor.id,
+          vendorName: vendor.name,
+          conditions,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    }));
+  };
+
+  const deleteAssignmentRule = (batchId: string, ruleId: string) => {
+    updateBatch(batchId, (batch) => ({
+      ...batch,
+      assignmentDraft: null,
+      assignmentRules: batch.assignmentRules.filter((rule) => rule.id !== ruleId),
+    }));
+  };
+
+  const moveAssignmentRule = (batchId: string, ruleId: string, direction: "up" | "down") => {
+    updateBatch(batchId, (batch) => {
+      const currentIndex = batch.assignmentRules.findIndex((rule) => rule.id === ruleId);
+
+      if (currentIndex < 0) {
+        return batch;
+      }
+
+      const nextIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+
+      if (nextIndex < 0 || nextIndex >= batch.assignmentRules.length) {
+        return batch;
+      }
+
+      const assignmentRules = [...batch.assignmentRules];
+      const [rule] = assignmentRules.splice(currentIndex, 1);
+      assignmentRules.splice(nextIndex, 0, rule);
+
+      return {
+        ...batch,
+        assignmentDraft: null,
+        assignmentRules,
+      };
+    });
+  };
+
+  const previewAssignmentRules = (batchId: string) => {
+    updateBatch(batchId, (batch) => ({
+      ...batch,
+      assignmentDraft: buildAssignmentDraft(batch),
+    }));
+  };
+
+  const clearAssignmentDraft = (batchId: string) => {
+    updateBatch(batchId, (batch) => ({
+      ...batch,
+      assignmentDraft: null,
+    }));
+  };
+
+  const approveAssignmentDraft = (batchId: string) => {
+    const batch = getBatchById(batchId);
+
+    if (!batch || !batch.assignmentDraft || batch.assignmentDraft.matchedRows.length === 0) {
+      return 0;
+    }
+
+    const rowIdsByVendor = batch.assignmentDraft.matchedRows.reduce<Record<string, string[]>>((accumulator, match) => {
+      accumulator[match.vendorId] = [...(accumulator[match.vendorId] ?? []), match.rowId];
+      return accumulator;
+    }, {});
+
+    Object.entries(rowIdsByVendor).forEach(([vendorId, rowIds]) => {
+      assignRowsToVendor(batchId, rowIds, vendorId);
+    });
+
+    updateBatch(batchId, (currentBatch) => ({
+      ...currentBatch,
+      assignmentDraft: null,
+    }));
+
+    return batch.assignmentDraft.matchedRows.length;
+  };
+
   const unassignRows = (batchId: string, rowIds: string[]) => {
     updateBatchRows(batchId, (rows) =>
       rows.map((row) => {
@@ -1451,6 +1666,27 @@ export function useImportStore() {
     updateBatchRows(batchId, (rows) =>
       rows.map((row) =>
         row.id === rowId
+          ? {
+              ...row,
+              duplicateDecision: decision,
+              status: decision === "exclude" ? "excluded" : row.assignment ? "assigned" : row.match.issues.length > 0 ? "unresolved" : "unassigned",
+              excludedReason: decision === "exclude" ? "Excluded during duplicate review" : null,
+            }
+          : row,
+      ),
+    );
+  };
+
+  const markDuplicateDecisionForRows = (batchId: string, rowIds: string[], decision: DuplicateDecision) => {
+    if (rowIds.length === 0) {
+      return;
+    }
+
+    const rowIdSet = new Set(rowIds);
+
+    updateBatchRows(batchId, (rows) =>
+      rows.map((row) =>
+        rowIdSet.has(row.id)
           ? {
               ...row,
               duplicateDecision: decision,
@@ -1486,6 +1722,36 @@ export function useImportStore() {
     );
   };
 
+  const toggleExcludedForRows = (batchId: string, rowIds: string[], excluded: boolean) => {
+    if (rowIds.length === 0) {
+      return;
+    }
+
+    const rowIdSet = new Set(rowIds);
+
+    updateBatchRows(batchId, (rows) =>
+      rows.map((row) => {
+        if (!rowIdSet.has(row.id) || row.status === "dispatched") {
+          return row;
+        }
+
+        if (excluded) {
+          return {
+            ...row,
+            status: "excluded",
+            excludedReason: "Excluded from import scope",
+          };
+        }
+
+        return {
+          ...row,
+          status: row.match.issues.length > 0 ? "unresolved" : row.assignment ? "assigned" : "unassigned",
+          excludedReason: null,
+        };
+      }),
+    );
+  };
+
   const dispatchBatch = (batchId: string) => dispatchAssignedRows(batchId);
 
   const clearImportBatches = async () => {
@@ -1497,10 +1763,18 @@ export function useImportStore() {
     batches,
     isHydrating,
     uploadWorkbook,
+    createAssignmentRule,
+    deleteAssignmentRule,
+    moveAssignmentRule,
+    previewAssignmentRules,
+    clearAssignmentDraft,
+    approveAssignmentDraft,
     assignRowsToVendor,
     unassignRows,
     markDuplicateDecision,
+    markDuplicateDecisionForRows,
     toggleExcluded,
+    toggleExcludedForRows,
     dispatchBatch,
     clearImportBatches,
   };

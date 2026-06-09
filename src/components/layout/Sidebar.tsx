@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
-export type UserRole = "admin" | "operator" | "analyst" | "customer" | "vendor";
+export type UserRole = "admin" | "operator" | "analyst" | "client" | "vendor";
 
 interface SidebarVisibilityContextValue {
   open: boolean;
@@ -63,7 +63,7 @@ const navItems: Record<UserRole, SidebarNavItem[]> = {
     { icon: Tag, label: "Products", path: "/admin/products" },
     { icon: Bookmark, label: "Brands", path: "/admin/brands" },
     { icon: Map, label: "Sales Points", path: "/admin/sales-points" },
-    { icon: Users, label: "Customers", path: "/admin/customers" },
+    { icon: Users, label: "Clients", path: "/admin/clients" },
     { icon: Users, label: "Users", path: "/admin/users" },
   ],
   operator: [
@@ -80,13 +80,13 @@ const navItems: Record<UserRole, SidebarNavItem[]> = {
     { icon: Mail, label: "Inbox", path: "/analyst/inbox" },
     { icon: Users, label: "Users", path: "/analyst/users" },
   ],
-  customer: [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/customer" },
-    { icon: Package, label: "Order Tracking", path: "/customer/progress" },
-    { icon: PlusCircle, label: "Create OR", path: "/customer/create" },
-    { icon: Package, label: "Imports", path: "/customer/imports" },
-    { icon: Mail, label: "Inbox", path: "/customer/inbox" },
-    { icon: ShoppingCart, label: "My Orders", path: "/customer/orders" },
+  client: [
+    { icon: LayoutDashboard, label: "Dashboard", path: "/client" },
+    { icon: Package, label: "Order Tracking", path: "/client/progress" },
+    { icon: PlusCircle, label: "Create OR", path: "/client/create" },
+    { icon: Package, label: "Imports", path: "/client/imports" },
+    { icon: Mail, label: "Inbox", path: "/client/inbox" },
+    { icon: ShoppingCart, label: "My Orders", path: "/client/orders" },
   ],
   vendor: [
     { icon: LayoutDashboard, label: "Dashboard", path: "/vendor" },
@@ -137,8 +137,8 @@ export function Sidebar({ role, className, compact = false }: SidebarProps) {
     <aside
       className={cn(
         compact
-          ? "sticky top-0 hidden h-screen w-24 shrink-0 flex-col border-r bg-card/95 px-3 py-5 backdrop-blur lg:flex"
-          : "sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r bg-card/95 px-4 py-5 backdrop-blur lg:flex",
+          ? "fixed top-0 left-0 z-30 hidden h-screen w-24 flex-col border-r bg-card/95 px-3 py-5 backdrop-blur lg:flex"
+          : "fixed top-0 left-0 z-30 hidden h-screen w-60 flex-col border-r bg-card/95 px-4 py-5 backdrop-blur lg:flex",
         className,
       )}
     >

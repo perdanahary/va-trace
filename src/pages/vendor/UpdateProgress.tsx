@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { resolveQuantityComplaint, useOrders } from "@/lib/orderStore";
@@ -65,7 +66,7 @@ export function VendorUpdateProgress() {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role="vendor" />
-      <div className="flex-1">
+      <ContentArea>
         <Header title={`Update Progress: ${order.id}`} />
         
         <main className="p-8 max-w-5xl mx-auto space-y-6">
@@ -235,7 +236,7 @@ export function VendorUpdateProgress() {
             </div>
           </div>
         </main>
-      </div>
+      </ContentArea>
     </div>
   );
 }

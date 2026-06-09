@@ -1,6 +1,7 @@
 import { MapPin, MoreHorizontal, Search, Filter, Truck } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
+import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ export function LogisticsList() {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role="admin" />
-      <div className="flex-1">
+      <ContentArea>
         <Header title="Logistics & Shipments" />
 
         <main className="space-y-6 p-4 sm:p-6 lg:p-8">
@@ -95,7 +96,7 @@ export function LogisticsList() {
             </CardContent>
           </Card>
         </main>
-      </div>
+      </ContentArea>
     </div>
   );
 }

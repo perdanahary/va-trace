@@ -94,7 +94,7 @@ export function UserModal({ isOpen, onClose, onSave, user }: UserModalProps) {
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="operator">Operator</SelectItem>
                   <SelectItem value="analyst">Analyst</SelectItem>
-                  <SelectItem value="customer">Customer</SelectItem>
+                  <SelectItem value="client">Client</SelectItem>
                   <SelectItem value="vendor">Vendor</SelectItem>
                 </SelectContent>
               </Select>
