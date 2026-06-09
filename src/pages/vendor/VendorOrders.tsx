@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
+import { Download, Eye, Filter, MoreHorizontal, Play, Search } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Download, Filter, MoreHorizontal, Plus, Search } from "lucide-react";
 
-import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
+import { Sidebar } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
 import { FilterField, FilterSection } from "@/components/shared/FilterSection";
 import { Header } from "@/components/layout/Header";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,48 +17,40 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { getBaseOrderStatus } from "@/lib/orderStatus";
-import { useOrders } from "@/lib/orderStore";
-import type { Order } from "@/lib/mockData";
+import { startProduction, useOrders, type StoredOrder } from "@/lib/orderStore";
 
-interface AllOrdersProps {
-  role?: UserRole;
-}
-
-export function AllOrders({ role = "admin" }: AllOrdersProps) {
+export function VendorOrders() {
   const orders = useOrders();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("All Statuses");
-  const [selectedVendor, setSelectedVendor] = useState("All Vendors");
   const [currentPage, setCurrentPage] = useState(1);
-  const detailPath = (id: string) => (role === "admin" ? `/admin/orders/${id}` : `/${role}/orders/${id}`);
-  const createPath = role === "admin" ? "/admin/create" : role === "operator" ? "/operator/create" : "/admin/create";
-  const showVendorColumn = role !== "vendor";
-  const pageSize = 5;
+  const pageSize = 10;
 
-  const statusOptions = useMemo(() => ["All Statuses", ...Array.from(new Set(orders.map((order) => order.status))).sort()], [orders]);
-  const vendorOptions = useMemo(() => ["All Vendors", ...Array.from(new Set(orders.map((order) => order.supplier))).sort()], [orders]);
-
+  const statusOptions = useMemo(
+    () => ["All Statuses", ...Array.from(new Set(orders.map((o) => o.status))).sort()],
+    [orders],
+  );
   const filteredOrders = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
 
     return orders.filter((order) => {
       const matchesSearch =
         !query ||
-        [order.id, order.clientPO, order.campaign, order.supplier, formatCreatedDate(order.createdDate), order.deadline].some((value) =>
-          value.toLowerCase().includes(query),
+        [order.id, order.clientPO, order.campaign, order.supplier, formatCreatedDate(order.createdDate), order.deadline].some((v) =>
+          v.toLowerCase().includes(query),
         );
       const matchesStatus = selectedStatus === "All Statuses" || order.status === selectedStatus;
-      const matchesVendor = selectedVendor === "All Vendors" || order.supplier === selectedVendor;
-      return matchesSearch && matchesStatus && matchesVendor;
+      return matchesSearch && matchesStatus;
     });
-  }, [orders, searchTerm, selectedStatus, selectedVendor]);
+  }, [orders, searchTerm, selectedStatus]);
 
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / pageSize));
   const visibleOrders = useMemo(() => {
@@ -75,7 +66,7 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedStatus, selectedVendor]);
+  }, [searchTerm, selectedStatus]);
 
   useEffect(() => {
     const state = location.state as { initialStatus?: string } | null;
@@ -88,15 +79,14 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
 
   const clearFilters = () => {
     setSelectedStatus("All Statuses");
-    setSelectedVendor("All Vendors");
     setSearchTerm("");
   };
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role={role} />
+      <Sidebar role="vendor" />
       <ContentArea>
-        <Header title="All Order Requests" />
+        <Header title="My Orders" />
 
         <main className="space-y-6 p-4 sm:p-6 lg:p-8">
           <section className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -105,15 +95,15 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
               <Input
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search by vendor name, order ID, or client PO..."
+                placeholder="Search by order ID or client PO..."
                 className="pl-9"
               />
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <Button
-                variant={showFilters || selectedStatus !== "All Statuses" || selectedVendor !== "All Vendors" ? "secondary" : "outline"}
-                onClick={() => setShowFilters((value) => !value)}
+                variant={showFilters || selectedStatus !== "All Statuses" ? "secondary" : "outline"}
+                onClick={() => setShowFilters((v) => !v)}
               >
                 <Filter className="h-4 w-4" />
                 Filters
@@ -121,10 +111,6 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
               <Button variant="outline">
                 <Download className="h-4 w-4" />
                 Export CSV
-              </Button>
-              <Button onClick={() => navigate(createPath)}>
-                <Plus className="h-4 w-4" />
-                Create New OR
               </Button>
             </div>
           </section>
@@ -164,20 +150,6 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
                   </SelectContent>
                 </Select>
               </FilterField>
-              <FilterField label="Vendor">
-                <Select value={selectedVendor} onValueChange={setSelectedVendor}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select vendor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vendorOptions.map((vendor) => (
-                      <SelectItem key={vendor} value={vendor}>
-                        {vendor}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FilterField>
             </FilterSection>
           ) : null}
 
@@ -188,7 +160,6 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
                   <TableRow>
                     <TableHead>Client PO</TableHead>
                     <TableHead>Order Request</TableHead>
-                    {showVendorColumn ? <TableHead>Vendor</TableHead> : null}
                     <TableHead>Date Created</TableHead>
                     <TableHead>Deadline</TableHead>
                     <TableHead>Status</TableHead>
@@ -198,9 +169,9 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
                 <TableBody>
                   {visibleOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={showVendorColumn ? 7 : 6} className="py-16 text-center">
+                      <TableCell colSpan={6} className="py-16 text-center">
                         <div className="mx-auto max-w-sm space-y-2">
-                          <p className="text-sm font-medium">No order requests found</p>
+                          <p className="text-sm font-medium">No orders found</p>
                           <p className="text-sm text-muted-foreground">Try a different vendor name, order ID, or client PO.</p>
                         </div>
                       </TableCell>
@@ -209,6 +180,15 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
                     visibleOrders.map((order) => {
                       const deadlineInfo = getDeadlineInfo(order.deadline, order.createdDate);
                       const tone = getOrderTone(order);
+                      const baseStatus = getBaseOrderStatus(order.status);
+                      const actionTab =
+                        baseStatus === "Created" || baseStatus === "Waiting"
+                          ? "Pending"
+                          : baseStatus === "In Production" || baseStatus === "Accepted"
+                            ? "Production"
+                            : baseStatus === "Ready to Ship" || baseStatus === "On Delivery"
+                              ? "Shipping"
+                              : "History";
 
                       return (
                         <TableRow
@@ -219,36 +199,64 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
                           )}
                         >
                           <TableCell>
-                            <Link to={detailPath(order.id)} className="text-sm font-semibold text-primary hover:underline">
+                            <Link
+                              to={`/vendor/update/${order.id}`}
+                              className="text-sm font-semibold text-primary hover:underline"
+                            >
                               {order.clientPO || <span className="italic text-muted-foreground">—</span>}
                             </Link>
                           </TableCell>
                           <TableCell className="font-mono text-xs text-muted-foreground">{order.id}</TableCell>
-                          {showVendorColumn ? (
-                            <TableCell className={cn("text-sm", order.supplier === "Pending" && "italic text-destructive")}>{order.supplier}</TableCell>
-                          ) : null}
                           <TableCell className="text-sm">{formatCreatedDate(order.createdDate)}</TableCell>
-                          <TableCell className={cn("text-sm", deadlineInfo.isOverdue ? "font-semibold text-destructive" : deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3 ? "font-semibold text-warning" : "text-muted-foreground")}>
+                          <TableCell
+                            className={cn(
+                              "text-sm",
+                              deadlineInfo.isOverdue
+                                ? "font-semibold text-destructive"
+                                : deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3
+                                  ? "font-semibold text-warning"
+                                  : "text-muted-foreground",
+                            )}
+                          >
                             {deadlineInfo.label}
                           </TableCell>
                           <TableCell>
-                            <StatusBadge status={order.status} />
+                            <StatusBadge status={order.status} labelMap={{ Created: "Assigned" }} />
                           </TableCell>
                           <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => navigate(detailPath(order.id))}>Open details</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => navigate(`${detailPath(order.id)}/packaging-labels`)}>Packaging labels</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => navigate(`${detailPath(order.id)}/delivery-note`)}>Delivery note</DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            {actionTab === "Pending" && (
+                              <Button size="sm" onClick={() => startProduction(order.id)}>
+                                <Play className="mr-1 h-3.5 w-3.5" />
+                                Start Production
+                              </Button>
+                            )}
+                            {actionTab !== "Pending" ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  {(actionTab === "Production" || actionTab === "Shipping") && (
+                                    <DropdownMenuItem onClick={() => navigate(`/vendor/update/${order.id}`)}>
+                                      Update Progress
+                                    </DropdownMenuItem>
+                                  )}
+                                  {actionTab === "History" && (
+                                    <DropdownMenuItem onClick={() => navigate(`/vendor/update/${order.id}`)}>
+                                      <Eye className="mr-2 h-3.5 w-3.5" />
+                                      View
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem onClick={() => navigate(`/vendor/orders/${order.id}/delivery-note`)}>
+                                    Delivery note
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : null}
                           </TableCell>
                         </TableRow>
                       );
@@ -264,10 +272,18 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
               Page {currentPage} of {totalPages}
             </p>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => setCurrentPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1}>
+              <Button
+                variant="outline"
+                onClick={() => setCurrentPage((v) => Math.max(1, v - 1))}
+                disabled={currentPage === 1}
+              >
                 Previous
               </Button>
-              <Button variant="outline" onClick={() => setCurrentPage((value) => Math.min(totalPages, value + 1))} disabled={currentPage === totalPages}>
+              <Button
+                variant="outline"
+                onClick={() => setCurrentPage((v) => Math.min(totalPages, v + 1))}
+                disabled={currentPage === totalPages}
+              >
                 Next
               </Button>
             </div>
@@ -307,7 +323,9 @@ function getDeadlineInfo(deadline: string, createdDate?: string) {
   if (deadline === "Overdue" && createdDate) {
     const parsedCreated = new Date(createdDate);
     if (!Number.isNaN(parsedCreated.getTime())) {
-      const daysSince = Math.floor((normalizeDate(now).getTime() - normalizeDate(parsedCreated).getTime()) / (1000 * 60 * 60 * 24));
+      const daysSince = Math.floor(
+        (normalizeDate(now).getTime() - normalizeDate(parsedCreated).getTime()) / (1000 * 60 * 60 * 24),
+      );
       return { label: `${daysSince} days overdue`, isOverdue: true, daysLeft: null };
     }
   }
@@ -319,7 +337,7 @@ function getDeadlineInfo(deadline: string, createdDate?: string) {
   return { label: deadline, isOverdue: false, daysLeft };
 }
 
-function getOrderTone(order: Order) {
+function getOrderTone(order: StoredOrder) {
   const status = getBaseOrderStatus(order.status);
   if (status === "Urgent" || order.deadline === "Overdue") return "danger";
   if (status === "Waiting") return "warning";

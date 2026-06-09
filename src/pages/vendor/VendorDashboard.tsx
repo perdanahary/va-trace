@@ -1,18 +1,18 @@
-import { useState } from "react";
-import { AlertCircle, CheckCircle2, Clock, FileText, Inbox, MoreHorizontal, Package, Truck } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowUpRight, Eye, Play } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { useOrders, type StoredOrder } from "@/lib/orderStore";
+import { startProduction, useOrders, type StoredOrder } from "@/lib/orderStore";
+import { getBaseOrderStatus } from "@/lib/orderStatus";
 import { cn } from "@/lib/utils";
 
 type VendorTab = "Pending" | "Production" | "Shipping" | "History";
@@ -21,13 +21,35 @@ export function VendorDashboard() {
   const [activeTab, setActiveTab] = useState<VendorTab>("Production");
   const orders = useOrders();
 
-  const metrics = [
-    { label: "Pending", value: "02", tone: "warning" as const },
-    { label: "In Production", value: "08", tone: "processing" as const },
-    { label: "Ready", value: "03", tone: "processing" as const },
-    { label: "Shipping", value: "01", tone: "processing" as const },
-    { label: "Completed", value: "124", tone: "success" as const },
-  ];
+  const metrics = useMemo(() => {
+    const pending = orders.filter((o) => {
+      const base = getBaseOrderStatus(o.status);
+      return base === "Created" || base === "Waiting";
+    }).length;
+    const inProduction = orders.filter((o) => {
+      const base = getBaseOrderStatus(o.status);
+      return base === "In Production" || base === "Accepted";
+    }).length;
+    const ready = orders.filter((o) => getBaseOrderStatus(o.status) === "Ready to Ship").length;
+    const shipping = orders.filter((o) => getBaseOrderStatus(o.status) === "On Delivery").length;
+    const completed = orders.filter((o) => {
+      const base = getBaseOrderStatus(o.status);
+      return base === "Completed" || base === "Delivered";
+    }).length;
+
+    return [
+      { label: "Pending", value: String(pending).padStart(2, "0"), change: "Awaiting confirmation", color: "text-warning" },
+      { label: "In Production", value: String(inProduction).padStart(2, "0"), change: "In progress", color: "text-primary" },
+      { label: "Ready", value: String(ready).padStart(2, "0"), change: "Ready to dispatch", color: "text-processing" },
+      { label: "Shipping", value: String(shipping).padStart(2, "0"), change: "On delivery", color: "text-processing" },
+      { label: "Completed", value: String(completed).padStart(2, "0"), change: "Last 30 days", color: "text-success" },
+    ];
+  }, [orders]);
+
+  const pendingOrders = useMemo(() => getOrdersForTab("Pending", orders), [orders]);
+  const productionOrders = useMemo(() => getOrdersForTab("Production", orders), [orders]);
+  const shippingOrders = useMemo(() => getOrdersForTab("Shipping", orders), [orders]);
+  const historyOrders = useMemo(() => getOrdersForTab("History", orders), [orders]);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -36,21 +58,22 @@ export function VendorDashboard() {
         <Header title="Vendor Dashboard" />
 
         <main className="space-y-8 p-4 sm:p-6 lg:p-8">
-          <Alert className="border-primary/20 bg-primary/5">
-            <Inbox className="h-4 w-4 text-primary" />
-            <AlertTitle>Inbox Order</AlertTitle>
-            <AlertDescription>1 order is awaiting your confirmation.</AlertDescription>
-          </Alert>
-
-          <section className="grid grid-cols-2 gap-4 md:grid-cols-5">
-            {metrics.map((metric) => (
-              <Card key={metric.label} className="border-border/70 shadow-sm">
-                <CardHeader className="space-y-2 pb-2">
-                  <CardDescription className="uppercase tracking-[0.24em]">{metric.label}</CardDescription>
-                  <CardTitle className={cn(metric.tone === "warning" && "text-warning", metric.tone === "processing" && "text-processing", metric.tone === "success" && "text-success")}>
-                    {metric.value}
-                  </CardTitle>
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+            {metrics.map((metric, index) => (
+              <Card key={metric.label} className="group border-border/70 shadow-sm transition-colors hover:border-primary/40">
+                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+                  <div>
+                    <CardDescription>{metric.label}</CardDescription>
+                    <CardTitle className={`text-3xl ${metric.color}`}>{metric.value}</CardTitle>
+                  </div>
+                  <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
                 </CardHeader>
+                <CardContent className="flex items-center justify-between pt-0">
+                  <p className="text-xs text-muted-foreground">{metric.change}</p>
+                  <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.24em]">
+                    #{String(index + 1).padStart(2, "0")}
+                  </Badge>
+                </CardContent>
               </Card>
             ))}
           </section>
@@ -63,25 +86,17 @@ export function VendorDashboard() {
               <TabsTrigger value="History">History</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="Pending" className="space-y-4">
-              {getOrdersForTab("Pending", orders).map((order, index) => (
-                <VendorOrderCard key={order.id} order={order} index={index} />
-              ))}
+            <TabsContent value="Pending">
+              <VendorOrderTable orders={pendingOrders} tab="Pending" />
             </TabsContent>
-            <TabsContent value="Production" className="space-y-4">
-              {getOrdersForTab("Production", orders).map((order, index) => (
-                <VendorOrderCard key={order.id} order={order} index={index} />
-              ))}
+            <TabsContent value="Production">
+              <VendorOrderTable orders={productionOrders} tab="Production" />
             </TabsContent>
-            <TabsContent value="Shipping" className="space-y-4">
-              {getOrdersForTab("Shipping", orders).map((order, index) => (
-                <VendorOrderCard key={order.id} order={order} index={index} />
-              ))}
+            <TabsContent value="Shipping">
+              <VendorOrderTable orders={shippingOrders} tab="Shipping" />
             </TabsContent>
-            <TabsContent value="History" className="space-y-4">
-              {getOrdersForTab("History", orders).map((order, index) => (
-                <VendorOrderCard key={order.id} order={order} index={index} />
-              ))}
+            <TabsContent value="History">
+              <VendorOrderTable orders={historyOrders} tab="History" />
             </TabsContent>
           </Tabs>
         </main>
@@ -90,98 +105,166 @@ export function VendorDashboard() {
   );
 }
 
-function VendorOrderCard({ order, index }: { order: StoredOrder; index: number }) {
+function VendorOrderTable({ orders, tab }: { orders: StoredOrder[]; tab: VendorTab }) {
+  if (orders.length === 0) {
+    return (
+      <Card className="border-border/70 shadow-sm">
+        <CardContent className="flex flex-col items-center justify-center py-16">
+          <div className="mx-auto max-w-sm space-y-2 text-center">
+            <p className="text-sm font-medium">No orders found</p>
+            <p className="text-sm text-muted-foreground">
+              {tab === "Pending"
+                ? "No orders awaiting confirmation."
+                : tab === "Production"
+                  ? "No orders in production."
+                  : tab === "Shipping"
+                    ? "No orders in shipping."
+                    : "No completed orders."}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card className="border-border/70 shadow-sm">
-      <CardContent className="p-6">
-        <div className="flex flex-col gap-6 xl:flex-row">
-          <div className="flex-1 space-y-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-xs font-semibold text-primary">{order.id}</span>
-                  <StatusBadge status={order.status} />
-                  {order.status === "Overdue" ? (
-                    <Badge variant="destructive" className="rounded-full uppercase tracking-[0.18em]">
-                      Overdue
-                    </Badge>
-                  ) : null}
-                </div>
-                <h3 className="mt-2 text-base font-semibold tracking-tight">{order.campaign}</h3>
-              </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <FileText className="h-4 w-4" />
-                <span>PO: {order.clientPO}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4" />
-                <span>Created: {order.createdDate}</span>
-              </div>
-              <div className={cn("flex items-center gap-2 text-sm", order.deadline === "Overdue" ? "text-destructive font-medium" : "text-muted-foreground")}>
-                <Clock className="h-4 w-4" />
-                <span>Deadline: {order.deadline}</span>
-              </div>
-            </div>
-
-            <div className="rounded-lg border bg-muted/20 p-3">
-              <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Notes</p>
-              <p className="text-sm text-muted-foreground">Please wrap in bubble wrap as requested by the client.</p>
-            </div>
-          </div>
-
-          <div className="w-full space-y-4 border-t pt-4 xl:w-96 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
-            <div className="flex items-center justify-between">
-              <h4 className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Itemized Progress</h4>
-              <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.24em]">
-                {index + 1}
-              </Badge>
-            </div>
-            <div className="space-y-3">
-              <ProgressRow label="In Production" current={200} total={750} />
-              <ProgressRow label="Ready to Ship" current={100} total={750} />
-              <ProgressRow label="On Delivery" current={100} total={750} />
-              <ProgressRow label="Delivered" current={100} total={750} />
-            </div>
-            <Button asChild className="w-full">
-              <Link to={`/vendor/update/${order.id}`}>Update Progress</Link>
-            </Button>
-          </div>
-        </div>
+    <Card className="border-border/70 py-0 shadow-sm">
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Order ID</TableHead>
+              <TableHead>Campaign</TableHead>
+              <TableHead>Client PO</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead>Deadline</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {orders.map((order) => {
+              const deadlineInfo = getDeadlineInfo(order.deadline, order.createdDate);
+              return (
+                <TableRow key={order.id}>
+                  <TableCell>
+                    <Link to={`/vendor/update/${order.id}`} className="font-mono text-xs text-primary hover:underline">
+                      {order.id}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-sm font-medium">{order.campaign}</TableCell>
+                  <TableCell className="text-sm">{order.clientPO}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{formatCreatedDate(order.createdDate)}</TableCell>
+                  <TableCell
+                    className={cn(
+                      "text-sm",
+                      deadlineInfo.isOverdue
+                        ? "font-semibold text-destructive"
+                        : deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3
+                          ? "font-semibold text-warning"
+                          : "text-muted-foreground",
+                    )}
+                  >
+                    {deadlineInfo.label}
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={order.status} labelMap={{ Created: "Assigned" }} />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {tab === "Pending" && (
+                      <Button size="sm" onClick={() => startProduction(order.id)}>
+                        <Play className="mr-1 h-3.5 w-3.5" />
+                        Start Production
+                      </Button>
+                    )}
+                    {(tab === "Production" || tab === "Shipping") && (
+                      <Button size="sm" variant="outline" asChild>
+                        <Link to={`/vendor/update/${order.id}`}>Update Progress</Link>
+                      </Button>
+                    )}
+                    {tab === "History" && (
+                      <Button size="sm" variant="ghost" asChild>
+                        <Link to={`/vendor/update/${order.id}`}>
+                          <Eye className="mr-1 h-3.5 w-3.5" />
+                          View
+                        </Link>
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
-  );
-}
-
-function ProgressRow({ label, current, total }: { label: string; current: number; total: number }) {
-  const percentage = (current / total) * 100;
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-        <span>{label}</span>
-        <span>
-          {current}/{total}
-        </span>
-      </div>
-      <Progress value={percentage} className="h-2" />
-    </div>
   );
 }
 
 function getOrdersForTab(tab: VendorTab, orders: StoredOrder[]) {
   switch (tab) {
     case "Pending":
-      return orders.filter((order) => order.status === "Created" || order.status === "Waiting").slice(0, 3);
+      return orders.filter((order) => {
+        const base = getBaseOrderStatus(order.status);
+        return base === "Created" || base === "Waiting";
+      });
     case "Production":
-      return orders.filter((order) => order.status === "In Production" || order.status === "Accepted").slice(0, 3);
+      return orders.filter((order) => {
+        const base = getBaseOrderStatus(order.status);
+        return base === "In Production" || base === "Accepted";
+      });
     case "Shipping":
-      return orders.filter((order) => order.status === "Ready to Ship" || order.status === "On Delivery").slice(0, 3);
+      return orders.filter((order) => {
+        const base = getBaseOrderStatus(order.status);
+        return base === "Ready to Ship" || base === "On Delivery";
+      });
     case "History":
-      return orders.filter((order) => order.status === "Completed" || order.status === "Delivered").slice(0, 3);
+      return orders.filter((order) => {
+        const base = getBaseOrderStatus(order.status);
+        return base === "Completed" || base === "Delivered";
+      });
   }
+}
+
+function formatCreatedDate(date: string) {
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function getDeadlineInfo(deadline: string, createdDate?: string) {
+  const now = new Date();
+  const normalizeDate = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  const parsedDate = new Date(deadline);
+  if (!Number.isNaN(parsedDate.getTime()) && deadline.includes(parsedDate.getFullYear().toString())) {
+    const diffMs = normalizeDate(parsedDate).getTime() - normalizeDate(now).getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays > 0) {
+      return { label: `${diffDays} day${diffDays !== 1 ? "s" : ""} left`, isOverdue: false, daysLeft: diffDays };
+    }
+    if (diffDays === 0) {
+      return { label: "Due today", isOverdue: false, daysLeft: 0 };
+    }
+    const overdue = Math.abs(diffDays);
+    return { label: `${overdue} day${overdue !== 1 ? "s" : ""} overdue`, isOverdue: true, daysLeft: null };
+  }
+
+  if (deadline === "Overdue" && createdDate) {
+    const parsedCreated = new Date(createdDate);
+    if (!Number.isNaN(parsedCreated.getTime())) {
+      const daysSince = Math.floor(
+        (normalizeDate(now).getTime() - normalizeDate(parsedCreated).getTime()) / (1000 * 60 * 60 * 24),
+      );
+      return { label: `${daysSince} days overdue`, isOverdue: true, daysLeft: null };
+    }
+  }
+  if (deadline === "Overdue") {
+    return { label: "Overdue", isOverdue: true, daysLeft: null };
+  }
+  const daysLeftMatch = deadline.match(/(\d+)/);
+  const daysLeft = daysLeftMatch ? Number(daysLeftMatch[1]) : null;
+  return { label: deadline, isOverdue: false, daysLeft };
 }

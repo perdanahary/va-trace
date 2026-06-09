@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ComponentType, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { UserAccountMenu } from "@/components/layout/UserAccountMenu";
 import {
@@ -18,6 +17,7 @@ import {
   Mail,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import pmgAsiaLogo from "@/assets/pmg-asia-logo.jpeg";
 
 export type UserRole = "admin" | "operator" | "analyst" | "client" | "vendor";
 
@@ -92,6 +92,7 @@ const navItems: Record<UserRole, SidebarNavItem[]> = {
     { icon: LayoutDashboard, label: "Dashboard", path: "/vendor" },
     { icon: Package, label: "Order Tracking", path: "/vendor/progress" },
     { icon: ShoppingCart, label: "My Orders", path: "/vendor/orders" },
+    { icon: Tag, label: "Products", path: "/vendor/products" },
     { icon: Mail, label: "Inbox", path: "/vendor/inbox" },
     { icon: Users, label: "My Profile", path: "/vendor/profile" },
   ],
@@ -150,9 +151,7 @@ export function Sidebar({ role, className, compact = false }: SidebarProps) {
         )}
         aria-label="Go to dashboard"
       >
-        <Avatar className="h-10 w-10 rounded-xl">
-          <AvatarFallback className="rounded-xl bg-primary text-primary-foreground">V</AvatarFallback>
-        </Avatar>
+        <img src={pmgAsiaLogo} alt="PMG Asia" className="h-10 w-10 object-cover" />
         {!compact ? (
           <div className="min-w-0">
             <p className="text-sm font-semibold leading-none tracking-tight">VA Trace</p>

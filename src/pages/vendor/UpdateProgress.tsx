@@ -164,9 +164,31 @@ export function VendorUpdateProgress() {
                 </div>
               </section>
 
+              <Card className="border-border/70 shadow-sm">
+                <CardHeader className="border-b bg-muted/15">
+                  <CardTitle className="text-base">In Production</CardTitle>
+                  <CardDescription>Progress for this order</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Quantity</p>
+                      <p className="mt-1 text-2xl font-bold">{production.toLocaleString()}</p>
+                    </div>
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center text-xs font-bold border-2 border-white shadow-md bg-primary/5 text-primary">
+                      {Math.round((production/total)*100)}%
+                    </div>
+                  </div>
+                  <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner border border-border/50">
+                    <div className="h-full rounded-full bg-primary transition-all duration-1000" style={{ width: `${(production/total)*100}%` }}></div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">of {total.toLocaleString()} total quantity</p>
+                </CardContent>
+              </Card>
+
               {complaint ? (
-                <Card className="border-border shadow-sm">
-                  <CardHeader className="border-b bg-muted/20">
+                <Card className="border-border/70 shadow-sm">
+                  <CardHeader className="border-b bg-muted/15">
                     <CardTitle className="text-base">Complaint Review</CardTitle>
                     <CardDescription>Approve or reject the PMG quantity revision.</CardDescription>
                   </CardHeader>
@@ -289,12 +311,12 @@ function UpdateItem({ label, value, max, onChange, color, bg, helper }: { label:
 
 function SummaryStat({ label, percentage, color }: { label: string, percentage: number, color: string }) {
   return (
-    <div className="space-y-2">
-      <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+    <div className="rounded-lg border border-border/60 bg-background p-4">
+      <div className="flex justify-between text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
         <span>{label}</span>
-        <span>{Math.round(percentage)}%</span>
+        <span className={cn("font-bold", color.replace("bg-", "text-"))}>{Math.round(percentage)}%</span>
       </div>
-      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner border border-border/50">
+      <div className="mt-3 h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner border border-border/50">
         <div 
           className={cn("h-full rounded-full transition-all duration-1000 ease-out-expo", color)}
           style={{ width: `${percentage}%` }}
@@ -306,7 +328,7 @@ function SummaryStat({ label, percentage, color }: { label: string, percentage: 
 
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-background p-3">
+    <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
       <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{label}</p>
       <p className="mt-1 text-sm font-medium">{value}</p>
     </div>

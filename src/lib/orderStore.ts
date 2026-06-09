@@ -241,6 +241,31 @@ export function createManualOrder(draft: ManualOrderDraft): StoredOrder {
   };
 }
 
+export function startProduction(orderId: string) {
+  const existingOrders = readStoredOrders();
+  const nextOrders: StoredOrder[] = existingOrders.map((order) => {
+    if (order.id !== orderId) {
+      return order;
+    }
+
+    const updatedItems = order.items.map((item) => {
+      if (item.status === "Created" || item.status === "Waiting" || item.status === "Accepted") {
+        return { ...item, status: "In Production" as const };
+      }
+
+      return item;
+    });
+
+    return {
+      ...order,
+      items: updatedItems,
+      status: getOrderRequestStatus(updatedItems),
+    };
+  });
+
+  writeStoredOrders(nextOrders);
+}
+
 export function raiseQuantityComplaint(orderId: string, input: RaiseComplaintInput) {
   const existingOrders = readStoredOrders();
   const nextOrders: StoredOrder[] = existingOrders.map((order) => {

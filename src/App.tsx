@@ -15,7 +15,11 @@ import { AdminCreateOrder } from './pages/admin/AdminCreateOrder';
 import { ClientDashboard } from './pages/client/ClientDashboard';
 import { CreateOrder } from './pages/client/CreateOrder';
 import { VendorDashboard } from './pages/vendor/VendorDashboard';
+import { VendorOrders } from './pages/vendor/VendorOrders';
+import { VendorProfile } from './pages/vendor/VendorProfile';
 import { VendorUpdateProgress } from './pages/vendor/UpdateProgress';
+import { VendorProductList } from './pages/vendor/VendorProductList';
+import { VendorProductDetail } from './pages/vendor/VendorProductDetail';
 import { OrderProgress } from './pages/shared/OrderProgress';
 import { DeliveryNotePrint } from './pages/shared/DeliveryNotePrint';
 import { PackagingLabelsPrint } from './pages/shared/PackagingLabelsPrint';
@@ -83,9 +87,13 @@ function App() {
               
               {/* Vendor Routes */}
                 <Route path="/vendor" element={<VendorDashboard />} />
+                <Route path="/vendor/orders" element={<VendorOrders />} />
+                <Route path="/vendor/profile" element={<VendorProfile />} />
                 <Route path="/vendor/progress" element={<OrderProgress role="vendor" />} />
                 <Route path="/vendor/update/:id" element={<VendorUpdateProgress />} />
                 <Route path="/vendor/orders/:id/delivery-note" element={<DeliveryNotePrint role="vendor" />} />
+                <Route path="/vendor/products" element={<VendorProductList />} />
+                <Route path="/vendor/products/:code" element={<VendorProductDetail />} />
                 <Route path="/vendor/inbox" element={<InboxPage role="vendor" />} />
               
               {/* Root Redirect */}

@@ -255,14 +255,6 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
                     <DetailRow label="PIC Client" value={<span className="text-sm font-medium text-foreground">{deliverySnapshot.picClient}</span>} />
                   </div>
 
-                  <div className="border-t border-border/70 px-6 py-4">
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <AlignmentStat label="Ordered Qty" value={`${totalOrdered} pcs`} />
-                      <AlignmentStat label="Delivered Qty" value={`${totalDelivered} pcs`} />
-                      <AlignmentStat label="Outstanding Qty" value={`${totalOutstanding} pcs`} />
-                    </div>
-                  </div>
-
                   {complaint ? (
                     <div className="border-t border-border/70 bg-muted/20 px-6 py-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -381,6 +373,16 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
             </div>
 
             <div className="space-y-6 xl:sticky xl:top-[73px] xl:self-start">
+              <Card className="border-border/70 shadow-sm">
+                <CardContent className="p-6">
+                  <div className="grid gap-4">
+                    <AlignmentStat label="Ordered Qty" value={`${totalOrdered} pcs`} />
+                    <AlignmentStat label="Delivered Qty" value={`${totalDelivered} pcs`} />
+                    <AlignmentStat label="Outstanding Qty" value={`${totalOutstanding} pcs`} />
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card className="border-border/70 shadow-sm">
                 <CardHeader className="border-b bg-muted/20">
                   <CardTitle className="text-base">Internal Notes</CardTitle>

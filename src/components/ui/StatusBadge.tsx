@@ -19,6 +19,7 @@ export type StatusBadgeValue = OrderStatus | OrderRequestStatus | SupplierStatus
 
 interface StatusBadgeProps {
   status: StatusBadgeValue;
+  labelMap?: Record<string, string>;
   className?: string;
 }
 
@@ -37,7 +38,9 @@ const statusVariants: Partial<Record<StatusBadgeValue, "success" | "processing" 
   Inactive: "secondary",
 };
 
-export function StatusBadge({ status, className }: StatusBadgeProps) {
+export function StatusBadge({ status, labelMap, className }: StatusBadgeProps) {
+  const displayStatus = (labelMap?.[status] ?? status) as StatusBadgeValue;
+
   if (status.startsWith("Partial ")) {
     const baseStatus = status.replace("Partial ", "") as OrderStatus;
 
@@ -54,11 +57,11 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
   }
 
   const variant = statusVariants[status] ?? "secondary";
-  const textTransformClass = status === "Active" || status === "Inactive" ? "normal-case" : "uppercase";
+  const textTransformClass = displayStatus === "Active" || displayStatus === "Inactive" ? "normal-case" : "uppercase";
 
   return (
     <Badge variant={variant} className={cn("rounded-full tracking-[0.18em]", textTransformClass, className)}>
-      {status}
+      {displayStatus}
     </Badge>
   );
 }

@@ -5,7 +5,6 @@ import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +25,7 @@ import {
 } from "@/components/ui/table";
 import { FilterField, FilterSection } from "@/components/shared/FilterSection";
 import { mockOrders, mockSalesPoints, mockProducts } from "@/lib/mockData";
+import { useUserStore } from "@/lib/userStore";
 import { cn } from "@/lib/utils";
 
 interface OrderProgressProps {
@@ -41,6 +41,14 @@ export function OrderProgress({ role }: OrderProgressProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
+  const { users } = useUserStore();
+
+  // Determine the vendor's company name when role is "vendor"
+  const vendorCompany = useMemo(() => {
+    if (role !== "vendor") return null;
+    const vendorUser = users.find((u) => u.role === "vendor" && u.status === "Active");
+    return vendorUser?.company ?? null;
+  }, [role, users]);
 
   // Flatten orders into items for the table
   const flattenedItems = useMemo(() => {
@@ -69,35 +77,42 @@ export function OrderProgress({ role }: OrderProgressProps) {
     );
   }, []);
 
+  // When role is vendor, scope data to only their own orders
+  const baseItems = useMemo(() => {
+    if (!vendorCompany) return flattenedItems;
+    const search = vendorCompany.toLowerCase();
+    return flattenedItems.filter((item) => item.supplier.toLowerCase().includes(search));
+  }, [flattenedItems, vendorCompany]);
+
   // Derive unique filter options from data
   const vendorOptions = useMemo(() => {
-    const unique = new Set(flattenedItems.map((item) => item.supplier));
+    const unique = new Set(baseItems.map((item) => item.supplier));
     return Array.from(unique).sort();
-  }, [flattenedItems]);
+  }, [baseItems]);
 
   const brandOptions = useMemo(() => {
-    const unique = new Set(flattenedItems.map((item) => item.productBrand));
+    const unique = new Set(baseItems.map((item) => item.productBrand));
     return Array.from(unique).sort();
-  }, [flattenedItems]);
+  }, [baseItems]);
 
   const locationOptions = useMemo(() => {
-    const unique = new Set(flattenedItems.map((item) => item.salesPointHierarchy || item.salesPointLabel));
+    const unique = new Set(baseItems.map((item) => item.salesPointHierarchy || item.salesPointLabel));
     return Array.from(unique).sort();
-  }, [flattenedItems]);
+  }, [baseItems]);
 
   // Calculate metrics
   const metrics = useMemo(() => {
     const counts = {
-      total: flattenedItems.length,
+      total: baseItems.length,
       delivered: 0,
       onDelivery: 0,
       readyToShip: 0,
       inProduction: 0,
-      prodFinished: 0,
+
       notStarted: 0,
     };
 
-    flattenedItems.forEach((item) => {
+    baseItems.forEach((item) => {
       switch (item.status) {
         case "Delivered":
         case "Completed":
@@ -125,13 +140,12 @@ export function OrderProgress({ role }: OrderProgressProps) {
       { label: "On Delivery", value: counts.onDelivery, color: "text-warning", filter: "On Delivery" },
       { label: "Ready to Ship", value: counts.readyToShip, color: "text-primary", filter: "Ready to Ship" },
       { label: "On Progress", value: counts.inProduction, color: "text-processing", filter: "In Production" },
-      { label: "Prod. Finished", value: counts.prodFinished, color: "text-primary", filter: "Prod. Finished" },
       { label: "Not Started", value: counts.notStarted, color: "text-muted-foreground", filter: "Created" },
     ];
-  }, [flattenedItems]);
+  }, [baseItems]);
 
   const filteredItems = useMemo(() => {
-    return flattenedItems.filter(item => {
+    return baseItems.filter(item => {
       if (statusFilter !== "All Statuses") {
         if (statusFilter === "Completed") {
           if (item.status !== "Delivered" && item.status !== "Completed") return false;
@@ -155,7 +169,7 @@ export function OrderProgress({ role }: OrderProgressProps) {
       }
       return true;
     });
-  }, [flattenedItems, statusFilter, vendorFilter, brandFilter, locationFilter, searchQuery]);
+  }, [baseItems, statusFilter, vendorFilter, brandFilter, locationFilter, searchQuery]);
 
   const toggleRow = (id: string) => {
     setExpandedRows((prev) => {
@@ -175,7 +189,7 @@ export function OrderProgress({ role }: OrderProgressProps) {
         <main className="mx-auto space-y-6 p-4 sm:p-6 lg:p-8">
 
           {/* Statistic Cards */}
-          <section className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-7">
+          <section className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
             {metrics.map((metric) => (
               <Card
                 key={metric.label}
@@ -243,19 +257,21 @@ export function OrderProgress({ role }: OrderProgressProps) {
                 </Select>
               </FilterField>
 
-              <FilterField label="Vendor">
-                <Select value={vendorFilter} onValueChange={setVendorFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Vendors" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Vendors</SelectItem>
-                    {vendorOptions.map((v) => (
-                      <SelectItem key={v} value={v}>{v}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FilterField>
+              {role !== "vendor" && (
+                <FilterField label="Vendor">
+                  <Select value={vendorFilter} onValueChange={setVendorFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Vendors" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Vendors</SelectItem>
+                      {vendorOptions.map((v) => (
+                        <SelectItem key={v} value={v}>{v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FilterField>
+              )}
 
               <FilterField label="Brand">
                 <Select value={brandFilter} onValueChange={setBrandFilter}>
@@ -364,10 +380,18 @@ export function OrderProgress({ role }: OrderProgressProps) {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <Progress value={progressPercent} className="h-1.5 w-16" />
-                              <span className="text-[10px] font-medium whitespace-nowrap text-muted-foreground">
-                                {item.deliveredQuantity || 0} / {item.quantity} done
-                              </span>
+                              <div className="w-20">
+                                <SegmentedProgress
+                                  mini
+                                  segments={[
+                                    { label: "In Production", value: item.status === "In Production" ? Math.max(0, item.quantity - (item.deliveredQuantity ?? 0)) : 0, color: "bg-processing" },
+                                    { label: "Ready", value: item.status === "Ready to Ship" ? Math.max(0, item.quantity - (item.deliveredQuantity ?? 0)) : 0, color: "bg-primary" },
+                                    { label: "Transit", value: item.status === "On Delivery" ? Math.max(0, item.quantity - (item.deliveredQuantity ?? 0)) : 0, color: "bg-warning" },
+                                    { label: "Delivered", value: item.deliveredQuantity ?? 0, color: "bg-success" },
+                                  ]}
+                                  total={item.quantity}
+                                />
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">{item.deadline}</TableCell>
@@ -440,38 +464,51 @@ export function OrderProgress({ role }: OrderProgressProps) {
 function SegmentedProgress({
   segments,
   total,
+  mini = false,
 }: {
   segments: { label: string; value: number; color: string }[];
   total: number;
+  mini?: boolean;
 }) {
+  const hasValue = segments.some((s) => s.value > 0);
   return (
     <div className="space-y-2">
-      <div className="flex h-2 w-full overflow-hidden rounded-full bg-secondary">
-        {segments.map((seg, i) => {
-          const pct = total > 0 ? (seg.value / total) * 100 : 0;
-          return (
-            <div
-              key={seg.label}
-              className={cn(
-                "h-full transition-all",
-                seg.value > 0 ? seg.color : "bg-transparent",
-                i === 0 && "rounded-l-full",
-                i === segments.length - 1 && "rounded-r-full"
-              )}
-              style={{ width: `${pct}%` }}
-            />
-          );
-        })}
+      <div
+        className={cn(
+          "flex w-full overflow-hidden rounded-full bg-secondary",
+          mini ? "h-1.5" : "h-2"
+        )}
+      >
+        {hasValue
+          ? segments.map((seg, i) => {
+              const pct = total > 0 ? (seg.value / total) * 100 : 0;
+              return (
+                <div
+                  key={seg.label}
+                  className={cn(
+                    "h-full transition-all",
+                    seg.value > 0 ? seg.color : "bg-transparent",
+                    i > 0 && seg.value > 0 && "ml-0.5"
+                  )}
+                  style={{ width: `${pct}%` }}
+                />
+              );
+            })
+          : (
+            <div className="h-full w-full bg-muted-foreground/20" />
+          )}
       </div>
-      <div className="flex flex-wrap gap-x-4 gap-y-1">
-        {segments.map((seg) => (
-          <div key={seg.label} className={cn("flex items-center gap-1.5 text-[10px] font-medium", seg.value === 0 ? "text-muted-foreground/50" : "text-muted-foreground")}>
-            <span className={cn("inline-block h-2 w-2 rounded-sm", seg.value > 0 ? seg.color : "bg-muted-foreground/30")} />
-            <span className="uppercase tracking-wider">{seg.label}</span>
-            <span className={cn("font-bold", seg.value > 0 ? "text-foreground" : "text-muted-foreground/50")}>{seg.value}</span>
-          </div>
-        ))}
-      </div>
+      {!mini && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          {segments.map((seg) => (
+            <div key={seg.label} className={cn("flex items-center gap-1.5 text-[10px]")}>
+              <span className={cn("inline-block h-2 w-2 rounded-sm", seg.value > 0 ? seg.color : "bg-muted-foreground/20")} />
+              <span className={cn("uppercase tracking-wider", seg.value > 0 ? "text-muted-foreground/80" : "text-muted-foreground/40")}>{seg.label}</span>
+              <span className={cn("font-extrabold", seg.value > 0 ? "text-foreground" : "text-muted-foreground/40")}>{seg.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -26,31 +26,31 @@ const accountByRole: Record<
 > = {
   admin: {
     name: "Admin User",
-    title: "Procurement Manager",
+    title: "Admin",
     initials: "AU",
     status: "Active",
   },
   operator: {
     name: "Admin User",
-    title: "Procurement Manager",
+    title: "Operator",
     initials: "AU",
     status: "Active",
   },
   analyst: {
     name: "Admin User",
-    title: "Procurement Manager",
+    title: "Analyst",
     initials: "AU",
     status: "Active",
   },
   client: {
     name: "Admin User",
-    title: "Procurement Manager",
+    title: "Client",
     initials: "AU",
     status: "Active",
   },
   vendor: {
     name: "Admin User",
-    title: "Procurement Manager",
+    title: "Vendor",
     initials: "AU",
     status: "Active",
   },
@@ -109,10 +109,6 @@ export function UserAccountMenu({ role, compact = false, className, contentClass
               </div>
               <p className="mt-1 text-xs text-muted-foreground">{account.title}</p>
             </div>
-          </div>
-          <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
-            <span>Current role</span>
-            <span>{role}</span>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
