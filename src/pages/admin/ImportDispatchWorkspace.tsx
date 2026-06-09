@@ -496,8 +496,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
     summary &&
       dispatchReadiness &&
       dispatchReadiness.dispatchableRows.length > 0 &&
-      summary.blockerRows === 0 &&
-      summary.unassignedRows === 0,
+      summary.blockerRows === 0,
   );
 
   const tabCounts: Record<WorkspaceTab, number> = {
@@ -510,13 +509,13 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
 
   if (isHydrating) {
     return (
-      <div className="flex min-h-[100dvh] overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(14,116,144,0.08),_transparent_28%),linear-gradient(180deg,_rgba(248,250,252,0.98),_rgba(241,245,249,0.78))]">
+      <div className="flex min-h-[100dvh] overflow-x-hidden bg-slate-50">
         <Sidebar role={role} />
         <ContentArea className="flex flex-col">
           <Header title="Import Dispatch Workspace" showMobileMenu={false} />
           <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
             <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
-              <Card className="rounded-[2rem] border-white/80 bg-white/88 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.22)] backdrop-blur">
+              <Card>
                 <CardContent className="p-6 text-sm text-slate-600">Loading staged import batches...</CardContent>
               </Card>
             </div>
@@ -759,7 +758,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
   const assignmentProgressLabel = `${summary.assignedRows + summary.dispatchedRows + summary.excludedRows}/${summary.totalRows}`;
 
   return (
-    <div className="flex min-h-[100dvh] overflow-x-hidden bg-[linear-gradient(180deg,_#f8fbfc_0%,_#eef3f6_100%)]">
+    <div className="flex min-h-[100dvh] overflow-x-hidden bg-slate-50">
       {sidebarOpen ? <Sidebar role={role} /> : null}
 
       <ContentArea className="flex flex-col">
@@ -778,7 +777,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                 transition={{ duration: 0.32, delay: 0.08 }}
                 className="min-w-0"
               >
-                <Card className="overflow-hidden rounded-[1.5rem] border-slate-200/70 bg-white/95 shadow-[0_22px_64px_-36px_rgba(15,23,42,0.22)]">
+                <Card className="overflow-hidden">
 
 
                   {/* ===== TAB NAVIGATION ===== */}
@@ -1092,7 +1091,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                           </p>
                           <div className="grid gap-4">
                             {orPreviewData.map((vendor) => (
-                              <div key={vendor.vendorName} className="rounded-[1.2rem] border border-slate-200 bg-slate-50/80 p-4">
+                              <div key={vendor.vendorName} className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                   <div className="min-w-0">
                                     <p className="text-[11px] font-semibold normal-case tracking-normal text-slate-500">Vendor</p>
@@ -1193,7 +1192,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                               </div>
 
                               {batch.importJob.lastError ? (
-                                <Alert className="rounded-[1.1rem] border-rose-200 bg-rose-50 text-rose-950">
+                                <Alert className="rounded-xl border-rose-200 bg-rose-50 text-rose-950">
                                   <AlertTriangle className="h-4 w-4" />
                                   <AlertTitle>Last error</AlertTitle>
                                   <AlertDescription>{batch.importJob.lastError}</AlertDescription>
@@ -1209,7 +1208,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                                 <span className="ml-2 font-normal text-slate-400">— {batch.dispatchRuns.length} run{batch.dispatchRuns.length === 1 ? "" : "s"}</span>
                               </p>
                               {batch.dispatchRuns.map((run) => (
-                                <div key={run.id} className="rounded-[1.2rem] border border-slate-200 bg-slate-50/80 p-4">
+                                <div key={run.id} className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
                                   <div className="flex items-start justify-between gap-3">
                                     <div>
                                       <p className="text-xs font-semibold normal-case tracking-normal text-slate-500">Run {new Date(run.createdAt).toLocaleString()}</p>
@@ -1259,7 +1258,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                   {/* ===== BOTTOM: Dispatch result message ===== */}
                   {dispatchResultMessage ? (
                     <div className="border-t border-slate-200/80 px-5 py-4 sm:px-6">
-                      <Alert className="rounded-[1.1rem] border-cyan-200 bg-cyan-50 text-cyan-950">
+                      <Alert className="rounded-xl border-cyan-200 bg-cyan-50 text-cyan-950">
                         <AlertTitle>Import result</AlertTitle>
                         <AlertDescription>{dispatchResultMessage}</AlertDescription>
                       </Alert>
@@ -1277,7 +1276,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
               >
                 {/* --- ISSUE GROUPS PANEL --- */}
                 {activeTab === "issue-groups" && (
-                  <Card className="rounded-[1.4rem] border-slate-200/70 bg-white/95 shadow-[0_16px_48px_-30px_rgba(15,23,42,0.22)]">
+                  <Card>
                     <CardContent className="p-5">
                       <div className="space-y-2">
                         <p className="text-xs font-semibold normal-case tracking-normal text-slate-500">Flow progress</p>
@@ -1285,7 +1284,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                           <FlowProgressRow label="Imported" value={summary.totalRows} active={false} complete={false} />
                           <FlowProgressRow label="Blocked" value={summary.blockerRows} active={summary.blockerRows > 0} complete={summary.blockerRows === 0} />
                           <FlowProgressRow label="Assignable" value={summary.totalRows - summary.blockerRows - summary.dispatchedRows - summary.excludedRows} active={summary.blockerRows === 0 && summary.unassignedRows > 0} complete={summary.unassignedRows === 0} />
-                          <FlowProgressRow label="Ready" value={dispatchReadiness?.dispatchableRows.length ?? 0} active={summary.unassignedRows === 0 && (dispatchReadiness?.dispatchableRows.length ?? 0) > 0} complete={(dispatchReadiness?.dispatchableRows.length ?? 0) === 0 && summary.dispatchedRows > 0} />
+                          <FlowProgressRow label="Ready" value={dispatchReadiness?.dispatchableRows.length ?? 0} active={(dispatchReadiness?.dispatchableRows.length ?? 0) > 0} complete={(dispatchReadiness?.dispatchableRows.length ?? 0) === 0 && summary.dispatchedRows > 0} />
                           <FlowProgressRow label="Imported ✓" value={summary.dispatchedRows} active={false} complete={summary.dispatchedRows > 0} />
                         </div>
                       </div>
@@ -1295,7 +1294,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
 
                 {/* --- ASSIGNMENT GROUPS PANEL --- */}
                 {activeTab === "assignment-groups" && (
-                  <Card className="rounded-[1.4rem] border-slate-200/70 bg-white/95 shadow-[0_16px_48px_-30px_rgba(15,23,42,0.22)]">
+                  <Card>
                     <CardHeader className="pb-3">
                       <CardDescription className="text-xs normal-case tracking-normal text-slate-500">Vendor Assignment</CardDescription>
                       <CardTitle className="text-base font-semibold tracking-[-0.04em] text-slate-950">Assign vendor to group</CardTitle>
@@ -1304,7 +1303,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="space-y-3 rounded-[1.1rem] border border-slate-200 bg-slate-50 p-3.5">
+                      <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="text-xs font-semibold normal-case tracking-normal text-slate-500">Rule builder</p>
@@ -1381,7 +1380,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                         <label className="grid gap-2 text-xs font-semibold normal-case tracking-normal text-slate-500">
                           Assign to vendor
                           <Select value={ruleVendorId} onValueChange={setRuleVendorId}>
-                            <SelectTrigger aria-label="Rule vendor" className="h-11 rounded-2xl border-slate-200 bg-white normal-case tracking-normal">
+                            <SelectTrigger aria-label="Rule vendor" className="h-11 rounded-xl border-slate-200 bg-white normal-case tracking-normal">
                               <SelectValue placeholder="Select vendor..." className="normal-case tracking-normal" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1413,7 +1412,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                         ) : null}
                       </div>
 
-                      <div className="space-y-2 rounded-[1.1rem] border border-slate-200 bg-white p-3.5">
+                      <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3.5">
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-xs font-semibold normal-case tracking-normal text-slate-500">Rule priority</p>
                           <Button
@@ -1480,7 +1479,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                         )}
                       </div>
 
-                      <div className="space-y-3 rounded-[1.1rem] border border-slate-200 bg-slate-50 p-3.5">
+                      <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <p className="text-xs font-semibold normal-case tracking-normal text-slate-500">Draft review</p>
@@ -1543,7 +1542,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                         )}
                       </div>
 
-                      <div className="space-y-3 rounded-[1.1rem] border border-slate-200 bg-white p-3.5">
+                      <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5">
                         <div className="flex items-center justify-between gap-3 text-xs font-semibold normal-case tracking-normal text-slate-500">
                           <span>Manual override</span>
                           <span>{selectedRowIds.length} selected</span>
@@ -1558,7 +1557,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                         <label className="grid gap-2 text-xs font-semibold normal-case tracking-normal text-slate-500">
                           Assign vendor
                           <Select value={selectedVendorId} onValueChange={setSelectedVendorId}>
-                            <SelectTrigger aria-label="Manual vendor" className="h-11 rounded-2xl border-slate-200 bg-slate-50 normal-case tracking-normal">
+                            <SelectTrigger aria-label="Manual vendor" className="h-11 rounded-xl border-slate-200 bg-slate-50 normal-case tracking-normal">
                               <SelectValue placeholder="Select vendor..." className="normal-case tracking-normal" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1582,7 +1581,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                           <ChevronsRight className="h-3.5 w-3.5" />
                         </Button>
 
-                        <div className="space-y-2 rounded-[1.1rem] border border-slate-200 bg-slate-50 p-3.5">
+                        <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
                           <div className="flex items-center justify-between gap-3">
                             <p className="text-xs font-semibold normal-case tracking-normal text-slate-500">Manual assignment preview</p>
                             <Badge variant="outline" className="rounded-full border-slate-200 bg-white text-xs normal-case tracking-normal text-slate-600">
@@ -1602,7 +1601,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
 
                 {/* --- RAW ROWS PANEL --- */}
                 {activeTab === "raw-rows" && (
-                  <Card className="rounded-[1.4rem] border-slate-200/70 bg-white/95 shadow-[0_16px_48px_-30px_rgba(15,23,42,0.22)]">
+                  <Card>
                     <CardHeader className="pb-3">
                       <CardDescription className="text-xs normal-case tracking-normal text-slate-500">Operator action</CardDescription>
                       <CardTitle className="text-base font-semibold tracking-[-0.04em] text-slate-950">Manual row operations</CardTitle>
@@ -1611,7 +1610,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="space-y-3 rounded-[1.1rem] border border-slate-200 bg-white p-3.5">
+                      <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5">
                         <div className="flex items-center justify-between gap-3 text-xs font-semibold normal-case tracking-normal text-slate-500">
                           <span>Selection</span>
                           <span>{selectedRowIds.length} selected</span>
@@ -1623,7 +1622,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                         <label className="grid gap-2 text-xs font-semibold normal-case tracking-normal text-slate-500">
                           Assign vendor
                           <Select value={selectedVendorId} onValueChange={setSelectedVendorId}>
-                            <SelectTrigger aria-label="Manual vendor" className="h-11 rounded-2xl border-slate-200 bg-slate-50 normal-case tracking-normal">
+                            <SelectTrigger aria-label="Manual vendor" className="h-11 rounded-xl border-slate-200 bg-slate-50 normal-case tracking-normal">
                               <SelectValue placeholder="Select vendor..." className="normal-case tracking-normal" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1648,7 +1647,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                         </Button>
                       </div>
 
-                      <div className="space-y-3 rounded-[1.1rem] border border-slate-200 bg-slate-50 p-3.5">
+                      <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <p className="text-xs font-semibold normal-case tracking-normal text-slate-500">Import ORs</p>
@@ -1694,7 +1693,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                         </div>
 
                         {dispatchResultMessage ? (
-                          <Alert className="rounded-[1.1rem] border-cyan-200 bg-cyan-50 text-cyan-950">
+                          <Alert className="rounded-xl border-cyan-200 bg-cyan-50 text-cyan-950">
                             <AlertTitle>Import result</AlertTitle>
                             <AlertDescription>{dispatchResultMessage}</AlertDescription>
                           </Alert>
@@ -1706,7 +1705,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
 
                 {/* --- OR PREVIEW PANEL --- */}
                 {activeTab === "or-preview" && (
-                  <Card className="rounded-[1.4rem] border-slate-200/70 bg-white/95 shadow-[0_16px_48px_-30px_rgba(15,23,42,0.22)]">
+                  <Card>
                     <CardHeader className="pb-3">
                       <CardDescription className="text-xs normal-case tracking-normal text-slate-500">Import Summary</CardDescription>
                       <CardTitle className="text-base font-semibold tracking-[-0.04em] text-slate-950">Ready to create ORs</CardTitle>
@@ -1725,7 +1724,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                       </div>
 
                       {orPreviewData.length > 0 ? (
-                        <div className="space-y-2 rounded-[1.1rem] border border-slate-200 bg-slate-50 p-3.5">
+                        <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
                           {orPreviewData.map((v) => (
                             <div key={v.vendorName} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
                               <div className="min-w-0">
@@ -1749,14 +1748,14 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                         ) : null}
                         {summary.unassignedRows > 0 ? (
                           <p className="flex items-start gap-2">
-                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-amber-500" />
-                            {summary.unassignedRows} row(s) still need vendor assignment.
+                            <AlertCircle className="mt-0.5 h-3.5 w-3.5 text-cyan-600" />
+                            {summary.unassignedRows} row(s) are unassigned and will remain in the queue for later.
                           </p>
                         ) : null}
-                        {(dispatchReadiness?.dispatchableRows.length ?? 0) > 0 && summary.blockerRows === 0 && summary.unassignedRows === 0 ? (
+                        {(dispatchReadiness?.dispatchableRows.length ?? 0) > 0 && summary.blockerRows === 0 ? (
                           <p className="flex items-start gap-2">
                             <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 text-emerald-600" />
-                            All checks passed. Ready to create ORs.
+                            Ready to create ORs for assigned rows.
                           </p>
                         ) : null}
                       </div>
@@ -1764,14 +1763,14 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                       <Button
                         onClick={handleDispatch}
                         disabled={!canImport}
-                        className="h-11 w-full rounded-2xl bg-slate-950 text-white hover:bg-slate-900"
+                        className="h-11 w-full rounded-xl bg-slate-950 text-white hover:bg-slate-900"
                       >
                         {batch.importJob?.status === "failed" ? "Retry import ORs" : "Create Order Requests"}
                         <ArrowRight className="h-3.5 w-3.5" />
                       </Button>
 
                       {dispatchResultMessage ? (
-                        <Alert className="rounded-[1.1rem] border-cyan-200 bg-cyan-50 text-cyan-950">
+                        <Alert className="rounded-xl border-cyan-200 bg-cyan-50 text-cyan-950">
                           <AlertTitle>Import result</AlertTitle>
                           <AlertDescription>{dispatchResultMessage}</AlertDescription>
                         </Alert>
@@ -1782,7 +1781,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
 
                 {/* --- IMPORT LOG PANEL --- */}
                 {activeTab === "import-log" && (
-                  <Card className="rounded-[1.4rem] border-slate-200/70 bg-white/95 shadow-[0_16px_48px_-30px_rgba(15,23,42,0.22)]">
+                  <Card>
                     <CardHeader className="pb-3">
                       <CardDescription className="text-xs normal-case tracking-normal text-slate-500">Import Log</CardDescription>
                       <CardTitle className="text-base font-semibold tracking-[-0.04em] text-slate-950">Import activity summary</CardTitle>
@@ -1801,7 +1800,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                       </div>
 
                       {batch.importJob?.status === "failed" ? (
-                        <div className="space-y-2 rounded-[1.1rem] border border-rose-200 bg-rose-50 p-3.5">
+                        <div className="space-y-2 rounded-xl border border-rose-200 bg-rose-50 p-3.5">
                           <p className="text-xs font-semibold normal-case tracking-normal text-rose-800">Last import failed</p>
                           <p className="text-xs leading-5 text-rose-700">{batch.importJob.lastError || "Unknown error"}</p>
                           <Button
@@ -1818,7 +1817,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                       ) : null}
 
                       {summary.totalRows > 0 && summary.dispatchedRows === summary.totalRows ? (
-                        <div className="flex items-center gap-3 rounded-[1.1rem] border-emerald-200 bg-emerald-50 p-3.5">
+                        <div className="flex items-center gap-3 rounded-xl border-emerald-200 bg-emerald-50 p-3.5">
                           <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                           <div>
                             <p className="text-xs font-semibold normal-case tracking-normal text-emerald-800">Batch fully imported</p>
@@ -1867,7 +1866,7 @@ function BatchMetric({
           : "border-slate-200 bg-white text-slate-700";
 
   return (
-    <div className={cn("rounded-[1rem] border px-3 py-2.5 transition-colors hover:border-slate-300", classes)}>
+    <div className={cn("rounded-xl border px-3 py-2.5 transition-colors hover:border-slate-300", classes)}>
       <p className="text-[11px] font-semibold normal-case tracking-normal opacity-75">{label}</p>
       <p className="mt-1 text-lg font-semibold leading-none tracking-[-0.04em]">{value}</p>
       <p className="mt-1 text-[11px] font-semibold normal-case tracking-normal opacity-75">{detail}</p>
@@ -1891,7 +1890,7 @@ function WorkflowStep({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-[1rem] border px-3.5 py-3 text-sm",
+        "flex items-center gap-3 rounded-xl border px-3.5 py-3 text-sm",
         complete
           ? "border-emerald-200 bg-emerald-50 text-emerald-900"
           : active
@@ -1931,7 +1930,7 @@ function PreviewGroupList({ entries }: { entries: Array<[string, number]> }) {
 function StateBlock({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "success" }) {
   return (
     <div className={cn(
-      "rounded-[1.25rem] border p-4",
+      "rounded-xl border p-4",
       tone === "success"
         ? "border-emerald-200 bg-emerald-50"
         : "border-slate-200/80 bg-slate-50",
@@ -1977,7 +1976,7 @@ function FilterSelect({
 
 function EmptyTableState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="mx-auto flex max-w-md flex-col items-center gap-3 rounded-[1.75rem] border border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center">
+    <div className="mx-auto flex max-w-md flex-col items-center gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-slate-950 shadow-[0_12px_24px_-16px_rgba(15,23,42,0.35)]">
         <Search className="h-5 w-5" />
       </div>
@@ -2005,7 +2004,7 @@ function IssueActionCard({
   }>;
 }) {
   return (
-    <div className="rounded-[1.2rem] border border-slate-200 bg-slate-50/80 p-4">
+    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-2">
           <div>
@@ -2059,7 +2058,7 @@ function AssignmentGroupCard({
   const [selectedVendor, setSelectedVendor] = useState("");
 
   return (
-    <div className="rounded-[1.2rem] border border-slate-200 bg-slate-50/80 p-4">
+    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 space-y-2">
           <div>
