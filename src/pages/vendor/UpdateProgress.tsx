@@ -16,7 +16,6 @@ import {
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,7 +34,6 @@ import {
 } from "@/lib/orderStore";
 import { cn } from "@/lib/utils";
 import type { OrderStatus } from "@/components/ui/StatusBadge";
-import type { LabelStatus } from "@/lib/mockData";
 
 interface VendorUpdateProgressProps {
   role?: UserRole;
@@ -61,8 +59,6 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
   const deliveryNote = generateDeliveryNote(order);
   const deliverySnapshot = deliveryNote.deliverySnapshot;
   const totalOrdered = getTotalQuantity(order);
-  const totalDelivered = deliveryNote.lines.reduce((total, line) => total + line.deliveredQty, 0);
-  const totalOutstanding = deliveryNote.lines.reduce((total, line) => total + line.outstandingQty, 0);
   const backPath = `/${role}/orders`;
 
   const complaint = order.complaint;
@@ -150,8 +146,12 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
     } as any);
   };
 
-  const handleGenerateLabel = (lineId: string) => {
-    generateLabelForItem(order.id, lineId);
+  const generateAllLabels = () => {
+    order.items.forEach((item) => {
+      if (!item.labelGenerated) {
+        generateLabelForItem(order.id, item.id);
+      }
+    });
   };
 
   const handleComplaintDecision = (decision: "approved" | "rejected") => {
@@ -174,7 +174,6 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
   const canAdvanceToDelivered = STAGE_FLOW[nextStageIndex] === "Delivered";
 
   const deliverableItems = order.items.filter((i) => (i.deliveredQuantity ?? 0) > 0);
-  const labeledCount = order.storedLabels.length;
   const allDeliverableLabeled = deliverableItems.length > 0 && deliverableItems.every((i) => i.labelGenerated);
 
   const currentStageIdx = getStageIndex(order.status);
@@ -238,12 +237,6 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
           Delivery Note
         </Link>
       </Button>
-      <Button asChild variant="outline" size="sm" disabled={!allDeliverableLabeled}>
-        <Link to={`/${role}/orders/${order.id}/packaging-labels`}>
-          <Package className="h-4 w-4" />
-          Labels
-        </Link>
-      </Button>
     </>
   );
 
@@ -278,58 +271,29 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
                     </div>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <div className="flex items-start justify-between gap-4 px-6 py-6">
-                      <div>
-                        <CardTitle className="text-base">Order Information</CardTitle>
-                        <CardDescription>Manage fulfillment progress for this order.</CardDescription>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <LabelStatusBadge status={order.labelStatus} />
-                        {deliveryNote.missingRequiredFields.length > 0 ? (
-                          <Badge variant="warning" className="rounded-full uppercase tracking-[0.24em]">
-                            {deliveryNote.missingRequiredFields.length} missing field(s)
-                          </Badge>
-                        ) : (
-                          <Badge variant="success" className="rounded-full uppercase tracking-[0.24em]">
-                            Ready for print
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-
-                    {deliveryNote.missingRequiredFields.length > 0 ? (
-                      <div className="border-t border-border/70 px-6 py-4">
-                        <Alert className="border-warning/30 bg-warning/10">
-                          <AlertTitle>Missing data before print</AlertTitle>
-                          <AlertDescription>Complete: {deliveryNote.missingRequiredFields.join(", ")}.</AlertDescription>
-                        </Alert>
-                      </div>
-                    ) : null}
-
-                    <div className="border-t border-border/70 divide-y divide-border/70">
+                    <div className="divide-y divide-border/70">
                       <DetailRow label="Supplier" value={<span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">{order.supplier}<ArrowUpRight className="h-3.5 w-3.5 text-primary" /></span>} />
                       <DetailRow label="Customer PO Ref" value={<span className="text-sm font-medium text-foreground">{order.clientPO}</span>} />
-                      <DetailRow label="Project" value={<span className="text-sm font-medium text-foreground">{deliveryNote.projectName}</span>} />
-                      <DetailRow label="Deadline" value={<span className={cn("text-sm font-medium", order.deadline === "Overdue" ? "text-destructive" : "text-foreground")}>{order.deadline}</span>} />
                       <DetailRow label="SO Number" value={<span className="text-sm font-medium text-foreground">{deliveryNote.soNumber || "—"}</span>} />
-                      <DetailRow label="PIC Project" value={<span className="text-sm font-medium text-foreground">{deliveryNote.picProject}</span>} />
-                      <DetailRow label="Destination" value={<span className="text-sm font-medium text-foreground">{`${deliverySnapshot.wcode} · ${deliverySnapshot.deliveryLocationName}`}</span>} />
-                      <DetailRow label="Deliver to" value={<span className="text-sm font-medium text-foreground">{deliverySnapshot.deliveryCompanyName}</span>} />
-                      <DetailRow label="Address" value={<span className="text-sm font-medium text-foreground">{deliverySnapshot.address}</span>} />
-                      <DetailRow label="PIC Client" value={<span className="text-sm font-medium text-foreground">{deliverySnapshot.picClient}</span>} />
+                      <DetailRow label="Deadline" value={<span className={cn("text-sm font-medium", order.deadline === "Overdue" ? "text-destructive" : "text-foreground")}>{order.deadline}</span>} />
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card className="border-border/70 shadow-sm">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b bg-muted/20">
-                    <div>
-                      <CardTitle className="text-base">Line Items</CardTitle>
-                      <CardDescription>Generate labels per item before bulk fulfillment actions.</CardDescription>
+                    <div className="flex items-center gap-3">
+                      <StatusBadge status={order.status} />
+                      {deliveryNote.missingRequiredFields.length > 0 ? (
+                        <Badge variant="warning" className="rounded-full text-[10px] uppercase tracking-[0.24em]">
+                          {deliveryNote.missingRequiredFields.length} missing field(s)
+                        </Badge>
+                      ) : (
+                        <Badge variant="success" className="rounded-full text-[10px] uppercase tracking-[0.24em]">
+                          Ready for print ({totalOrdered})
+                        </Badge>
+                      )}
                     </div>
-                    <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.24em]">
-                      Total Qty: {totalOrdered}
-                    </Badge>
                   </CardHeader>
                   <CardContent className="p-0">
                     <Table>
@@ -340,8 +304,6 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
                           <TableHead>Quantity</TableHead>
                           <TableHead>Delivered</TableHead>
                           <TableHead>Outstanding</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Label</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -359,34 +321,23 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
                               <TableCell className="text-sm">{item.quantity}</TableCell>
                               <TableCell className="text-sm">{deliveryLine?.deliveredQty ?? 0}</TableCell>
                               <TableCell className="text-sm">{deliveryLine?.outstandingQty ?? item.quantity}</TableCell>
-                              <TableCell className="whitespace-nowrap text-sm font-medium">{item.status}</TableCell>
-                              <TableCell className="whitespace-nowrap">
-                                {item.labelGenerated ? (
-                                  <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
-                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                    Generated
-                                  </span>
-                                ) : (
-                                  <Button size="sm" variant="outline" className="h-7 gap-1 text-[10px]" onClick={() => handleGenerateLabel(item.id)}>
-                                    <Tag className="h-3 w-3" />
-                                    Generate
-                                  </Button>
-                                  )}
-                              </TableCell>
                             </TableRow>
                           );
                         })}
-                      </TableBody>
-                    </Table>
+                  </TableBody>
+                </Table>
                   </CardContent>
+                  <div className="flex items-center justify-end border-t border-border/70 bg-muted/20 px-6 py-4">
+                    <Button size="sm" onClick={generateAllLabels}>
+                      <Tag className="h-4 w-4" />
+                      Create shipping labels
+                    </Button>
+                  </div>
                 </Card>
-
-
 
                 <Card className="border-border/70 shadow-sm">
                   <CardHeader className="border-b bg-muted/20">
-                    <CardTitle className="text-base">Timeline Tracking</CardTitle>
-                    <CardDescription>Workflow events for this order request</CardDescription>
+                    <CardTitle className="text-base">Timeline</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6 p-6">
                     <TimelineItem status="New" actor="CUSTOMER (Brand Manager)" date={formatDateLabel(order.createdDate)} time={formatTimeLabel(order.createdDate)} active isLast={false} />
@@ -398,78 +349,46 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
                 </Card>
               </div>
 
-              <div className="space-y-6 xl:sticky xl:top-[73px] xl:self-start">
+              <div className="space-y-6">
                 <Card className="border-border/70 shadow-sm">
+                  <CardHeader className="border-b bg-muted/20">
+                    <CardTitle className="text-base">Notes</CardTitle>
+                  </CardHeader>
                   <CardContent className="p-6">
-                    <div className="grid gap-4">
-                      <AlignmentStat label="Ordered Qty" value={`${totalOrdered} pcs`} />
-                      <AlignmentStat label="Delivered Qty" value={`${totalDelivered} pcs`} />
-                      <AlignmentStat label="Outstanding Qty" value={`${totalOutstanding} pcs`} />
+                    <p className="text-sm italic leading-6 text-muted-foreground">
+                      {order.note?.trim() || "No internal notes for this order."}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border/70 shadow-sm">
+                  <CardHeader className="border-b bg-muted/20">
+                    <CardTitle className="text-base">Shipping Address</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="divide-y divide-border/70">
+                      <StackRow label="Company (entity)" value={deliverySnapshot.clientEntityName} />
+                      <StackRow label="PIC Client Name" value={deliverySnapshot.picClient} />
+                      <StackRow label="Address">
+                        <p>{deliverySnapshot.wcode} · {deliverySnapshot.deliveryLocationName}</p>
+                        <p className="mt-0.5">{deliverySnapshot.address}</p>
+                      </StackRow>
+                      <StackRow label="Phone" value={deliverySnapshot.phone} />
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card className="border-border/70 shadow-sm">
                   <CardHeader className="border-b bg-muted/20">
-                    <CardTitle className="text-base">Fulfillment Summary</CardTitle>
-                    <CardDescription>Current completion rates</CardDescription>
+                    <CardTitle className="text-base">Project</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4 p-6">
-                    <SummaryStat
-                      label="In Production"
-                      current={stageDistribution["In Production"] ?? 0}
-                      total={order.items.length}
-                      color="bg-primary"
-                    />
-                    <SummaryStat
-                      label="Ready to Ship"
-                      current={stageDistribution["Ready to Ship"] ?? 0}
-                      total={order.items.length}
-                      color="bg-processing"
-                    />
-                    <SummaryStat
-                      label="On Delivery"
-                      current={stageDistribution["On Delivery"] ?? 0}
-                      total={order.items.length}
-                      color="bg-processing"
-                    />
-                    <SummaryStat
-                      label="Delivered"
-                      current={stageDistribution["Delivered"] ?? 0}
-                      total={order.items.length}
-                      color="bg-success"
-                    />
-                  </CardContent>
-                </Card>
-
-                <Card className="border-border/70 shadow-sm">
-                  <CardHeader className="border-b bg-muted/20">
-                    <CardTitle className="text-base">Label Status</CardTitle>
-                    <CardDescription>Label generation progress</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4 p-6">
-                    <SummaryStat
-                      label="Labels Generated"
-                      current={labeledCount}
-                      total={deliverableItems.length}
-                      color="bg-primary"
-                    />
-                    {allDeliverableLabeled && deliverableItems.length > 0 ? (
-                      <div className="rounded-lg border border-success/30 bg-success/10 p-3 text-center text-xs font-medium text-success">
-                        All labels generated. Ready for delivery note.
-                      </div>
-                    ) : null}
-                  </CardContent>
-                </Card>
-
-                <Card className="border-border/70 shadow-sm">
-                  <CardHeader className="border-b bg-muted/20">
-                    <CardTitle className="text-base">Internal Notes</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-6">
-                    <p className="text-sm italic leading-6 text-muted-foreground">
-                      {order.note?.trim() || "No internal notes for this order."}
-                    </p>
+                  <CardContent className="p-0">
+                    <div className="divide-y divide-border/70">
+                      <StackRow label="Project">
+                        <p>{order.campaign}</p>
+                      </StackRow>
+                      <StackRow label="PIC Project" value={`${order.picProject.name} (${order.picProject.email})`} />
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -553,21 +472,6 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
   );
 }
 
-function LabelStatusBadge({ status }: { status: LabelStatus }) {
-  const config =
-    status === "all"
-      ? { variant: "success" as const, label: "All Labeled" }
-      : status === "partial"
-        ? { variant: "warning" as const, label: "Partial Labels" }
-        : { variant: "secondary" as const, label: "No Labels" };
-
-  return (
-    <Badge variant={config.variant} className="rounded-full uppercase tracking-[0.24em]">
-      {config.label}
-    </Badge>
-  );
-}
-
 function getTotalQuantity(order: { items: Array<{ quantity: number }> }) {
   return order.items.reduce((total, item) => total + item.quantity, 0);
 }
@@ -600,11 +504,12 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function AlignmentStat({ label, value }: { label: string; value: string }) {
+function StackRow({ label, value, children }: { label: string; value?: string; children?: ReactNode }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-background p-4">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{label}</p>
-      <p className="mt-2 text-sm font-semibold">{value}</p>
+    <div className="flex flex-col gap-0.5 px-6 py-3">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      {value ? <p className="text-sm font-medium text-foreground">{value}</p> : null}
+      {children ? <div className="text-sm font-medium text-foreground">{children}</div> : null}
     </div>
   );
 }
@@ -635,33 +540,18 @@ function StatusChip({ status }: { status: "pending" | "approved" | "rejected" })
   );
 }
 
-function SummaryStat({ label, current, total, color }: { label: string; current: number; total: number; color: string }) {
-  const percentage = total > 0 ? (current / total) * 100 : 0;
-  return (
-    <div className="space-y-1.5">
-      <div className="flex justify-between text-[10px] font-semibold uppercase tracking-[0.24em]">
-        <span className="text-muted-foreground">{label}</span>
-        <span className={cn("font-bold", color.replace("bg-", "text-"))}>{current}/{total}</span>
-      </div>
-      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner border border-border/50">
-        <div className={cn("h-full rounded-full transition-all duration-1000", color)} style={{ width: `${percentage}%` }} />
-      </div>
-    </div>
-  );
-}
-
 function TimelineItem({ status, actor, date, time, note, isLast = false, active = false }: { status: string; actor: string; date: string; time: string; note?: string; isLast?: boolean; active?: boolean }) {
   return (
     <div className="relative pl-8">
-      <div className={cn("absolute left-0 top-1 h-5 w-5 rounded-full border-4 border-background shadow-sm", active ? "bg-primary" : "bg-border")} />
+      <div className={cn("absolute left-0 top-0 h-5 w-5 rounded-full border-4 border-background shadow-sm", active ? "bg-primary" : "bg-border")} />
       {!isLast ? <div className="absolute left-2.5 top-6 h-full w-px bg-border" /> : null}
-      <div className="space-y-1">
+        <div className="space-y-1">
         <div className="flex items-center justify-between">
           <p className={cn("text-sm font-medium", active ? "text-primary" : "text-foreground")}>{status}</p>
-          <span className="text-xs text-muted-foreground">{time}</span>
+          {active ? <span className="text-xs text-muted-foreground">{time}</span> : null}
         </div>
-        <p className="text-xs text-muted-foreground">{actor}</p>
-        <p className="text-xs text-muted-foreground">{date}</p>
+        {active ? <p className="text-xs text-muted-foreground">{actor}</p> : null}
+        {active ? <p className="text-xs text-muted-foreground">{date}</p> : null}
         {note ? <p className="mt-1 text-xs font-medium italic text-primary">"{note}"</p> : null}
       </div>
     </div>

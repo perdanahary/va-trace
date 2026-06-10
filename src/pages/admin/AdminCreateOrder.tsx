@@ -35,7 +35,7 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
 
   const [picProjectName, setPicProjectName] = useState("");
   const [picProjectEmail, setPicProjectEmail] = useState("");
-  const [selectedSupplier, setSelectedSupplier] = useState("");
+  const [selectedSupplier, setSelectedSupplier] = useState("SUP-001");
   const [selectedSalesPoint, setSelectedSalesPoint] = useState("WH020");
   const [customDeadline, setCustomDeadline] = useState("");
   const [note, setNote] = useState("");
@@ -68,6 +68,7 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
         value: supplier.id,
         label: supplier.name,
         description: supplier.id,
+        disabled: supplier.id !== "SUP-001",
         keywords: [supplier.id, supplier.name, supplier.picName, supplier.email, supplier.phone, supplier.type, supplier.status].filter(Boolean) as string[],
       })),
     [suppliers],

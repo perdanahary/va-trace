@@ -8,6 +8,7 @@ export interface ComboboxOption {
   label: string;
   description?: string;
   keywords?: string[];
+  disabled?: boolean;
 }
 
 interface SearchableComboboxProps {
@@ -235,10 +236,17 @@ export function SearchableCombobox({
                     type="button"
                     role="option"
                     aria-selected={isSelected}
+                    aria-disabled={option.disabled}
                     onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => handleSelect(option.value)}
+                    onClick={() => {
+                      if (option.disabled) return;
+                      handleSelect(option.value);
+                    }}
                     className={cn(
-                      "flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground",
+                      "flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left text-sm outline-none transition-colors",
+                      option.disabled
+                        ? "cursor-not-allowed opacity-50"
+                        : "hover:bg-accent hover:text-accent-foreground",
                       isSelected && "bg-accent text-accent-foreground",
                     )}
                   >
