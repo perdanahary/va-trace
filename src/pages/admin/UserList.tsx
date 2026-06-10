@@ -137,7 +137,7 @@ export function UserList({ role = "admin" }: UserListProps) {
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{user.company}</TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <StatusBadge status={user.status} />
                       </TableCell>
                       <TableCell className="text-right">

@@ -127,8 +127,7 @@ export function OrderProgress({ role }: OrderProgressProps) {
         case "In Production":
           counts.inProduction++;
           break;
-        case "Created":
-        case "Accepted":
+        case "New":
           counts.notStarted++;
           break;
       }
@@ -140,7 +139,7 @@ export function OrderProgress({ role }: OrderProgressProps) {
       { label: "On Delivery", value: counts.onDelivery, color: "text-warning", filter: "On Delivery" },
       { label: "Ready to Ship", value: counts.readyToShip, color: "text-primary", filter: "Ready to Ship" },
       { label: "On Progress", value: counts.inProduction, color: "text-processing", filter: "In Production" },
-      { label: "Not Started", value: counts.notStarted, color: "text-muted-foreground", filter: "Created" },
+      { label: "Not Started", value: counts.notStarted, color: "text-muted-foreground", filter: "New" },
     ];
   }, [baseItems]);
 
@@ -248,7 +247,7 @@ export function OrderProgress({ role }: OrderProgressProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="All Statuses">All Statuses</SelectItem>
-                    <SelectItem value="Created">Created / Not Started</SelectItem>
+                    <SelectItem value="New">New / Not Started</SelectItem>
                     <SelectItem value="In Production">In Production</SelectItem>
                     <SelectItem value="Ready to Ship">Ready to Ship</SelectItem>
                     <SelectItem value="On Delivery">On Delivery</SelectItem>

@@ -5,6 +5,7 @@ import { AllOrders } from './pages/admin/AllOrders';
 import { OrderDetail } from './pages/admin/OrderDetail';
 import { UserList } from './pages/admin/UserList';
 import { LogisticsList } from './pages/admin/LogisticsList';
+import { SupplierDetail } from './pages/admin/SupplierDetail';
 import { SupplierList } from './pages/admin/SupplierList';
 import { ProductList } from './pages/admin/ProductList';
 import { ProductDetail } from './pages/admin/ProductDetail';
@@ -18,8 +19,6 @@ import { VendorDashboard } from './pages/vendor/VendorDashboard';
 import { VendorOrders } from './pages/vendor/VendorOrders';
 import { VendorProfile } from './pages/vendor/VendorProfile';
 import { VendorUpdateProgress } from './pages/vendor/UpdateProgress';
-import { VendorProductList } from './pages/vendor/VendorProductList';
-import { VendorProductDetail } from './pages/vendor/VendorProductDetail';
 import { OrderProgress } from './pages/shared/OrderProgress';
 import { DeliveryNotePrint } from './pages/shared/DeliveryNotePrint';
 import { PackagingLabelsPrint } from './pages/shared/PackagingLabelsPrint';
@@ -53,6 +52,8 @@ function App() {
                 <Route path="/admin/users" element={<UserList role="admin" />} />
                 <Route path="/admin/logistics" element={<LogisticsList />} />
                 <Route path="/admin/suppliers" element={<SupplierList />} />
+                <Route path="/admin/suppliers/new" element={<SupplierDetail />} />
+                <Route path="/admin/suppliers/:id" element={<SupplierDetail />} />
                 <Route path="/admin/products" element={<ProductList />} />
                 <Route path="/admin/products/:code" element={<ProductDetail />} />
                 <Route path="/admin/brands" element={<BrandList />} />
@@ -90,10 +91,10 @@ function App() {
                 <Route path="/vendor/orders" element={<VendorOrders />} />
                 <Route path="/vendor/profile" element={<VendorProfile />} />
                 <Route path="/vendor/progress" element={<OrderProgress role="vendor" />} />
+                <Route path="/vendor/orders/:id" element={<VendorUpdateProgress />} />
                 <Route path="/vendor/update/:id" element={<VendorUpdateProgress />} />
                 <Route path="/vendor/orders/:id/delivery-note" element={<DeliveryNotePrint role="vendor" />} />
-                <Route path="/vendor/products" element={<VendorProductList />} />
-                <Route path="/vendor/products/:code" element={<VendorProductDetail />} />
+                <Route path="/vendor/orders/:id/packaging-labels" element={<PackagingLabelsPrint role="vendor" />} />
                 <Route path="/vendor/inbox" element={<InboxPage role="vendor" />} />
               
               {/* Root Redirect */}

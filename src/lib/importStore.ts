@@ -1324,7 +1324,8 @@ export function createOrdersFromDispatchableRows(batch: ImportBatch, dispatchabl
       name: row.match.productName ?? row.raw.itemName,
       quantity: row.quantity,
       deliveredQuantity: 0,
-      status: "Created" as const,
+      status: "New" as const,
+      labelGenerated: false as const,
       sourceBatchId: batch.id,
       sourceRowId: row.id,
       sourcePoNumber: row.raw.poNumber,
@@ -1356,6 +1357,9 @@ export function createOrdersFromDispatchableRows(batch: ImportBatch, dispatchabl
       dispatchRunId,
       importPoNumbers: [sourcePoNumber],
       items,
+      labelStatus: "none" as const,
+      storedLabels: [],
+      storedDeliveryNotes: [],
     } satisfies StoredOrder;
   });
 }

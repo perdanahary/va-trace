@@ -37,6 +37,19 @@ interface OrderDetailProps {
   role?: UserRole;
 }
 
+const STAGE_FLOW: OrderStatus[] = [
+  "New",
+  "In Production",
+  "Ready to Ship",
+  "On Delivery",
+  "Delivered",
+  "Completed",
+];
+
+function getStageIndex(status: string): number {
+  return STAGE_FLOW.indexOf(status as OrderStatus);
+}
+
 export function OrderDetail({ role = "admin" }: OrderDetailProps) {
   const { id } = useParams();
   const orders = useOrders();
@@ -245,11 +258,11 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
                   <div className="border-t border-border/70 divide-y divide-border/70">
                     <DetailRow label="Supplier" value={<span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">{order.supplier}<ArrowUpRight className="h-3.5 w-3.5 text-primary" /></span>} />
                     <DetailRow label="Customer PO Ref" value={<span className="text-sm font-medium text-foreground">{order.clientPO}</span>} />
-                    <DetailRow label="Destination" value={<span className="text-sm font-medium text-foreground">{`${deliverySnapshot.wcode} · ${deliverySnapshot.deliveryLocationName}`}</span>} />
-                    <DetailRow label="Deadline" value={<span className={cn("text-sm font-medium", order.deadline === "Overdue" ? "text-destructive" : "text-foreground")}>{order.deadline}</span>} />
                     <DetailRow label="Project" value={<span className="text-sm font-medium text-foreground">{deliveryNote.projectName}</span>} />
-                    <DetailRow label="SO Number" value={<span className="text-sm font-medium text-foreground">{deliveryNote.soNumber}</span>} />
+                    <DetailRow label="Deadline" value={<span className={cn("text-sm font-medium", order.deadline === "Overdue" ? "text-destructive" : "text-foreground")}>{order.deadline}</span>} />
+                    <DetailRow label="SO Number" value={<span className="text-sm font-medium text-foreground">{deliveryNote.soNumber || "—"}</span>} />
                     <DetailRow label="PIC Project" value={<span className="text-sm font-medium text-foreground">{deliveryNote.picProject}</span>} />
+                    <DetailRow label="Destination" value={<span className="text-sm font-medium text-foreground">{`${deliverySnapshot.wcode} · ${deliverySnapshot.deliveryLocationName}`}</span>} />
                     <DetailRow label="Deliver to" value={<span className="text-sm font-medium text-foreground">{deliverySnapshot.deliveryCompanyName}</span>} />
                     <DetailRow label="Address" value={<span className="text-sm font-medium text-foreground">{deliverySnapshot.address}</span>} />
                     <DetailRow label="PIC Client" value={<span className="text-sm font-medium text-foreground">{deliverySnapshot.picClient}</span>} />
@@ -289,8 +302,8 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>#</TableHead>
                         <TableHead>Product Name</TableHead>
-                        <TableHead>PO Line</TableHead>
                         <TableHead>Quantity</TableHead>
                         <TableHead>Delivered</TableHead>
                         <TableHead>Outstanding</TableHead>
@@ -298,20 +311,20 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {order.items.map((item) => {
+                      {order.items.map((item, index) => {
                         const deliveryLine = deliveryNote.lines.find((line) => line.id === item.id);
                         return (
                           <TableRow key={item.id}>
+                            <TableCell className="font-mono text-sm text-muted-foreground">{index + 1}</TableCell>
                             <TableCell>
                               <div>
                                 <p className="text-sm font-medium">{item.name}</p>
                                 <p className="mt-1 font-mono text-[10px] text-muted-foreground">{item.productCode}</p>
                               </div>
                             </TableCell>
-                            <TableCell className="font-mono text-sm">{item.poLineNumber}</TableCell>
-                            <TableCell className="text-sm">{item.quantity} Qty</TableCell>
-                            <TableCell className="text-sm">{deliveryLine?.deliveredQty ?? 0} Qty</TableCell>
-                            <TableCell className="text-sm">{deliveryLine?.outstandingQty ?? item.quantity} Qty</TableCell>
+                            <TableCell className="text-sm">{item.quantity}</TableCell>
+                            <TableCell className="text-sm">{deliveryLine?.deliveredQty ?? 0}</TableCell>
+                            <TableCell className="text-sm">{deliveryLine?.outstandingQty ?? item.quantity}</TableCell>
                             <TableCell className="text-sm font-medium">{item.status}</TableCell>
                           </TableRow>
                         );
@@ -344,29 +357,27 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
                   <CardDescription>Workflow events for this order request</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6 p-6">
-                  <TimelineItem status="Created" actor="CUSTOMER (Brand Manager)" date="June 01, 2026" time="14:30" isLast />
-                  <TimelineItem status="Assigned" actor="ADMIN (Procurement Manager)" date="June 02, 2026" time="09:15" />
-                  <TimelineItem status="Accepted" actor="VENDOR (Supplier)" date="June 02, 2026" time="11:45" />
-                  {complaintTimeline.map((entry, index) => (
-                    <TimelineItem
-                      key={`${entry.status}-${index}`}
-                      status={entry.status}
-                      actor={entry.actor}
-                      date={entry.date}
-                      time={entry.time}
-                      note={entry.note}
-                      active={entry.active}
-                    />
-                  ))}
-                  {fulfillmentStatus === "Ready to Ship" ? (
-                    <TimelineItem
-                      status="Ready to Ship"
-                      actor="VENDOR"
-                      date="June 05, 2026"
-                      time="10:00"
-                      note="Auto-advanced (partial progress)"
-                      active
-                    />
+                  <TimelineItem status="New" actor="CUSTOMER (Brand Manager)" date="June 01, 2026" time="14:30" active />
+                  <TimelineItem status="Assigned" actor="ADMIN (Procurement Manager)" date="June 02, 2026" time="09:15" active />
+                  <TimelineItem status="In Production" actor="VENDOR (Supplier)" date={order.createdDate} time="-" active={getStageIndex(fulfillmentStatus) >= getStageIndex("In Production")} />
+                  <TimelineItem status="Ready to Ship" actor="VENDOR (Supplier)" date={order.createdDate} time="-" active={getStageIndex(fulfillmentStatus) >= getStageIndex("Ready to Ship")} />
+                  <TimelineItem status="On Delivery" actor="VENDOR (Supplier)" date={order.createdDate} time="-" active={getStageIndex(fulfillmentStatus) >= getStageIndex("On Delivery")} />
+                  <TimelineItem status="Delivered" actor="VENDOR (Supplier)" date={order.createdDate} time="-" isLast={complaintTimeline.length === 0} active={getStageIndex(fulfillmentStatus) >= getStageIndex("Delivered")} />
+                  {complaintTimeline.length > 0 ? (
+                    <div className="border-t border-border/60 pt-6 space-y-6">
+                      {complaintTimeline.map((entry, index) => (
+                        <TimelineItem
+                          key={`${entry.status}-${index}`}
+                          status={entry.status}
+                          actor={entry.actor}
+                          date={entry.date}
+                          time={entry.time}
+                          note={entry.note}
+                          active={entry.active}
+                          isLast={index === complaintTimeline.length - 1}
+                        />
+                      ))}
+                    </div>
                   ) : null}
                 </CardContent>
               </Card>
@@ -376,9 +387,9 @@ export function OrderDetail({ role = "admin" }: OrderDetailProps) {
               <Card className="border-border/70 shadow-sm">
                 <CardContent className="p-6">
                   <div className="grid gap-4">
-                    <AlignmentStat label="Ordered Qty" value={`${totalOrdered} pcs`} />
-                    <AlignmentStat label="Delivered Qty" value={`${totalDelivered} pcs`} />
-                    <AlignmentStat label="Outstanding Qty" value={`${totalOutstanding} pcs`} />
+                    <AlignmentStat label="Ordered Qty" value={`${totalOrdered}`} />
+                    <AlignmentStat label="Delivered Qty" value={`${totalDelivered}`} />
+                    <AlignmentStat label="Outstanding Qty" value={`${totalOutstanding}`} />
                   </div>
                 </CardContent>
               </Card>

@@ -73,7 +73,7 @@ export function LogisticsList() {
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{shipment.weight}</TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <StatusBadge status={shipment.status as any} />
                       </TableCell>
                       <TableCell className="text-right">

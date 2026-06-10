@@ -20,7 +20,7 @@ export function CreateOrder() {
   const [items, setItems] = useState([{ id: "item-1", productCode: "", quantity: 0, poLineNumber: "1" }]);
   const [clientPO, setClientPO] = useState("");
   const [campaignName, setCampaignName] = useState("");
-  const [soNumber, setSoNumber] = useState("");
+
   const [selectedSalesPoint, setSelectedSalesPoint] = useState("WH020");
   const [deadline, setDeadline] = useState("");
   const [linkFA, setLinkFA] = useState("");
@@ -47,7 +47,7 @@ export function CreateOrder() {
 
     if (!clientPO.trim()) errors.push("Client PO Ref is required.");
     if (!campaignName.trim()) errors.push("Campaign Name is required.");
-    if (!soNumber.trim()) errors.push("SO Number is required.");
+
     if (!selectedSalesPoint) errors.push("Sales point is required.");
     if (!deadline.trim()) errors.push("Deadline is required.");
 
@@ -60,7 +60,7 @@ export function CreateOrder() {
     });
 
     return errors;
-  }, [campaignName, clientPO, deadline, items, selectedSalesPoint, soNumber]);
+  }, [campaignName, clientPO, deadline, items, selectedSalesPoint]);
 
   const addItem = () => {
     setItems((current) => [
@@ -95,7 +95,7 @@ export function CreateOrder() {
     const order = createManualOrder({
       campaign: campaignName,
       clientPO,
-      soNumber,
+      // soNumber is auto-generated when vendor starts production
       supplier: "Pending",
       salesPointId: selectedSalesPoint,
       picProjectName: "Client Submitted",
@@ -162,7 +162,7 @@ export function CreateOrder() {
                       createLabel="Create project"
                     />
                   </div>
-                  <FormInput id="so-number" label="SO Number" placeholder="e.g. SO123928" required value={soNumber} onChange={setSoNumber} />
+
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground" htmlFor="sales-point">
                       Sales Point *

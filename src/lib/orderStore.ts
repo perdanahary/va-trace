@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import {
+  generateSoNumber,
   getSalesPointClientBinding,
   mockOrders,
   type ComplaintHistoryEntry,
@@ -8,8 +9,12 @@ import {
   type Order,
   type OrderComplaint,
   type OrderLine,
+  type StoredPackagingLabel,
+  type StoredDeliveryNoteRecord,
+  type LabelStatus,
 } from "@/lib/mockData";
 import { getOrderRequestStatus } from "@/lib/orderStatus";
+import { buildLabelRecord, buildDeliveryNoteRecord, computeLabelStatus, getSalesPointDeliveryProfile } from "@/lib/deliveryNote";
 
 export interface ImportedOrderLine extends OrderLine {
   sourceBatchId?: string;
@@ -39,7 +44,7 @@ export interface ManualOrderLineDraft {
 export interface ManualOrderDraft {
   campaign: string;
   clientPO: string;
-  soNumber: string;
+  soNumber?: string;
   supplier: string;
   salesPointId: string;
   picProjectName: string;
@@ -206,6 +211,118 @@ function toIsoDate(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
+function createDoNumber(order: { id: string; createdDate: string }) {
+  const numericSeed = order.id.replace(/\D/g, "").slice(-6).padStart(6, "0");
+  return `DEL${order.createdDate.replace(/\D/g, "")}${numericSeed}`;
+}
+
+export function generateLabelForItem(orderId: string, lineId: string): StoredPackagingLabel | null {
+  const existingOrders = readStoredOrders();
+  let generatedLabel: StoredPackagingLabel | null = null;
+
+  const nextOrders: StoredOrder[] = existingOrders.map((order) => {
+    if (order.id !== orderId) return order;
+
+    const item = order.items.find((i) => i.id === lineId);
+    if (!item || (item.deliveredQuantity ?? 0) <= 0) return order;
+
+    const dn = getSalesPointDeliveryProfile(order.salesPointId);
+    const doNumber = createDoNumber(order);
+    const label = buildLabelRecord(order, item, doNumber, dn);
+
+    const alreadyExists = order.storedLabels.some((l) => l.lineId === lineId);
+    const nextLabels = alreadyExists
+      ? order.storedLabels.map((l) => (l.lineId === lineId ? label : l))
+      : [...order.storedLabels, label];
+
+    const nextItems = order.items.map((i) =>
+      i.id === lineId
+        ? { ...i, labelGenerated: true, labelGeneratedAt: new Date().toISOString() }
+        : i
+    );
+
+    generatedLabel = label;
+
+    return {
+      ...order,
+      items: nextItems,
+      storedLabels: nextLabels,
+      labelStatus: computeLabelStatus(nextItems) as LabelStatus,
+      labelGeneratedAt: new Date().toISOString(),
+    };
+  });
+
+  writeStoredOrders(nextOrders);
+  return generatedLabel;
+}
+
+export function generateBulkLabels(orderId: string): StoredPackagingLabel[] {
+  const existingOrders = readStoredOrders();
+  let generatedLabels: StoredPackagingLabel[] = [];
+
+  const nextOrders: StoredOrder[] = existingOrders.map((order) => {
+    if (order.id !== orderId) return order;
+
+    const dn = getSalesPointDeliveryProfile(order.salesPointId);
+    const doNumber = createDoNumber(order);
+
+    const nextItems = order.items.map((item) => {
+      if ((item.deliveredQuantity ?? 0) <= 0) return item;
+      if (item.labelGenerated) return item;
+      return { ...item, labelGenerated: true, labelGeneratedAt: new Date().toISOString() };
+    });
+
+    const newLabels = order.items
+      .filter((item) => (item.deliveredQuantity ?? 0) > 0 && !order.storedLabels.some((l) => l.lineId === item.id))
+      .map((item) => buildLabelRecord(order, item, doNumber, dn));
+
+    const nextLabels = [...order.storedLabels, ...newLabels];
+    generatedLabels = nextLabels;
+
+    return {
+      ...order,
+      items: nextItems,
+      storedLabels: nextLabels,
+      labelStatus: computeLabelStatus(nextItems) as LabelStatus,
+      labelGeneratedAt: new Date().toISOString(),
+    };
+  });
+
+  writeStoredOrders(nextOrders);
+  return generatedLabels;
+}
+
+export function regenerateDeliveryNote(orderId: string, scopeLineIds?: string[]): StoredDeliveryNoteRecord | null {
+  const existingOrders = readStoredOrders();
+  let generatedNote: StoredDeliveryNoteRecord | null = null;
+
+  const nextOrders: StoredOrder[] = existingOrders.map((order) => {
+    if (order.id !== orderId) return order;
+
+    const dn = getSalesPointDeliveryProfile(order.salesPointId);
+    const doNumber = createDoNumber(order);
+
+    const scopeLabels = scopeLineIds
+      ? order.storedLabels.filter((l) => scopeLineIds.includes(l.lineId))
+      : order.storedLabels.filter((l) => order.items.some((i) => i.id === l.lineId && (i.deliveredQuantity ?? 0) > 0));
+
+    if (scopeLabels.length === 0) return order;
+
+    const note = buildDeliveryNoteRecord(order, scopeLabels, doNumber, dn);
+    const alreadyExists = order.storedDeliveryNotes.some((n) => n.id === note.id);
+    const nextNotes = alreadyExists
+      ? order.storedDeliveryNotes.map((n) => (n.id === note.id ? note : n))
+      : [...order.storedDeliveryNotes, note];
+
+    generatedNote = note;
+
+    return { ...order, storedDeliveryNotes: nextNotes };
+  });
+
+  writeStoredOrders(nextOrders);
+  return generatedNote;
+}
+
 export function createManualOrder(draft: ManualOrderDraft): StoredOrder {
   const items: ImportedOrderLine[] = draft.items.map((item, index) => ({
     id: `ITEM-${index + 1}`,
@@ -214,7 +331,8 @@ export function createManualOrder(draft: ManualOrderDraft): StoredOrder {
     name: item.name,
     quantity: item.quantity,
     deliveredQuantity: 0,
-    status: "Created",
+    status: "New",
+    labelGenerated: false,
   }));
   const salesPointClient = getSalesPointClientBinding(draft.salesPointId);
 
@@ -225,7 +343,7 @@ export function createManualOrder(draft: ManualOrderDraft): StoredOrder {
     createdDate: draft.createdDate ?? toIsoDate(),
     deadline: draft.deadline.trim(),
     clientPO: draft.clientPO.trim(),
-    soNumber: draft.soNumber.trim(),
+    soNumber: draft.soNumber?.trim() || "",
     supplier: draft.supplier.trim(),
     salesPointId: draft.salesPointId,
     clientId: salesPointClient?.clientId,
@@ -238,6 +356,9 @@ export function createManualOrder(draft: ManualOrderDraft): StoredOrder {
     sourceType: draft.sourceType ?? "manual",
     note: draft.note?.trim(),
     items,
+    labelStatus: "none" as LabelStatus,
+    storedLabels: [],
+    storedDeliveryNotes: [],
   };
 }
 
@@ -249,7 +370,7 @@ export function startProduction(orderId: string) {
     }
 
     const updatedItems = order.items.map((item) => {
-      if (item.status === "Created" || item.status === "Waiting" || item.status === "Accepted") {
+      if (item.status === "New" || item.status === "Waiting") {
         return { ...item, status: "In Production" as const };
       }
 
@@ -260,6 +381,7 @@ export function startProduction(orderId: string) {
       ...order,
       items: updatedItems,
       status: getOrderRequestStatus(updatedItems),
+      soNumber: order.soNumber || generateSoNumber(),
     };
   });
 

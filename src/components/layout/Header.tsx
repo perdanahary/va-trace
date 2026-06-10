@@ -139,10 +139,8 @@ export function Header({ title, className, startActions, actions, breadcrumbs, s
           </Breadcrumb>
         </div>
 
-        {actions ? <div className="hidden items-center gap-2 xl:flex">{actions}</div> : null}
+        {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
       </div>
-
-      {actions ? <div className="border-t px-4 py-3 sm:px-6 xl:hidden lg:px-8"><div className="flex flex-wrap gap-2">{actions}</div></div> : null}
     </header>
   );
 }

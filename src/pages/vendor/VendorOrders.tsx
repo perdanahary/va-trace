@@ -182,9 +182,9 @@ export function VendorOrders() {
                       const tone = getOrderTone(order);
                       const baseStatus = getBaseOrderStatus(order.status);
                       const actionTab =
-                        baseStatus === "Created" || baseStatus === "Waiting"
+                        baseStatus === "New" || baseStatus === "Waiting"
                           ? "Pending"
-                          : baseStatus === "In Production" || baseStatus === "Accepted"
+                          : baseStatus === "In Production"
                             ? "Production"
                             : baseStatus === "Ready to Ship" || baseStatus === "On Delivery"
                               ? "Shipping"
@@ -220,8 +220,8 @@ export function VendorOrders() {
                           >
                             {deadlineInfo.label}
                           </TableCell>
-                          <TableCell>
-                            <StatusBadge status={order.status} labelMap={{ Created: "Assigned" }} />
+                          <TableCell className="whitespace-nowrap">
+                            <StatusBadge status={order.status} />
                           </TableCell>
                           <TableCell className="text-right">
                             {actionTab === "Pending" && (

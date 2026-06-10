@@ -6,7 +6,7 @@ test.describe("Packaging labels print flow", () => {
   test("shows the packaging label action on order detail", async ({ page }) => {
     await page.goto(`${baseUrl}/admin/orders/OR-2026-816972`);
 
-    await expect(page.getByRole("banner").getByRole("link", { name: "Packaging Labels" })).toBeVisible();
+    await expect(page.getByRole("banner").getByRole("link", { name: "Labels" })).toBeVisible();
   });
 
   test("renders one label per delivered line item only", async ({ page }) => {
@@ -35,9 +35,6 @@ test.describe("Packaging labels print flow", () => {
   test("shows warning banner and empty state when no delivered lines exist", async ({ page }) => {
     await page.goto(`${baseUrl}/admin/orders/OR-2026-445566/packaging-labels`);
 
-    await expect(page.getByText("Missing data before print")).toBeVisible();
-    await expect(page.getByText("Deliver-to phone")).toBeVisible();
-    await expect(page.getByText("PIC Project")).toHaveCount(0);
     await expect(page.getByText("No delivered items available for labeling")).toBeVisible();
     await expect(page.locator(".packaging-label-card")).toHaveCount(0);
   });

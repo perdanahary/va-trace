@@ -24,11 +24,11 @@ export function VendorDashboard() {
   const metrics = useMemo(() => {
     const pending = orders.filter((o) => {
       const base = getBaseOrderStatus(o.status);
-      return base === "Created" || base === "Waiting";
+      return base === "New" || base === "Waiting";
     }).length;
     const inProduction = orders.filter((o) => {
       const base = getBaseOrderStatus(o.status);
-      return base === "In Production" || base === "Accepted";
+      return base === "In Production";
     }).length;
     const ready = orders.filter((o) => getBaseOrderStatus(o.status) === "Ready to Ship").length;
     const shipping = orders.filter((o) => getBaseOrderStatus(o.status) === "On Delivery").length;
@@ -167,8 +167,8 @@ function VendorOrderTable({ orders, tab }: { orders: StoredOrder[]; tab: VendorT
                   >
                     {deadlineInfo.label}
                   </TableCell>
-                  <TableCell>
-                    <StatusBadge status={order.status} labelMap={{ Created: "Assigned" }} />
+                  <TableCell className="whitespace-nowrap">
+                    <StatusBadge status={order.status} />
                   </TableCell>
                   <TableCell className="text-right">
                     {tab === "Pending" && (
@@ -206,12 +206,12 @@ function getOrdersForTab(tab: VendorTab, orders: StoredOrder[]) {
     case "Pending":
       return orders.filter((order) => {
         const base = getBaseOrderStatus(order.status);
-        return base === "Created" || base === "Waiting";
+        return base === "New" || base === "Waiting";
       });
     case "Production":
       return orders.filter((order) => {
         const base = getBaseOrderStatus(order.status);
-        return base === "In Production" || base === "Accepted";
+        return base === "In Production";
       });
     case "Shipping":
       return orders.filter((order) => {

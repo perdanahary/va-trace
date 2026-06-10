@@ -32,7 +32,7 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
   const [items, setItems] = useState<OrderItem[]>([{ id: "item-1", productCode: "", quantity: 0, poLineNumber: "1" }]);
   const [clientPO, setClientPO] = useState("");
   const [campaignName, setCampaignName] = useState("");
-  const [soNumber, setSoNumber] = useState("");
+
   const [picProjectName, setPicProjectName] = useState("");
   const [picProjectEmail, setPicProjectEmail] = useState("");
   const [selectedSupplier, setSelectedSupplier] = useState("");
@@ -100,7 +100,7 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
 
     if (!clientPO.trim()) errors.push("Client PO Ref is required.");
     if (!campaignName.trim()) errors.push("Project is required.");
-    if (!soNumber.trim()) errors.push("SO Number is required.");
+
     if (!picProjectName.trim()) errors.push("PIC Project Name is required.");
     if (!picProjectEmail.trim()) errors.push("PIC Project Email is required.");
     if (!selectedSupplierRecord) errors.push("Supplier assignment is required.");
@@ -126,7 +126,6 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
     picProjectName,
     selectedSalesPoint,
     selectedSupplierRecord,
-    soNumber,
   ]);
 
   const addItem = () => {
@@ -207,7 +206,6 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
     const order = createManualOrder({
       campaign: campaignName,
       clientPO,
-      soNumber,
       supplier: selectedSupplierName,
       salesPointId: selectedSalesPoint,
       picProjectName,
@@ -285,9 +283,7 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                     <FormField label="Client PO Ref" required htmlFor="client-po">
                       <Input id="client-po" placeholder="e.g. 123928098" value={clientPO} onChange={(e) => setClientPO(e.target.value)} />
                     </FormField>
-                    <FormField label="SO Number" required htmlFor="so-number">
-                      <Input id="so-number" placeholder="e.g. SO123928" value={soNumber} onChange={(e) => setSoNumber(e.target.value)} />
-                    </FormField>
+
                     <FormField label="Project" required>
                       <SearchableCombobox
                         value={campaignName}
@@ -439,7 +435,7 @@ export function AdminCreateOrder({ role = "admin" }: AdminCreateOrderProps) {
                           : "Unbound"
                       }
                     />
-                    <ReviewRow label="SO Number" value={soNumber || "Missing"} />
+
                     <ReviewRow label="PIC Project" value={picProjectName || "Missing"} />
                     <ReviewRow label="Total Qty" value={`${totalQuantity} qty`} />
                     <ReviewRow

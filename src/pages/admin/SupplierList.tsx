@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Eye, Factory, Mail, MoreHorizontal, Phone, Plus, Search, Trash2, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Factory, Mail, MoreHorizontal, Phone, Plus, Search, Trash2, User } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
@@ -10,18 +11,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
 import type { Supplier } from "@/lib/supplierStore";
 import { useSupplierStore } from "@/lib/supplierStore";
-import { SupplierDetailModal } from "./SupplierDetailModal";
-import { SupplierModal } from "./SupplierModal";
 
 export function SupplierList() {
-  const { suppliers, addSupplier, updateSupplier, deleteSupplier } = useSupplierStore();
+  const navigate = useNavigate();
+  const { suppliers, deleteSupplier } = useSupplierStore();
   const [searchQuery, setSearchQuery] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
 
   const filteredSuppliers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -43,39 +39,14 @@ export function SupplierList() {
     );
   }, [searchQuery, suppliers]);
 
-  const handleSave = (supplierData: Omit<Supplier, "id"> | Supplier) => {
-    if ("id" in supplierData) {
-      updateSupplier(supplierData.id, supplierData);
-    } else {
-      addSupplier(supplierData);
-    }
-
-    setIsModalOpen(false);
-    setSelectedSupplier(null);
-  };
-
   const handleDelete = (id: string) => {
-    if (confirm("Delete this supplier? Existing order references will keep the supplier name, but the record will be removed from this directory.")) {
+    if (
+      confirm(
+        "Delete this supplier? Existing order references will keep the supplier name, but the record will be removed from this directory.",
+      )
+    ) {
       deleteSupplier(id);
     }
-  };
-
-  const handleOpenCreateModal = () => {
-    setSelectedSupplier(null);
-    setIsDetailModalOpen(false);
-    setIsModalOpen(true);
-  };
-
-  const handleOpenEditModal = (supplier: Supplier) => {
-    setSelectedSupplier(supplier);
-    setIsDetailModalOpen(false);
-    setIsModalOpen(true);
-  };
-
-  const handleOpenDetailModal = (supplier: Supplier) => {
-    setSelectedSupplier(supplier);
-    setIsModalOpen(false);
-    setIsDetailModalOpen(true);
   };
 
   return (
@@ -95,7 +66,7 @@ export function SupplierList() {
                 className="pl-9"
               />
             </div>
-            <Button onClick={handleOpenCreateModal}>
+            <Button onClick={() => navigate("/admin/suppliers/new")}>
               <Plus className="h-4 w-4" />
               Register New Supplier
             </Button>
@@ -116,7 +87,11 @@ export function SupplierList() {
                 </TableHeader>
                 <TableBody>
                   {filteredSuppliers.map((supplier) => (
-                    <TableRow key={supplier.id}>
+                    <TableRow
+                      key={supplier.id}
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/admin/suppliers/${supplier.id}`)}
+                    >
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-primary/5 text-primary">
@@ -159,7 +134,7 @@ export function SupplierList() {
                           <span className="text-sm text-muted-foreground">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-center align-middle">
+                      <TableCell className="whitespace-nowrap text-center align-middle">
                         <StatusBadge status={supplier.status === "ACTIVE" ? "Active" : "Inactive"} />
                       </TableCell>
                       <TableCell className="text-right">
@@ -170,14 +145,13 @@ export function SupplierList() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => handleOpenDetailModal(supplier)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Detail
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => handleOpenEditModal(supplier)}>
+                            <DropdownMenuItem onSelect={() => navigate(`/admin/suppliers/${supplier.id}`)}>
                               Edit Supplier
                             </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => handleDelete(supplier.id)} className="text-destructive focus:text-destructive">
+                            <DropdownMenuItem
+                              onSelect={() => handleDelete(supplier.id)}
+                              className="text-destructive focus:text-destructive"
+                            >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete Supplier
                             </DropdownMenuItem>
@@ -199,26 +173,6 @@ export function SupplierList() {
           </Card>
         </main>
       </ContentArea>
-
-      <SupplierModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setSelectedSupplier(null);
-        }}
-        onSave={handleSave}
-        onEdit={handleOpenEditModal}
-        supplier={selectedSupplier}
-      />
-      <SupplierDetailModal
-        isOpen={isDetailModalOpen}
-        onClose={() => {
-          setIsDetailModalOpen(false);
-          setSelectedSupplier(null);
-        }}
-        onEdit={handleOpenEditModal}
-        supplier={selectedSupplier}
-      />
     </div>
   );
 }

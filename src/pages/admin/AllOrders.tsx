@@ -231,7 +231,7 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
                           <TableCell className={cn("text-sm", deadlineInfo.isOverdue ? "font-semibold text-destructive" : deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3 ? "font-semibold text-warning" : "text-muted-foreground")}>
                             {deadlineInfo.label}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="whitespace-nowrap">
                             <StatusBadge status={order.status} />
                           </TableCell>
                           <TableCell className="text-right">

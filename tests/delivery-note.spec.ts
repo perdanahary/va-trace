@@ -6,14 +6,14 @@ test.describe("Delivery note print mapping", () => {
   test("keeps internal notes in sync with the delivery note for OR-2026-816972", async ({ page }) => {
     await page.goto(`${baseUrl}/admin/orders/OR-2026-816972`);
 
-    await expect(page.getByText("Internal Notes")).toBeVisible();
+    await expect(page.getByText("Internal Notes", { exact: true })).toBeVisible();
     await expect(page.getByText("Tim Area WAJIB melakukan GR CPT dan COUPA.")).toBeVisible();
     await expect(page.getByText("Order to Delivery Alignment")).toBeVisible();
     await expect(page.getByText("Sunscreen Campaign Q2")).toBeVisible();
     await expect(page.getByText("SO123928")).toBeVisible();
     await expect(page.getByText("Muhammad Luthfi Sobana(MuhammadLuthfi.Sobana@Panamas.com)")).toBeVisible();
     await expect(page.getByText("PT. HM. Sampoerna Tbk")).toBeVisible();
-    await expect(page.getByText("PT HMS Jakarta Barat", { exact: true })).toBeVisible();
+    await expect(page.getByText("PT HMS Jakarta Barat")).toBeVisible();
   });
 
   test("maps campaign to Project and WH020 to PT HMS Medan 1", async ({ page }) => {

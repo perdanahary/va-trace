@@ -3,8 +3,7 @@ import type { OrderStatus } from "@/components/ui/StatusBadge";
 export type OrderRequestStatus = OrderStatus | `Partial ${OrderStatus}`;
 
 const statusRank: OrderStatus[] = [
-  "Created",
-  "Accepted",
+  "New",
   "In Production",
   "Ready to Ship",
   "On Delivery",
@@ -30,7 +29,7 @@ export function getBaseOrderStatus(status: OrderRequestStatus): OrderStatus {
 
 export function getOrderRequestStatus(items: Array<Pick<OrderItemProgress, "status">>): OrderRequestStatus {
   if (items.length === 0) {
-    return "Created";
+    return "New";
   }
 
   const uniqueStatuses = [...new Set(items.map((item) => item.status))];

@@ -105,7 +105,7 @@ export function AdminDashboard({ role = "admin" }: AdminDashboardProps) {
                       <TableRow key={order.id}>
                         <TableCell className="font-mono text-xs font-medium">{order.id}</TableCell>
                         <TableCell className="max-w-[260px] truncate text-sm">{order.campaign}</TableCell>
-                        <TableCell>
+                        <TableCell className="whitespace-nowrap">
                           <StatusBadge status={order.status} />
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{order.createdDate}</TableCell>

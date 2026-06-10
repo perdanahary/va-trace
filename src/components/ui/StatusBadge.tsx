@@ -3,8 +3,7 @@ import { cn } from "@/lib/utils";
 import type { OrderRequestStatus } from "@/lib/orderStatus";
 
 export type OrderStatus =
-  | "Created"
-  | "Accepted"
+  | "New"
   | "In Production"
   | "Ready to Ship"
   | "On Delivery"
@@ -24,8 +23,7 @@ interface StatusBadgeProps {
 }
 
 const statusVariants: Partial<Record<StatusBadgeValue, "success" | "processing" | "warning" | "destructive" | "secondary">> = {
-  Created: "secondary",
-  Accepted: "success",
+  New: "secondary",
   "In Production": "processing",
   "Ready to Ship": "processing",
   "On Delivery": "processing",

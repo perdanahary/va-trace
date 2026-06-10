@@ -1,0 +1,22 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "figma-console": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "figma-console-mcp@latest"
+      ],
+      "enabled": true,
+      "environment": {
+        "FIGMA_ACCESS_TOKEN": "FIGMA_TOKEN_REMOVED",
+        "ENABLE_MCP_APPS": "true"
+      }
+    },
+    "jam": {
+      "type": "remote",
+      "url": "https://mcp.jam.dev/mcp"
+    }
+  }
+}

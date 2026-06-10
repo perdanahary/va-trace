@@ -92,7 +92,6 @@ const navItems: Record<UserRole, SidebarNavItem[]> = {
     { icon: LayoutDashboard, label: "Dashboard", path: "/vendor" },
     { icon: Package, label: "Order Tracking", path: "/vendor/progress" },
     { icon: ShoppingCart, label: "My Orders", path: "/vendor/orders" },
-    { icon: Tag, label: "Products", path: "/vendor/products" },
     { icon: Mail, label: "Inbox", path: "/vendor/inbox" },
     { icon: Users, label: "My Profile", path: "/vendor/profile" },
   ],

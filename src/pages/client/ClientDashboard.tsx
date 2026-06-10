@@ -143,7 +143,7 @@ export function ClientDashboard() {
                     <TableRow key={order.id}>
                       <TableCell className="font-mono text-xs font-medium">{order.id}</TableCell>
                       <TableCell className="text-sm">{order.campaign}</TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <StatusBadge status={order.status} />
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{order.deadline}</TableCell>

@@ -1,7 +1,10 @@
 import {
   mockProducts,
   mockSalesPoints,
+  type StoredPackagingLabel,
+  type StoredDeliveryNoteRecord,
   type Order,
+  type LabelStatus,
   type SalesPointMapping,
 } from "@/lib/mockData";
 import { findSupplierByName } from "@/lib/supplierStore";
@@ -120,6 +123,10 @@ const hhGlobalContacts: HHGlobalContact[] = [
   },
 ];
 
+function getSalesPointFallbackAddress(salesPoint: typeof mockSalesPoints[number]) {
+  return `${salesPoint.salesPoint}, ${salesPoint.region}, ${salesPoint.zone}`;
+}
+
 export function getSalesPointDeliveryProfile(salesPointId: string): SalesPointDeliveryProfile {
   const salesPoint =
     mockSalesPoints.find((entry) => entry.wcode === salesPointId) ??
@@ -128,27 +135,160 @@ export function getSalesPointDeliveryProfile(salesPointId: string): SalesPointDe
   return {
     ...salesPoint,
     deliveryCompanyName:
-      salesPoint.deliveryCompanyName ??
+      salesPoint.deliveryCompanyName ||
       "PT. HM. Sampoerna Tbk",
     deliveryLocationName:
-      salesPoint.deliveryLocationName ??
+      salesPoint.deliveryLocationName ||
       `PT HMS ${salesPoint.salesPoint}`,
     address:
-      salesPoint.address ??
-      salesPoint.shippingAddress.alamat ??
-      `${salesPoint.salesPoint}, ${salesPoint.region}, ${salesPoint.zone}`,
-    phone: salesPoint.phone ?? salesPoint.pic1.phone ?? "",
-    picClient: salesPoint.picClient ?? salesPoint.pic1.name ?? "",
+      salesPoint.address ||
+      (salesPoint.shippingAddress?.alamat || getSalesPointFallbackAddress(salesPoint)),
+    phone: salesPoint.phone || salesPoint.pic1?.phone || "",
+    picClient: salesPoint.picClient || salesPoint.pic1?.name || "",
   };
 }
+
+export function getDeliveryProfileFromOrder(order: Order) {
+  return getSalesPointDeliveryProfile(order.salesPointId);
+}
+
+/**
+ * Build a StoredPackagingLabel record for a single item line.
+ * This is the canonical "label" data that gets stored and drives delivery notes.
+ */
+export function buildLabelRecord(
+  order: Order,
+  item: Order['items'][number],
+  doNumber: string,
+  deliverySnapshot: SalesPointDeliveryProfile,
+): StoredPackagingLabel {
+  const deliveredQty = item.deliveredQuantity ?? 0;
+  const labelCode = `${doNumber}-${item.poLineNumber.padStart(3, "0")}`;
+
+  return {
+    id: labelCode,
+    lineId: item.id,
+    labelCode,
+    qrPayload: `va-trace://packaging-label/${doNumber}/${item.id}`,
+    orderId: order.id,
+    doNumber,
+    poLineNumber: item.poLineNumber,
+    productCode: item.productCode,
+    productName: item.name,
+    deliveredQty,
+    uom: "Pcs",
+    destinationCompanyName: deliverySnapshot.deliveryCompanyName,
+    destinationLocationName: deliverySnapshot.deliveryLocationName,
+    destinationAddress: deliverySnapshot.address,
+    salesPointCode: deliverySnapshot.wcode,
+    projectName: order.campaign,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Compute aggregate labelStatus for an order based on item-level labelGenerated marks.
+ */
+export function computeLabelStatus(items: Order['items']): LabelStatus {
+  const total = items.length;
+  const labeled = items.filter((i) => i.labelGenerated).length;
+
+  if (labeled === 0) return "none";
+  if (labeled >= total) return "all";
+  return "partial";
+}
+
+/**
+ * Build a StoredDeliveryNoteRecord from stored labels + order data.
+ * This is always derived from the stored (canonical) labels — binding is enforced.
+ */
+export function buildDeliveryNoteRecord(
+  order: Order,
+  scopeLabels: StoredPackagingLabel[],
+  doNumber: string,
+  deliverySnapshot: SalesPointDeliveryProfile,
+): StoredDeliveryNoteRecord {
+  const senderProfile = getSenderProfile(order.supplier);
+  const scopeLabelIds = scopeLabels.map((l) => l.id);
+  const lines = order.items.map((item) => {
+    const scopeLabel = scopeLabels.find((l) => l.lineId === item.id);
+    const deliveredQty = scopeLabel?.deliveredQty ?? item.deliveredQuantity ?? 0;
+    return {
+      id: item.id,
+      poLineNumber: item.poLineNumber,
+      materialCode: item.productCode,
+      description: item.name,
+      orderedQty: item.quantity,
+      deliveredQty,
+      outstandingQty: Math.max(item.quantity - deliveredQty, 0),
+      uom: "Pcs",
+    };
+  });
+
+  return {
+    id: doNumber,
+    doNumber,
+    barcodeValue: doNumber,
+    qrPayload: `va-trace://delivery-note/${doNumber}`,
+    poNumber: order.clientPO,
+    soNumber: order.soNumber,
+    projectName: order.campaign,
+    picProject: `${order.picProject.name}(${order.picProject.email})`,
+    senderProfile: {
+      name: senderProfile.name,
+      addressLines: senderProfile.addressLines,
+      phone: senderProfile.phone,
+    },
+    deliverySnapshot: {
+      deliveryCompanyName: deliverySnapshot.deliveryCompanyName,
+      deliveryLocationName: deliverySnapshot.deliveryLocationName,
+      address: deliverySnapshot.address,
+      phone: deliverySnapshot.phone,
+      picClient: deliverySnapshot.picClient,
+      wcode: deliverySnapshot.wcode,
+    },
+    lines,
+    note: "Tim Area WAJIB melakukan GR CPT dan COUPA.",
+    createdAt: new Date().toISOString(),
+    scopeLabelIds,
+  };
+}
+
+function createDoNumber(order: Order) {
+  const numericSeed = order.id.replace(/\D/g, "").slice(-6).padStart(6, "0");
+  return `DEL${order.createdDate.replace(/\D/g, "")}${numericSeed}`;
+}
+
+function getSenderProfile(supplierName: string): CompanyProfile {
+  const supplier = findSupplierByName(supplierName);
+
+  if (!supplier) {
+    return fallbackSenderProfile;
+  }
+
+  return {
+    name: supplier.name,
+    addressLines: supplier.addressLines?.length ? supplier.addressLines : fallbackSenderProfile.addressLines,
+    phone: supplier.phone || fallbackSenderProfile.phone,
+  };
+}
+
+// ============================================================
+// Legacy computed functions (for backward compat / print views)
+// These now read from stored labels when available.
+// ============================================================
 
 export function generateDeliveryNote(order: Order): DeliveryNote {
   const deliverySnapshot = getSalesPointDeliveryProfile(order.salesPointId);
   const senderProfile = getSenderProfile(order.supplier);
   const doNumber = createDoNumber(order);
+
+  // Use stored labels as source of truth if available
+  const storedLabels = order.storedLabels ?? [];
   const lines = order.items.map((item) => {
     const product = mockProducts.find((entry) => entry.code === item.productCode);
-    const deliveredQty = item.deliveredQuantity ?? inferDeliveredQuantity(item.status, item.quantity);
+    const storedLabel = storedLabels.find((l) => l.lineId === item.id);
+    const deliveredQty = storedLabel?.deliveredQty ?? item.deliveredQuantity ?? 0;
     const areaText = getAreaText(product?.dimensions, deliveredQty);
 
     return {
@@ -192,36 +332,61 @@ export function generatePackagingLabels(order: Order): PackagingLabelsDocument {
   const senderProfile = getSenderProfile(order.supplier);
   const doNumber = createDoNumber(order);
 
-  const labels = order.items
-    .map((item) => {
-      const deliveredQty = item.deliveredQuantity ?? inferDeliveredQuantity(item.status, item.quantity);
+  // Use stored labels as source of truth when available
+  const storedLabels = order.storedLabels ?? [];
+  const labels: PackagingLabel[] = [];
 
-      if (deliveredQty <= 0) {
-        return null;
-      }
+  const processedLineIds = new Set<string>();
 
-      const labelCode = `${doNumber}-${item.poLineNumber.padStart(3, "0")}`;
+  // First: use stored labels
+  for (const stored of storedLabels) {
+    processedLineIds.add(stored.lineId);
+    labels.push({
+      id: stored.id,
+      lineId: stored.lineId,
+      labelCode: stored.labelCode,
+      qrPayload: stored.qrPayload,
+      orderId: stored.orderId,
+      doNumber: stored.doNumber,
+      poLineNumber: stored.poLineNumber,
+      productCode: stored.productCode,
+      productName: stored.productName,
+      deliveredQty: stored.deliveredQty,
+      uom: stored.uom,
+      destinationCompanyName: stored.destinationCompanyName,
+      destinationLocationName: stored.destinationLocationName,
+      destinationAddress: stored.destinationAddress,
+      salesPointCode: stored.salesPointCode,
+      projectName: stored.projectName,
+    });
+  }
 
-      return {
-        id: labelCode,
-        lineId: item.id,
-        labelCode,
-        qrPayload: `va-trace://packaging-label/${doNumber}/${item.id}`,
-        orderId: order.id,
-        doNumber,
-        poLineNumber: item.poLineNumber,
-        productCode: item.productCode,
-        productName: item.name,
-        deliveredQty,
-        uom: "Pcs",
-        destinationCompanyName: deliverySnapshot.deliveryCompanyName,
-        destinationLocationName: deliverySnapshot.deliveryLocationName,
-        destinationAddress: deliverySnapshot.address,
-        salesPointCode: deliverySnapshot.wcode,
-        projectName: order.campaign,
-      };
-    })
-    .filter((label): label is PackagingLabel => label !== null);
+  // Fallback: for items with delivered qty > 0 but no stored label yet
+  for (const item of order.items) {
+    if (processedLineIds.has(item.id)) continue;
+    const deliveredQty = item.deliveredQuantity ?? 0;
+    if (deliveredQty <= 0) continue;
+
+    const labelCode = `${doNumber}-${item.poLineNumber.padStart(3, "0")}`;
+    labels.push({
+      id: labelCode,
+      lineId: item.id,
+      labelCode,
+      qrPayload: `va-trace://packaging-label/${doNumber}/${item.id}`,
+      orderId: order.id,
+      doNumber,
+      poLineNumber: item.poLineNumber,
+      productCode: item.productCode,
+      productName: item.name,
+      deliveredQty,
+      uom: "Pcs",
+      destinationCompanyName: deliverySnapshot.deliveryCompanyName,
+      destinationLocationName: deliverySnapshot.deliveryLocationName,
+      destinationAddress: deliverySnapshot.address,
+      salesPointCode: deliverySnapshot.wcode,
+      projectName: order.campaign,
+    });
+  }
 
   return {
     orderId: order.id,
@@ -238,35 +403,9 @@ export function getDeliveryNoteByOrderId(orderId: string) {
   return order ? generateDeliveryNote(order) : null;
 }
 
-function createDoNumber(order: Order) {
-  const numericSeed = order.id.replace(/\D/g, "").slice(-6).padStart(6, "0");
-  return `DEL${order.createdDate.replace(/\D/g, "")}${numericSeed}`;
-}
-
-function inferDeliveredQuantity(status: string, quantity: number) {
-  return ["Ready to Ship", "On Delivery", "Delivered", "Completed"].includes(status)
-    ? quantity
-    : 0;
-}
-
-function getSenderProfile(supplierName: string): CompanyProfile {
-  const supplier = findSupplierByName(supplierName);
-
-  if (!supplier) {
-    return fallbackSenderProfile;
-  }
-
-  return {
-    name: supplier.name,
-    addressLines: supplier.addressLines?.length ? supplier.addressLines : fallbackSenderProfile.addressLines,
-    phone: supplier.phone || fallbackSenderProfile.phone,
-  };
-}
-
 function getMissingRequiredFields(order: Order, salesPoint: SalesPointDeliveryProfile) {
   const missing: string[] = [];
 
-  if (!order.soNumber) missing.push("SO Number");
   if (!order.campaign) missing.push("Campaign Name / Project");
   if (!order.picProject.name || !order.picProject.email) missing.push("PIC Project");
   if (!salesPoint.deliveryCompanyName) missing.push("Deliver-to company");
