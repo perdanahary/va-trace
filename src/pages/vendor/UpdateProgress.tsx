@@ -5,7 +5,6 @@ import {
   Calendar,
   CheckCircle2,
   ClipboardList,
-  MoreHorizontal,
   Package,
   Printer,
   Truck,
@@ -20,13 +19,6 @@ import { Header } from "@/components/layout/Header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -185,83 +177,61 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
   const labeledCount = order.storedLabels.length;
   const allDeliverableLabeled = deliverableItems.length > 0 && deliverableItems.every((i) => i.labelGenerated);
 
-  const isNewOrder = order.status === "New";
+  const currentStageIdx = getStageIndex(order.status);
+  const nextStage = STAGE_FLOW[currentStageIdx + 1];
 
-  const headerActions = isNewOrder ? (
+  const nextStageButton = nextStage
+    ? (() => {
+        switch (nextStage) {
+          case "In Production":
+            return (
+              <Button size="sm" onClick={advanceToProduction}>
+                <Play className="h-4 w-4" />
+                Start Production
+              </Button>
+            );
+          case "Ready to Ship":
+            return (
+              <StageAdvanceButton
+                label="Ready to Ship"
+                icon={Package}
+                count={stageDistribution["Ready to Ship"] ?? 0}
+                disabled={!canAdvanceToReadyToShip}
+                onClick={advanceToReadyToShip}
+                compact
+              />
+            );
+          case "On Delivery":
+            return (
+              <StageAdvanceButton
+                label="On Delivery"
+                icon={Truck}
+                count={stageDistribution["On Delivery"] ?? 0}
+                disabled={!canAdvanceToOnDelivery}
+                onClick={advanceToOnDelivery}
+                compact
+              />
+            );
+          case "Delivered":
+            return (
+              <StageAdvanceButton
+                label="Delivered"
+                icon={CheckCircle2}
+                count={stageDistribution["Delivered"] ?? 0}
+                disabled={!canAdvanceToDelivered}
+                onClick={advanceToDelivered}
+                compact
+              />
+            );
+          default:
+            return null;
+        }
+      })()
+    : null;
+
+  const headerActions = (
     <>
-      <Button size="sm" disabled={!canAdvanceToProduction} onClick={advanceToProduction}>
-        <Play className="h-4 w-4" />
-        Start Production
-      </Button>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem disabled={!canAdvanceToReadyToShip} onClick={advanceToReadyToShip}>
-            <Package className="h-4 w-4" />
-            Ready to Ship
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled={!canAdvanceToOnDelivery} onClick={advanceToOnDelivery}>
-            <Truck className="h-4 w-4" />
-            On Delivery
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled={!canAdvanceToDelivered} onClick={advanceToDelivered}>
-            <CheckCircle2 className="h-4 w-4" />
-            Delivered
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem disabled={!allDeliverableLabeled} asChild>
-            <Link to={`/${role}/orders/${order.id}/delivery-note`}>
-              <Printer className="h-4 w-4" />
-              Delivery Note
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled={!allDeliverableLabeled} asChild>
-            <Link to={`/${role}/orders/${order.id}/packaging-labels`}>
-              <Package className="h-4 w-4" />
-              Labels
-            </Link>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </>
-  ) : (
-    <>
-      <StageAdvanceButton
-        label="In Production"
-        icon={Play}
-        count={stageDistribution["In Production"] ?? 0}
-        disabled={!canAdvanceToProduction}
-        onClick={advanceToProduction}
-        compact
-      />
-      <StageAdvanceButton
-        label="Ready to Ship"
-        icon={Package}
-        count={stageDistribution["Ready to Ship"] ?? 0}
-        disabled={!canAdvanceToReadyToShip}
-        onClick={advanceToReadyToShip}
-        compact
-      />
-      <StageAdvanceButton
-        label="On Delivery"
-        icon={Truck}
-        count={stageDistribution["On Delivery"] ?? 0}
-        disabled={!canAdvanceToOnDelivery}
-        onClick={advanceToOnDelivery}
-        compact
-      />
-      <StageAdvanceButton
-        label="Delivered"
-        icon={CheckCircle2}
-        count={stageDistribution["Delivered"] ?? 0}
-        disabled={!canAdvanceToDelivered}
-        onClick={advanceToDelivered}
-        compact
-      />
+      {nextStageButton}
       <Button asChild size="sm" variant="outline" disabled={!allDeliverableLabeled}>
         <Link to={`/${role}/orders/${order.id}/delivery-note`}>
           <Printer className="h-4 w-4" />
@@ -377,8 +347,6 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
                       <TableBody>
                         {order.items.map((item, index) => {
                           const deliveryLine = deliveryNote.lines.find((line) => line.id === item.id);
-                          const deliveredQty = item.deliveredQuantity ?? 0;
-                          const canGenerate = deliveredQty > 0 && !item.labelGenerated;
                           return (
                             <TableRow key={item.id}>
                               <TableCell className="font-mono text-sm text-muted-foreground">{index + 1}</TableCell>
@@ -398,14 +366,12 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
                                     <CheckCircle2 className="h-3.5 w-3.5" />
                                     Generated
                                   </span>
-                                ) : deliveredQty > 0 ? (
+                                ) : (
                                   <Button size="sm" variant="outline" className="h-7 gap-1 text-[10px]" onClick={() => handleGenerateLabel(item.id)}>
                                     <Tag className="h-3 w-3" />
                                     Generate
                                   </Button>
-                                ) : (
-                                  <span className="text-[10px] text-muted-foreground">—</span>
-                                )}
+                                  )}
                               </TableCell>
                             </TableRow>
                           );
@@ -709,6 +675,7 @@ function StageAdvanceButton({
   disabled,
   onClick,
   compact = false,
+  variant = "default",
 }: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -716,10 +683,11 @@ function StageAdvanceButton({
   disabled: boolean;
   onClick: () => void;
   compact?: boolean;
+  variant?: "default" | "outline";
 }) {
   return (
     <Button
-      variant="outline"
+      variant={variant}
       size="sm"
       disabled={disabled}
       onClick={onClick}
@@ -728,9 +696,9 @@ function StageAdvanceButton({
       <Icon className="h-4 w-4" />
       <span className="text-xs font-semibold whitespace-nowrap">{label}</span>
       {compact ? (
-        <span className="text-[10px] text-muted-foreground font-mono">({count})</span>
+        <span className="text-[10px] text-current/60 font-mono">({count})</span>
       ) : (
-        <span className="text-[10px] text-muted-foreground font-mono">{count} items</span>
+        <span className="text-[10px] text-current/60 font-mono">{count} items</span>
       )}
     </Button>
   );

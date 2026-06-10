@@ -364,7 +364,7 @@ export function generatePackagingLabels(order: Order): PackagingLabelsDocument {
   // Fallback: for items with delivered qty > 0 but no stored label yet
   for (const item of order.items) {
     if (processedLineIds.has(item.id)) continue;
-    const deliveredQty = item.deliveredQuantity ?? 0;
+  const deliveredQty = item.deliveredQuantity ?? item.quantity;
     if (deliveredQty <= 0) continue;
 
     const labelCode = `${doNumber}-${item.poLineNumber.padStart(3, "0")}`;

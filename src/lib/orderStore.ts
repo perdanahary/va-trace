@@ -224,7 +224,7 @@ export function generateLabelForItem(orderId: string, lineId: string): StoredPac
     if (order.id !== orderId) return order;
 
     const item = order.items.find((i) => i.id === lineId);
-    if (!item || (item.deliveredQuantity ?? 0) <= 0) return order;
+    if (!item) return order;
 
     const dn = getSalesPointDeliveryProfile(order.salesPointId);
     const doNumber = createDoNumber(order);
