@@ -9,10 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { mockOrders } from "@/lib/mockData";
 import { cn } from "@/lib/utils";
+import { useOrders } from "@/lib/orderStore";
 
 export function ClientDashboard() {
+  const orders = useOrders();
   const metrics = [
     { label: "Waiting", value: "05", icon: Clock, tone: "warning" as const },
     { label: "In production", value: "12", icon: Package, tone: "processing" as const },
@@ -77,7 +78,7 @@ export function ClientDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mockOrders.slice(0, 4).map((order) => (
+                    {orders.slice(0, 4).map((order) => (
                       <TableRow key={order.clientPO}>
                         <TableCell className="font-mono text-xs font-semibold text-muted-foreground">{order.clientPO}</TableCell>
                         <TableCell className="text-center text-sm">1</TableCell>
@@ -139,7 +140,7 @@ export function ClientDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mockOrders.slice(0, 3).map((order) => (
+                  {orders.slice(0, 3).map((order) => (
                     <TableRow key={order.id}>
                       <TableCell className="font-mono text-xs font-medium">{order.id}</TableCell>
                       <TableCell className="text-sm">{order.campaign}</TableCell>

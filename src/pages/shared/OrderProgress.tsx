@@ -24,7 +24,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { FilterField, FilterSection } from "@/components/shared/FilterSection";
-import { mockOrders, mockSalesPoints, mockProducts } from "@/lib/mockData";
+import { mockSalesPoints, mockProducts } from "@/lib/mockData";
+import { useOrders } from "@/lib/orderStore";
 import { useUserStore } from "@/lib/userStore";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +42,7 @@ export function OrderProgress({ role }: OrderProgressProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
+  const orders = useOrders();
   const { users } = useUserStore();
 
   // Determine the vendor's company name when role is "vendor"
@@ -52,7 +54,7 @@ export function OrderProgress({ role }: OrderProgressProps) {
 
   // Flatten orders into items for the table
   const flattenedItems = useMemo(() => {
-    return mockOrders.flatMap((order) =>
+    return orders.flatMap((order) =>
       order.items.map((item) => {
         const salesPoint = mockSalesPoints.find((sp) => sp.wcode === order.salesPointId);
         const product = mockProducts.find((p) => p.code === item.productCode);
@@ -75,7 +77,7 @@ export function OrderProgress({ role }: OrderProgressProps) {
         };
       })
     );
-  }, []);
+  }, [orders]);
 
   // When role is vendor, scope data to only their own orders
   const baseItems = useMemo(() => {
