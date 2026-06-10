@@ -22,7 +22,8 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { cn } from "@/lib/utils";
-import { adminMetrics, mockOrders } from "@/lib/mockData";
+import { adminMetrics } from "@/lib/mockData";
+import { useOrders } from "@/lib/orderStore";
 
 interface AdminDashboardProps {
   role?: UserRole;
@@ -30,6 +31,7 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ role = "admin" }: AdminDashboardProps) {
   const navigate = useNavigate();
+  const orders = useOrders();
   const getHeaderTitle = () => {
     switch (role) {
       case "analyst":
@@ -100,7 +102,7 @@ export function AdminDashboard({ role = "admin" }: AdminDashboardProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mockOrders.map((order) => {
+                  {orders.slice(0, 5).map((order) => {
                     const deadlineInfo = getDeadlineInfo(order.deadline, order.createdDate);
                     return (
                       <TableRow key={order.id}>
@@ -109,7 +111,7 @@ export function AdminDashboard({ role = "admin" }: AdminDashboardProps) {
                         <TableCell className="whitespace-nowrap">
                           <StatusBadge status={order.status} />
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{order.createdDate}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{formatCreatedDate(order.createdDate)}</TableCell>
                         <TableCell className={cn("text-sm", deadlineInfo.isOverdue ? "font-semibold text-destructive" : deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3 ? "font-semibold text-warning" : "text-muted-foreground")}>
                           <span className="inline-flex items-center gap-1">
                             {!deadlineInfo.isOverdue && deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3 && (
@@ -170,7 +172,15 @@ function getDeadlineInfo(deadline: string, createdDate?: string) {
   return { label: deadline, isOverdue: false, daysLeft };
 }
 
-function getOrderQuantity(order: (typeof mockOrders)[number]) {
+function formatCreatedDate(date: string) {
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) {
+    return date;
+  }
+  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function getOrderQuantity(order: { items: { quantity: number }[] }) {
   return order.items.reduce((total, item) => total + item.quantity, 0);
 }
 
