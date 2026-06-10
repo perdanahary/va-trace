@@ -10,7 +10,6 @@ const statusRank: OrderStatus[] = [
   "Delivered",
   "Completed",
   "Overdue",
-  "Urgent",
   "Waiting",
 ];
 

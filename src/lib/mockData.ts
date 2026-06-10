@@ -435,7 +435,7 @@ const mockOrderSeeds: Omit<Order, "status">[] = [
   },
   {
     id: "OR-2026-570008",
-    campaign: "Surabaya Urgent Deployment",
+    campaign: "Surabaya Fast Track",
     createdDate: "2026-06-02",
     deadline: "1 day left",
     clientPO: "4421098",
@@ -450,8 +450,8 @@ const mockOrderSeeds: Omit<Order, "status">[] = [
       email: "Chandra.Sadikin@sampoerna.com",
     },
     items: [
-      { id: "item-fs-15", productCode: "2026-00194984-0023", poLineNumber: "1", name: "GT Stand Alone - TTD Big (H) - 25.5x72.5 cm - Art Carton - SPS12 15K", quantity: 51, deliveredQuantity: 0, status: "Urgent", labelGenerated: false },
-      { id: "item-fs-16", productCode: "2026-00194984-0005", poLineNumber: "5", name: "TPOSM - Sunscreen Without Velcro - 1x2 m - Vinyl FF Frontlight 10 Oz - SPS12 15K", quantity: 40, deliveredQuantity: 0, status: "Urgent", labelGenerated: false },
+      { id: "item-fs-15", productCode: "2026-00194984-0023", poLineNumber: "1", name: "GT Stand Alone - TTD Big (H) - 25.5x72.5 cm - Art Carton - SPS12 15K", quantity: 51, deliveredQuantity: 0, status: "In Production", labelGenerated: false },
+      { id: "item-fs-16", productCode: "2026-00194984-0005", poLineNumber: "5", name: "TPOSM - Sunscreen Without Velcro - 1x2 m - Vinyl FF Frontlight 10 Oz - SPS12 15K", quantity: 40, deliveredQuantity: 0, status: "In Production", labelGenerated: false },
     ],
     labelStatus: "none",
     storedLabels: makeEmptyStoredLabels(),
@@ -2434,7 +2434,7 @@ export const getBrandSeedByName = (brandName: string) =>
 
 export const adminMetrics = [
   { label: "Active Orders", value: "24", change: "+4 this week", color: "text-primary" },
-  { label: "Urgent Orders", value: "3", change: "Deadline ≤ 3 days", color: "text-destructive" },
+  { label: "At Risk", value: "3", change: "Deadline ≤ 3 days", color: "text-destructive" },
   { label: "Completed", value: "156", change: "Last 30 days", color: "text-success" },
   { label: "Work Volume This Month", value: "245", change: "+12% vs last month", color: "text-primary" },
 ];

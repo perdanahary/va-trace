@@ -320,8 +320,10 @@ function getDeadlineInfo(deadline: string, createdDate?: string) {
 }
 
 function getOrderTone(order: Order) {
+  const deadlineInfo = getDeadlineInfo(order.deadline, order.createdDate);
+  if (deadlineInfo.isOverdue) return "danger";
+  if (deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3) return "danger";
   const status = getBaseOrderStatus(order.status);
-  if (status === "Urgent" || order.deadline === "Overdue") return "danger";
   if (status === "Waiting") return "warning";
   return "default";
 }

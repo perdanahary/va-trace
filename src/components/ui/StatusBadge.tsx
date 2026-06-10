@@ -10,7 +10,6 @@ export type OrderStatus =
   | "Delivered"
   | "Completed"
   | "Overdue"
-  | "Urgent"
   | "Waiting";
 
 export type SupplierStatusLabel = "Active" | "Inactive";
@@ -30,7 +29,6 @@ const statusVariants: Partial<Record<StatusBadgeValue, "success" | "processing" 
   Delivered: "success",
   Completed: "success",
   Overdue: "destructive",
-  Urgent: "destructive",
   Waiting: "warning",
   Active: "success",
   Inactive: "secondary",

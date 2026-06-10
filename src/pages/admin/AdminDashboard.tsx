@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 
 import {
+  AlertTriangle,
   ArrowUpRight,
   MoreHorizontal,
 } from "lucide-react";
@@ -110,7 +111,12 @@ export function AdminDashboard({ role = "admin" }: AdminDashboardProps) {
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{order.createdDate}</TableCell>
                         <TableCell className={cn("text-sm", deadlineInfo.isOverdue ? "font-semibold text-destructive" : deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3 ? "font-semibold text-warning" : "text-muted-foreground")}>
-                          {deadlineInfo.label}
+                          <span className="inline-flex items-center gap-1">
+                            {!deadlineInfo.isOverdue && deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3 && (
+                              <AlertTriangle className="h-3.5 w-3.5 text-warning" />
+                            )}
+                            {deadlineInfo.label}
+                          </span>
                         </TableCell>
                         <TableCell className="text-right font-medium">{getOrderQuantity(order)}</TableCell>
                         <TableCell className="text-right">
@@ -170,8 +176,8 @@ function getOrderQuantity(order: (typeof mockOrders)[number]) {
 
 function getMetricFilterState(label: string) {
   switch (label) {
-    case "Urgent Orders":
-      return { initialStatus: "Urgent" };
+    case "At Risk":
+      return undefined;
     case "Completed":
       return { initialStatus: "Completed" };
     default:
