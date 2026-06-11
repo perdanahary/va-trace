@@ -14,8 +14,18 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import type { UserRole } from "@/components/layout/Sidebar";
 import { cn } from "@/lib/utils";
+import { useCurrentUser } from "@/lib/authStore";
 
-const accountByRole: Record<
+function getInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join("");
+}
+
+const fallbackAccountByRole: Record<
   UserRole,
   {
     name: string;
@@ -24,36 +34,11 @@ const accountByRole: Record<
     status: "Active" | "Inactive";
   }
 > = {
-  admin: {
-    name: "Admin User",
-    title: "Admin",
-    initials: "AU",
-    status: "Active",
-  },
-  operator: {
-    name: "Admin User",
-    title: "Operator",
-    initials: "AU",
-    status: "Active",
-  },
-  analyst: {
-    name: "Admin User",
-    title: "Analyst",
-    initials: "AU",
-    status: "Active",
-  },
-  client: {
-    name: "Admin User",
-    title: "Client",
-    initials: "AU",
-    status: "Active",
-  },
-  vendor: {
-    name: "Admin User",
-    title: "Vendor",
-    initials: "AU",
-    status: "Active",
-  },
+  admin: { name: "Admin User", title: "Admin", initials: "AU", status: "Active" },
+  operator: { name: "Admin User", title: "Operator", initials: "AU", status: "Active" },
+  analyst: { name: "Admin User", title: "Analyst", initials: "AU", status: "Active" },
+  client: { name: "Client User", title: "Client", initials: "CU", status: "Active" },
+  vendor: { name: "Vendor User", title: "Vendor", initials: "VU", status: "Active" },
 };
 
 interface UserAccountMenuProps {
@@ -65,7 +50,13 @@ interface UserAccountMenuProps {
 }
 
 export function UserAccountMenu({ role, compact = false, className, contentClassName, leading }: UserAccountMenuProps) {
-  const account = accountByRole[role];
+  const { currentUser } = useCurrentUser();
+  const account = currentUser ?? fallbackAccountByRole[role];
+
+  const name = currentUser?.name ?? fallbackAccountByRole[role].name;
+  const initials = currentUser ? getInitials(currentUser.name) : fallbackAccountByRole[role].initials;
+  const status = currentUser?.status ?? fallbackAccountByRole[role].status;
+  const title = currentUser ? role.charAt(0).toUpperCase() + role.slice(1) : fallbackAccountByRole[role].title;
 
   return (
     <DropdownMenu>
@@ -77,18 +68,18 @@ export function UserAccountMenu({ role, compact = false, className, contentClass
           {leading}
           <Avatar className="h-8 w-8">
             <AvatarFallback className="bg-primary/10 text-primary">
-              <User className="h-4 w-4" />
+              {initials ? <span className="text-xs font-medium">{initials}</span> : <User className="h-4 w-4" />}
             </AvatarFallback>
           </Avatar>
           {!compact ? (
             <div className="hidden min-w-0 text-left md:block">
               <div className="flex items-center gap-2">
-                <p className="truncate text-xs font-medium leading-none">{account.name}</p>
+                <p className="truncate text-xs font-medium leading-none">{name}</p>
                 <Badge variant="secondary" className="rounded-full px-1.5 py-0 text-[9px] uppercase tracking-[0.2em]">
-                  {account.status}
+                  {status}
                 </Badge>
               </div>
-              <p className="mt-1 truncate text-[10px] text-muted-foreground">{account.title}</p>
+              <p className="mt-1 truncate text-[10px] text-muted-foreground">{title}</p>
             </div>
           ) : null}
           {!compact ? <ChevronDown className="hidden h-4 w-4 text-muted-foreground md:block" /> : null}
@@ -98,16 +89,18 @@ export function UserAccountMenu({ role, compact = false, className, contentClass
         <DropdownMenuLabel className="space-y-3 py-3">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
-              <AvatarFallback className="bg-primary/10 text-primary">{account.initials}</AvatarFallback>
+              <AvatarFallback className="bg-primary/10 text-primary">
+                {initials ? <span className="text-sm font-medium">{initials}</span> : <User className="h-4 w-4" />}
+              </AvatarFallback>
             </Avatar>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <p className="truncate text-sm font-medium leading-none">{account.name}</p>
+                <p className="truncate text-sm font-medium leading-none">{name}</p>
                 <Badge variant="secondary" className="rounded-full px-2 py-0 text-[10px] uppercase tracking-[0.2em]">
-                  {account.status}
+                  {status}
                 </Badge>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">{account.title}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{title}</p>
             </div>
           </div>
         </DropdownMenuLabel>

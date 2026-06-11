@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
-import { ShieldCheck } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ShieldCheck, User as UserIcon } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import type { UserRole } from "@/components/layout/Sidebar";
 import { cn } from "@/lib/utils";
+import { useCurrentUser, resolveUserForRole } from "@/lib/authStore";
+import { useUserStore } from "@/lib/userStore";
 
 const roleLabels: Record<UserRole, string> = {
   admin: "Admin",
@@ -27,8 +29,31 @@ export function RoleSwitcherFloatingButton() {
   const navigate = useNavigate();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
+  const { users } = useUserStore();
+  const { currentUser, setCurrentUser } = useCurrentUser();
   const currentRole = getCurrentRole(location.pathname);
   const shouldHide = location.pathname.includes("/delivery-note") || location.pathname.includes("/packaging-labels");
+
+  useEffect(() => {
+    if (!currentUser && users.length > 0) {
+      const matchingUser = resolveUserForRole(users, currentRole);
+      if (matchingUser) {
+        setCurrentUser(matchingUser);
+      }
+    }
+  }, [currentUser, currentRole, setCurrentUser, users]);
+
+  const handleRoleSwitch = useCallback(
+    (role: UserRole) => {
+      setOpen(false);
+      const matchingUser = resolveUserForRole(users, role);
+      if (matchingUser) {
+        setCurrentUser(matchingUser);
+      }
+      navigate(rolePaths[role], { replace: true });
+    },
+    [navigate, setCurrentUser, users],
+  );
 
   useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
@@ -63,6 +88,12 @@ export function RoleSwitcherFloatingButton() {
           <div className="px-3 py-2">
             <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Role switcher</div>
             <div className="mt-1 text-sm font-medium text-foreground">Current: {roleLabels[currentRole]}</div>
+            {currentUser ? (
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <UserIcon className="h-3 w-3" />
+                {currentUser.name} &middot; {currentUser.company}
+              </div>
+            ) : null}
           </div>
           <div className="my-1 h-px bg-border" />
 
@@ -74,10 +105,7 @@ export function RoleSwitcherFloatingButton() {
                 <button
                   key={role}
                   type="button"
-                  onClick={() => {
-                    setOpen(false);
-                    navigate(rolePaths[role], { replace: true });
-                  }}
+                  onClick={() => handleRoleSwitch(role)}
                   className={cn(
                     "flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm outline-none transition-colors",
                     isActive ? "bg-primary/10 text-foreground" : "hover:bg-accent hover:text-accent-foreground",

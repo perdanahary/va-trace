@@ -14,17 +14,14 @@ export function VendorProfile() {
 
   const vendorData = useMemo(() => {
     const vendorUser = users.find((u) => u.role === "vendor" && u.status === "Active");
-    if (!vendorUser) return null;
 
     const suppliers = getSupplierSnapshot();
-    const supplier = suppliers.find((s) =>
-      vendorUser.company ? s.name.toLowerCase().includes(vendorUser.company.toLowerCase()) : false,
-    );
+    const supplier = suppliers.find((s) => s.id === "SUP-004") ?? null;
 
-    return { user: vendorUser, supplier };
+    return { user: vendorUser ?? null, supplier };
   }, [users]);
 
-  if (!vendorData) {
+  if (!vendorData.user) {
     return (
       <div className="flex min-h-screen bg-background">
         <Sidebar role="vendor" />

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Building2, Mail, MapPin, MoreHorizontal, Phone, Plus, Search, Trash2, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Building2, ExternalLink, Mail, MapPin, MoreHorizontal, Phone, Plus, Search, Trash2, User } from "lucide-react";
 
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -20,6 +21,7 @@ function formatShippingAddress(client: Client) {
 }
 
 export function ClientList() {
+  const navigate = useNavigate();
   const { clients, addClient, updateClient, deleteClient } = useClientStore();
   const { users } = useUserStore();
   const [searchQuery, setSearchQuery] = useState("");
@@ -110,7 +112,7 @@ export function ClientList() {
                     const boundSalesPoints = mockSalesPoints.filter((salesPoint) => salesPoint.clientId === client.id);
 
                     return (
-                      <TableRow key={client.id}>
+                      <TableRow key={client.id} className="cursor-pointer" onClick={() => navigate(`/admin/clients/${client.id}`)}>
                         <TableCell>
                           <div className="flex items-center gap-3">
                             <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-primary/5 text-primary">
@@ -162,7 +164,7 @@ export function ClientList() {
                             <span>{formatShippingAddress(client) || "—"}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -170,6 +172,10 @@ export function ClientList() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => navigate(`/admin/clients/${client.id}`)}>
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                                View Client
+                              </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => {
                                   setSelectedClient(client);

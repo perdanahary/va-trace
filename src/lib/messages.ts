@@ -204,7 +204,7 @@ export const inboxMessages: InboxMessage[] = [
       "Campaign      : A Mild Variant Promo",
       "Delivery Ref  : SO998271",
       "Issue         : Quantity and line-item mismatch against delivery note",
-      "Vendor        : CV Cetakan Terbaik Sejagat",
+      "Vendor        : PT. HH Global Services Indonesia",
       "",
       "Immediate follow-up is required with the vendor and hub team before redelivery is arranged.",
     ],

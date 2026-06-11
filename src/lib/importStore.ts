@@ -929,8 +929,8 @@ function buildInitialBatches(): ImportBatch[] {
           duplicateWith: [],
           duplicateDecision: "include",
           assignment: {
-            vendorId: "SUP-001",
-            vendorName: "Jakarta Print Hub",
+            vendorId: "SUP-004",
+            vendorName: "PT. HH Global Services Indonesia",
             assignedAt: uploadedAt,
             assignedBy: "Admin Dispatch Workspace",
           },
@@ -1106,8 +1106,8 @@ function buildInitialBatches(): ImportBatch[] {
           duplicateWith: [],
           duplicateDecision: "include",
           assignment: {
-            vendorId: "SUP-001",
-            vendorName: "Jakarta Print Hub",
+            vendorId: "SUP-004",
+            vendorName: "PT. HH Global Services Indonesia",
             assignedAt: uploadedAt,
             assignedBy: "Admin Dispatch Workspace",
           },

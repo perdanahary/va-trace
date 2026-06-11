@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 
+export interface VendorPIC {
+  name: string;
+  phone: string;
+  email: string;
+}
+
 export interface Supplier {
   id: string;
   name: string;
@@ -9,6 +15,7 @@ export interface Supplier {
   email: string;
   status: "ACTIVE" | "INACTIVE";
   addressLines?: string[];
+  vendorPICs?: VendorPIC[];
 }
 
 const STORAGE_KEY = "va-trace-suppliers";
@@ -36,6 +43,7 @@ const initialSuppliers: Supplier[] = [
     picName: "Marco Polo",
     email: "marco@officebee.co",
     status: "ACTIVE",
+    vendorPICs: [{ name: "Marco Polo", phone: "02179697969", email: "marco@officebee.co" }],
   },
   {
     id: "SUP-004",
@@ -50,6 +58,7 @@ const initialSuppliers: Supplier[] = [
       "Jl. Jendral Sudirman Kav. 52-53",
       "Daerah Khusus Ibu Kota Jakarta 12830",
     ],
+    vendorPICs: [{ name: "Kiky Natalia", phone: "+62 21 515 7606", email: "Kiky.Natalia@hhglobal.com" }],
   },
   {
     id: "SUP-002",
@@ -59,6 +68,7 @@ const initialSuppliers: Supplier[] = [
     picName: "Lidya Smith",
     email: "lidya@printsolusi.id",
     status: "ACTIVE",
+    vendorPICs: [{ name: "Lidya Smith", phone: "02188997766", email: "lidya@printsolusi.id" }],
   },
   {
     id: "SUP-003",
@@ -68,6 +78,7 @@ const initialSuppliers: Supplier[] = [
     picName: "Budi Santoso",
     email: "budi@multiprint.co.id",
     status: "INACTIVE",
+    vendorPICs: [{ name: "Budi Santoso", phone: "02144553322", email: "budi@multiprint.co.id" }],
   },
 ];
 

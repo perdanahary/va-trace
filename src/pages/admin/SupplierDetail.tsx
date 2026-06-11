@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Edit3, Save, X } from "lucide-react";
+import { Edit3, Plus, Save, Trash2, User, X } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useSupplierStore } from "@/lib/supplierStore";
-import type { Supplier } from "@/lib/supplierStore";
+import type { Supplier, VendorPIC } from "@/lib/supplierStore";
 
 const emptyForm: Omit<Supplier, "id"> = {
   name: "",
@@ -21,6 +21,7 @@ const emptyForm: Omit<Supplier, "id"> = {
   email: "",
   status: "ACTIVE",
   addressLines: [],
+  vendorPICs: [{ name: "", phone: "", email: "" }],
 };
 
 export function SupplierDetail() {
@@ -46,6 +47,10 @@ export function SupplierDetail() {
         email: existingSupplier.email,
         status: existingSupplier.status,
         addressLines: existingSupplier.addressLines ?? [],
+        vendorPICs:
+          existingSupplier.vendorPICs && existingSupplier.vendorPICs.length > 0
+            ? existingSupplier.vendorPICs
+            : [{ name: existingSupplier.picName, phone: existingSupplier.phone, email: existingSupplier.email }],
       });
       setAddressText((existingSupplier.addressLines ?? []).join("\n"));
     } else if (isNew) {
@@ -83,8 +88,15 @@ export function SupplierDetail() {
       .map((line) => line.trim())
       .filter(Boolean);
 
+    const validPICs = (formData.vendorPICs ?? []).filter((pic) => pic.name.trim());
+    const primaryPIC = validPICs[0] ?? { name: "", phone: "", email: "" };
+
     const payload = {
       ...formData,
+      picName: primaryPIC.name,
+      phone: primaryPIC.phone || formData.phone,
+      email: primaryPIC.email || formData.email,
+      vendorPICs: validPICs.length > 0 ? validPICs : undefined,
       addressLines: addressLines.length ? addressLines : undefined,
     };
 
@@ -115,6 +127,22 @@ export function SupplierDetail() {
     setIsEditing(false);
   };
 
+  const handleRemovePIC = (index: number) => {
+    const updated = (formData.vendorPICs ?? []).filter((_, i) => i !== index);
+    setFormData({ ...formData, vendorPICs: updated });
+  };
+
+  const handleAddPIC = () => {
+    const updated = [...(formData.vendorPICs ?? []), { name: "", phone: "", email: "" }];
+    setFormData({ ...formData, vendorPICs: updated });
+  };
+
+  const handlePICChange = (index: number, field: keyof VendorPIC, value: string) => {
+    const updated = [...(formData.vendorPICs ?? [])];
+    updated[index] = { ...updated[index], [field]: value };
+    setFormData({ ...formData, vendorPICs: updated });
+  };
+
   const handleDelete = () => {
     if (existingSupplier && confirm("Delete this supplier?")) {
       deleteSupplier(existingSupplier.id);
@@ -122,7 +150,7 @@ export function SupplierDetail() {
     }
   };
 
-  const title = isNew ? "Register New Supplier" : `Supplier Detail: ${existingSupplier!.name}`;
+  const title = isNew ? "Register New Supplier" : existingSupplier!.name;
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -186,25 +214,6 @@ export function SupplierDetail() {
                     </SelectContent>
                   </Select>
                 </Field>
-                <Field label="PIC Name" required>
-                  <Input
-                    required
-                    value={formData.picName}
-                    onChange={(e) => setFormData({ ...formData, picName: e.target.value })}
-                    placeholder="e.g. Marco Polo"
-                    disabled={!isEditing}
-                  />
-                </Field>
-                <Field label="Contact Email" required>
-                  <Input
-                    required
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="e.g. pic@supplier.co.id"
-                    disabled={!isEditing}
-                  />
-                </Field>
                 <Field label="Phone Number" required>
                   <Input
                     required
@@ -242,6 +251,81 @@ export function SupplierDetail() {
                   </Field>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <User className="h-4 w-4" />
+                Vendor PIC
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Minimum 1 PIC. Maximum 2 PICs.
+              </p>
+              {(formData.vendorPICs ?? []).map((pic, index) => (
+                <div
+                  key={index}
+                  className="rounded-lg border p-4"
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      PIC {index + 1}
+                    </span>
+                    {isEditing && (formData.vendorPICs ?? []).length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={() => handleRemovePIC(index)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <Field label="PIC Name" required>
+                      <Input
+                        required
+                        value={pic.name}
+                        onChange={(e) => handlePICChange(index, "name", e.target.value)}
+                        placeholder="e.g. Marco Polo"
+                        disabled={!isEditing}
+                      />
+                    </Field>
+                    <Field label="PIC Phone" required>
+                      <Input
+                        required
+                        value={pic.phone}
+                        onChange={(e) => handlePICChange(index, "phone", e.target.value)}
+                        placeholder="e.g. 02188997766"
+                        disabled={!isEditing}
+                      />
+                    </Field>
+                    <Field label="PIC Email" required>
+                      <Input
+                        required
+                        type="email"
+                        value={pic.email}
+                        onChange={(e) => handlePICChange(index, "email", e.target.value)}
+                        placeholder="e.g. pic@supplier.co.id"
+                        disabled={!isEditing}
+                      />
+                    </Field>
+                  </div>
+                </div>
+              ))}
+              {isEditing && (formData.vendorPICs ?? []).length < 2 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddPIC}
+                >
+                  <Plus className="mr-1 h-3.5 w-3.5" />
+                  Add PIC {((formData.vendorPICs ?? []).length) + 1}
+                </Button>
+              )}
             </CardContent>
           </Card>
         </main>

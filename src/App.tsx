@@ -11,6 +11,7 @@ import { ProductList } from './pages/admin/ProductList';
 import { ProductDetail } from './pages/admin/ProductDetail';
 import { BrandList } from './pages/admin/BrandList';
 import { SalesPointList } from './pages/admin/SalesPointList';
+import { ClientDetail } from './pages/admin/ClientDetail';
 import { ClientList } from './pages/admin/ClientList';
 import { AdminCreateOrder } from './pages/admin/AdminCreateOrder';
 import { ClientDashboard } from './pages/client/ClientDashboard';
@@ -59,6 +60,7 @@ function App() {
                 <Route path="/admin/brands" element={<BrandList />} />
                 <Route path="/admin/sales-points" element={<SalesPointList />} />
                 <Route path="/admin/clients" element={<ClientList />} />
+                <Route path="/admin/clients/:id" element={<ClientDetail />} />
 
               {/* Operator Routes */}
                 <Route path="/operator" element={<AdminDashboard role="operator" />} />

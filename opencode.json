@@ -19,6 +19,11 @@
         "ENABLE_MCP_APPS": "true"
       }
     },
+    "codegraph": {
+      "type": "local",
+      "command": ["codegraph", "serve", "--mcp", "--path", "."],
+      "enabled": true
+    },
     "jam": {
       "type": "remote",
       "url": "https://mcp.jam.dev/mcp"

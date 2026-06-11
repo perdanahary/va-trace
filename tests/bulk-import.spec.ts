@@ -177,7 +177,7 @@ test.describe("bulk order request import", () => {
       ]),
     );
     const assignedRows = batch.rows.map((row, index) =>
-      index === 3 ? assign(row, "SUP-002", "PT Print Solusi Indonesia") : assign(row, "SUP-001", "CV Cetakan Terbaik Sejagat"),
+      index === 3 ? assign(row, "SUP-002", "PT Print Solusi Indonesia") : assign(row, "SUP-004", "PT. HH Global Services Indonesia"),
     );
 
     const orders = createOrdersFromDispatchableRows({ ...batch, rows: assignedRows }, assignedRows, "DSP-TEST");
@@ -186,12 +186,12 @@ test.describe("bulk order request import", () => {
     expect(orders).toHaveLength(4);
     expect(orders.every((order) => Boolean(order.importGroupKey))).toBe(true);
     expect(poSalesPointVendorKeys).toEqual([
-      "PO-GRP-A|WH055|SUP-001",
+      "PO-GRP-A|WH055|SUP-004",
       "PO-GRP-A|WH055|SUP-002",
-      "PO-GRP-A|WH071|SUP-001",
-      "PO-GRP-B|WH055|SUP-001",
+      "PO-GRP-A|WH071|SUP-004",
+      "PO-GRP-B|WH055|SUP-004",
     ]);
-    expect(orders.find((order) => order.clientPO === "PO-GRP-A" && order.salesPointId === "WH055" && order.assignedVendorId === "SUP-001")?.items).toHaveLength(2);
+    expect(orders.find((order) => order.clientPO === "PO-GRP-A" && order.salesPointId === "WH055" && order.assignedVendorId === "SUP-004")?.items).toHaveLength(2);
     expect(orders.every((order) => order.clientPO !== "MULTI-PO")).toBe(true);
     expect(orders.every((order) => order.importPoNumbers?.length === 1 && order.importPoNumbers[0] === order.clientPO)).toBe(true);
   });
@@ -203,7 +203,7 @@ test.describe("bulk order request import", () => {
       "Test",
       parsedRows([makeRecord({ "PO Number": "PO-CUS-A", Wcode: "WH055", "Sales Point": "Jakarta Barat", Quantity: "9" })]),
     );
-    const assignedRows = batch.rows.map((row) => assign(row, "SUP-001", "CV Cetakan Terbaik Sejagat"));
+    const assignedRows = batch.rows.map((row) => assign(row, "SUP-004", "PT. HH Global Services Indonesia"));
 
     expect(assignedRows[0].match.clientId).toBe("CUS-SAMPOERNA");
     expect(assignedRows[0].match.clientName).toBe("Sampoerna");
@@ -230,7 +230,7 @@ test.describe("bulk order request import", () => {
     );
     const assignedBatch = {
       ...batch,
-      rows: batch.rows.map((row) => assign(row, "SUP-001", "CV Cetakan Terbaik Sejagat")),
+      rows: batch.rows.map((row) => assign(row, "SUP-004", "PT. HH Global Services Indonesia")),
     };
 
     const readiness = getDispatchReadiness(assignedBatch);
@@ -261,8 +261,8 @@ test.describe("bulk order request import", () => {
       assignmentRules: [
         {
           id: "RUL-1",
-          vendorId: "SUP-001",
-          vendorName: "CV Cetakan Terbaik Sejagat",
+          vendorId: "SUP-004",
+          vendorName: "PT. HH Global Services Indonesia",
           createdAt: "2026-06-09T00:00:00.000Z",
           conditions: [
             { field: "region", value: "Jakarta Barat" },
@@ -282,7 +282,7 @@ test.describe("bulk order request import", () => {
     expect(draft?.matchedRows).toHaveLength(2);
     expect(draft?.matchedRows[0].ruleId).toBe("RUL-1");
     expect(draft?.matchedRows[1].ruleId).toBe("RUL-1");
-    expect(draft?.matchedRows.every((match) => match.vendorId === "SUP-001")).toBe(true);
+    expect(draft?.matchedRows.every((match) => match.vendorId === "SUP-004")).toBe(true);
   });
 
   test("uploads, assigns, dispatches, and shows created ORs in admin and vendor flows", async ({ page }, testInfo) => {
@@ -307,7 +307,7 @@ test.describe("bulk order request import", () => {
     await page.getByLabel("Rule value 1").click();
     await page.getByRole("option", { name: "Jakarta Inner" }).click();
     await page.getByLabel("Rule vendor").click();
-    await page.getByRole("option", { name: "CV Cetakan Terbaik Sejagat" }).click();
+    await page.getByRole("option", { name: "PT. HH Global Services Indonesia" }).click();
     await page.getByRole("button", { name: /Create assignment rule/i }).click();
     await page.getByRole("button", { name: /Preview draft/i }).click();
     await expect(page.getByText("5 row(s) matched by rules")).toBeVisible();
@@ -366,7 +366,7 @@ test.describe("bulk order request import", () => {
     await importAnywayButtons.nth(0).click({ force: true });
     await page.getByRole("button", { name: "Select all visible" }).click();
     await page.getByLabel("Manual vendor").click();
-    await page.getByRole("option", { name: "CV Cetakan Terbaik Sejagat" }).click();
+    await page.getByRole("option", { name: "PT. HH Global Services Indonesia" }).click();
     await page.getByRole("button", { name: /Assign selected rows/i }).click();
 
     await expect(page.getByText("0 visible rows · 0 assignable")).toBeVisible();

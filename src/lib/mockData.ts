@@ -198,7 +198,7 @@ const mockOrderSeeds: Omit<Order, "status">[] = [
     deadline: "28 days left",
     clientPO: "9982711",
     soNumber: "SO998271",
-    supplier: "CV Cetakan Terbaik Sejagat",
+    supplier: "PT. HH Global Services Indonesia",
     salesPointId: "WH071",
     clientId: "CUS-SAMPOERNA",
     clientName: "Sampoerna",
@@ -320,7 +320,7 @@ const mockOrderSeeds: Omit<Order, "status">[] = [
     deadline: "5 days left",
     clientPO: "5701713028",
     soNumber: "SO570003",
-    supplier: "CV Cetakan Terbaik Sejagat",
+    supplier: "PT. HH Global Services Indonesia",
     salesPointId: "WH071",
     clientId: "CUS-SAMPOERNA",
     clientName: "Sampoerna",
@@ -416,7 +416,7 @@ const mockOrderSeeds: Omit<Order, "status">[] = [
     deadline: "Overdue",
     clientPO: "5512345",
     soNumber: "SO570007",
-    supplier: "CV Cetakan Terbaik Sejagat",
+    supplier: "PT. HH Global Services Indonesia",
     salesPointId: "WH089",
     clientId: "CUS-SAMPOERNA",
     clientName: "Sampoerna",
@@ -487,6 +487,12 @@ const mockOrderSeeds: Omit<Order, "status">[] = [
 
 
 
+export interface VendorPIC {
+  name: string;
+  phone: string;
+  email: string;
+}
+
 export interface Supplier {
   id: string;
   name: string;
@@ -496,6 +502,7 @@ export interface Supplier {
   email: string;
   status: "ACTIVE" | "INACTIVE";
   addressLines?: string[];
+  vendorPICs?: VendorPIC[];
 }
 
 export const mockSuppliers: Supplier[] = [
@@ -506,7 +513,8 @@ export const mockSuppliers: Supplier[] = [
     phone: "02179697969",
     picName: "Marco Polo",
     email: "marco@officebee.co",
-    status: "ACTIVE"
+    status: "ACTIVE",
+    vendorPICs: [{ name: "Marco Polo", phone: "02179697969", email: "marco@officebee.co" }],
   },
   {
     id: "SUP-004",
@@ -521,6 +529,7 @@ export const mockSuppliers: Supplier[] = [
       "Jl. Jendral Sudirman Kav. 52-53",
       "Daerah Khusus Ibu Kota Jakarta 12830",
     ],
+    vendorPICs: [{ name: "Kiky Natalia", phone: "+62 21 515 7606", email: "Kiky.Natalia@hhglobal.com" }],
   },
   {
     id: "SUP-002",
@@ -529,7 +538,8 @@ export const mockSuppliers: Supplier[] = [
     phone: "02188997766",
     picName: "Lidya Smith",
     email: "lidya@printsolusi.id",
-    status: "ACTIVE"
+    status: "ACTIVE",
+    vendorPICs: [{ name: "Lidya Smith", phone: "02188997766", email: "lidya@printsolusi.id" }],
   },
   {
     id: "SUP-003",
@@ -538,7 +548,8 @@ export const mockSuppliers: Supplier[] = [
     phone: "02144553322",
     picName: "Budi Santoso",
     email: "budi@multiprint.co.id",
-    status: "INACTIVE"
+    status: "INACTIVE",
+    vendorPICs: [{ name: "Budi Santoso", phone: "02144553322", email: "budi@multiprint.co.id" }],
   }
 ];
 

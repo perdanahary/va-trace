@@ -1,25 +1,41 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Calendar, CheckCircle, Info, Package, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowLeft, Building2, Calendar, CheckCircle, Info, Package, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { cn } from "@/lib/utils";
 import { getSalesPointClientBinding, mockProducts, mockSalesPoints } from "@/lib/mockData";
 import { appendOrders, createManualOrder } from "@/lib/orderStore";
 import { useProjectStore } from "@/lib/projectStore";
+import { useCurrentUser } from "@/lib/authStore";
+import { useClientStore } from "@/lib/clientStore";
 
 export function CreateOrder() {
   const navigate = useNavigate();
+  const { currentUser } = useCurrentUser();
+  const { clients } = useClientStore();
   const [items, setItems] = useState([{ id: "item-1", productCode: "", quantity: 0, poLineNumber: "1" }]);
   const [clientPO, setClientPO] = useState("");
   const [campaignName, setCampaignName] = useState("");
+
+  const linkedClient = useMemo(
+    () => (currentUser ? clients.find((c) => c.linkedUserId === currentUser.id) : null),
+    [currentUser, clients],
+  );
+
+  const clientSalesPoints = useMemo(
+    () => (linkedClient ? mockSalesPoints.filter((sp) => sp.clientId === linkedClient.id) : []),
+    [linkedClient],
+  );
 
   const [selectedSalesPoint, setSelectedSalesPoint] = useState("WH020");
   const [deadline, setDeadline] = useState("");
@@ -98,8 +114,8 @@ export function CreateOrder() {
       // soNumber is auto-generated when vendor starts production
       supplier: "Pending",
       salesPointId: selectedSalesPoint,
-      picProjectName: "Client Submitted",
-      picProjectEmail: "",
+      picProjectName: currentUser?.name ?? "Client Submitted",
+      picProjectEmail: currentUser?.email ?? "",
       deadline,
       items: items.map((item, index) => {
         const product = mockProducts.find((entry) => entry.code === item.productCode);
@@ -132,6 +148,26 @@ export function CreateOrder() {
               Discard and Return
             </Link>
           </section>
+
+          {currentUser || linkedClient ? (
+            <Card className="border-border/70 bg-muted/20 shadow-sm animate-in-smart" style={{ animationDelay: "50ms" }}>
+              <CardContent className="flex items-center gap-3 p-3 sm:p-4">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Building2 className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1 text-xs">
+                  <p className="font-medium">{currentUser?.name}</p>
+                  <p className="text-muted-foreground">
+                    {linkedClient?.entityName ?? currentUser?.company}
+                    {linkedClient ? <span className="font-mono"> &middot; {linkedClient.id}</span> : null}
+                  </p>
+                </div>
+                <Badge variant="secondary" className="shrink-0 rounded-full text-[9px] uppercase tracking-[0.2em]">
+                  Client
+                </Badge>
+              </CardContent>
+            </Card>
+          ) : null}
 
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
             <div className="space-y-8 md:col-span-2">
@@ -175,7 +211,7 @@ export function CreateOrder() {
                         onChange={(event) => setSelectedSalesPoint(event.target.value)}
                         className="w-full rounded-md border border-border bg-white py-2 pl-9 pr-4 text-xs shadow-sm outline-none transition-all focus:ring-1 focus:ring-primary"
                       >
-                        {mockSalesPoints.map((entry) => (
+                        {(clientSalesPoints.length > 0 ? clientSalesPoints : mockSalesPoints).map((entry) => (
                           <option key={`${entry.wcode}-${entry.salesPoint}`} value={entry.wcode}>
                             {entry.wcode} - {entry.salesPoint}
                           </option>

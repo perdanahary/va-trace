@@ -51,13 +51,25 @@ export interface SidebarNavItem {
   path: string;
 }
 
-const navItems: Record<UserRole, SidebarNavItem[]> = {
+export interface SidebarNavGroup {
+  label: string;
+  items: SidebarNavItem[];
+}
+
+type NavEntry = SidebarNavItem | SidebarNavGroup;
+
+const navItems: Record<UserRole, NavEntry[]> = {
   admin: [
     { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
-    { icon: PlusCircle, label: "Create OR", path: "/admin/create" },
-    { icon: Package, label: "Order Tracking", path: "/admin/progress" },
-    { icon: ShoppingCart, label: "All Orders", path: "/admin/orders" },
-    { icon: Package, label: "Imports", path: "/admin/imports" },
+    {
+      label: "Orders",
+      items: [
+        { icon: ShoppingCart, label: "All Orders", path: "/admin/orders" },
+        { icon: Package, label: "Order Tracking", path: "/admin/progress" },
+        { icon: PlusCircle, label: "Create OR", path: "/admin/create" },
+        { icon: Package, label: "Imports", path: "/admin/imports" },
+      ],
+    },
     { icon: Mail, label: "Inbox", path: "/admin/inbox" },
     { icon: Factory, label: "Suppliers", path: "/admin/suppliers" },
     { icon: Tag, label: "Products", path: "/admin/products" },
@@ -68,37 +80,57 @@ const navItems: Record<UserRole, SidebarNavItem[]> = {
   ],
   operator: [
     { icon: LayoutDashboard, label: "Dashboard", path: "/operator" },
-    { icon: PlusCircle, label: "Create OR", path: "/operator/create" },
-    { icon: Package, label: "Order Tracking", path: "/operator/progress" },
-    { icon: ShoppingCart, label: "All Orders", path: "/operator/orders" },
+    {
+      label: "Orders",
+      items: [
+        { icon: ShoppingCart, label: "All Orders", path: "/operator/orders" },
+        { icon: Package, label: "Order Tracking", path: "/operator/progress" },
+        { icon: PlusCircle, label: "Create OR", path: "/operator/create" },
+      ],
+    },
     { icon: Mail, label: "Inbox", path: "/operator/inbox" },
   ],
   analyst: [
     { icon: LayoutDashboard, label: "Dashboard", path: "/analyst" },
-    { icon: Package, label: "Order Tracking", path: "/analyst/progress" },
-    { icon: ShoppingCart, label: "All Orders", path: "/analyst/orders" },
+    {
+      label: "Orders",
+      items: [
+        { icon: ShoppingCart, label: "All Orders", path: "/analyst/orders" },
+        { icon: Package, label: "Order Tracking", path: "/analyst/progress" },
+      ],
+    },
     { icon: Mail, label: "Inbox", path: "/analyst/inbox" },
     { icon: Users, label: "Users", path: "/analyst/users" },
   ],
   client: [
     { icon: LayoutDashboard, label: "Dashboard", path: "/client" },
-    { icon: Package, label: "Order Tracking", path: "/client/progress" },
-    { icon: PlusCircle, label: "Create OR", path: "/client/create" },
-    { icon: Package, label: "Imports", path: "/client/imports" },
+    {
+      label: "Orders",
+      items: [
+        { icon: ShoppingCart, label: "My Orders", path: "/client/orders" },
+        { icon: Package, label: "Order Tracking", path: "/client/progress" },
+        { icon: PlusCircle, label: "Create OR", path: "/client/create" },
+        { icon: Package, label: "Imports", path: "/client/imports" },
+      ],
+    },
     { icon: Mail, label: "Inbox", path: "/client/inbox" },
-    { icon: ShoppingCart, label: "My Orders", path: "/client/orders" },
   ],
   vendor: [
     { icon: LayoutDashboard, label: "Dashboard", path: "/vendor" },
-    { icon: Package, label: "Order Tracking", path: "/vendor/progress" },
-    { icon: ShoppingCart, label: "My Orders", path: "/vendor/orders" },
+    {
+      label: "Orders",
+      items: [
+        { icon: ShoppingCart, label: "My Orders", path: "/vendor/orders" },
+        { icon: Package, label: "Order Tracking", path: "/vendor/progress" },
+      ],
+    },
     { icon: Mail, label: "Inbox", path: "/vendor/inbox" },
     { icon: Users, label: "My Profile", path: "/vendor/profile" },
   ],
 };
 
-export function getNavItemsForRole(role: UserRole) {
-  return navItems[role];
+export function getNavItemsForRole(role: UserRole): SidebarNavItem[] {
+  return navItems[role].flatMap((entry) => ("items" in entry ? entry.items : [entry]));
 }
 
 export function SidebarVisibilityProvider({ children }: SidebarVisibilityProviderProps) {
@@ -127,7 +159,8 @@ export function Sidebar({ role, className, compact = false }: SidebarProps) {
   const location = useLocation();
   const { open } = useSidebarVisibility();
   const items = navItems[role];
-  const homePath = items[0]?.path ?? `/${role}`;
+  const firstEntry = items[0];
+  const homePath = firstEntry && "path" in firstEntry ? firstEntry.path : `/${role}`;
 
   if (!open) {
     return null;
@@ -162,11 +195,40 @@ export function Sidebar({ role, className, compact = false }: SidebarProps) {
       {!compact ? (
         <>
           <nav className="mt-5 flex-1 space-y-1 overflow-y-auto pr-1">
-            {items.map((item) => {
-              const isActive = location.pathname === item.path;
+            {items.map((entry) => {
+              if ("items" in entry) {
+                return (
+                  <div key={entry.label} className="space-y-1 pt-2 pb-2">
+                    <p className="px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
+                      {entry.label}
+                    </p>
+                    {entry.items.map((subItem) => {
+                      const isActive = location.pathname === subItem.path;
+                      return (
+                        <Button
+                          key={subItem.path}
+                          asChild
+                          variant={isActive ? "secondary" : "ghost"}
+                          className={cn(
+                            "h-11 w-full justify-start gap-3 px-3",
+                            isActive ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-muted-foreground",
+                          )}
+                        >
+                          <Link to={subItem.path} aria-current={isActive ? "page" : undefined}>
+                            <subItem.icon className="h-4 w-4" />
+                            <span className="flex-1 text-left text-sm font-medium">{subItem.label}</span>
+                            {isActive ? <ChevronRight className="h-4 w-4" /> : null}
+                          </Link>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                );
+              }
+              const isActive = location.pathname === entry.path;
               return (
                 <Button
-                  key={item.path}
+                  key={entry.path}
                   asChild
                   variant={isActive ? "secondary" : "ghost"}
                   className={cn(
@@ -174,9 +236,9 @@ export function Sidebar({ role, className, compact = false }: SidebarProps) {
                     isActive ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-muted-foreground",
                   )}
                 >
-                  <Link to={item.path} aria-current={isActive ? "page" : undefined}>
-                    <item.icon className="h-4 w-4" />
-                    <span className="flex-1 text-left text-sm font-medium">{item.label}</span>
+                  <Link to={entry.path} aria-current={isActive ? "page" : undefined}>
+                    <entry.icon className="h-4 w-4" />
+                    <span className="flex-1 text-left text-sm font-medium">{entry.label}</span>
                     {isActive ? <ChevronRight className="h-4 w-4" /> : null}
                   </Link>
                 </Button>
