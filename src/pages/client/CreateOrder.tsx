@@ -1,21 +1,17 @@
 import { useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Building2, Calendar, CheckCircle, Info, Package, Plus, Search, Trash2 } from "lucide-react";
+import { ArrowLeft, Building2, Calendar, Info, Search, Trash2, Truck } from "lucide-react";
 import { toast } from "sonner";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SearchableCombobox } from "@/components/ui/searchable-combobox";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getSalesPointClientBinding, mockProducts, mockSalesPoints } from "@/lib/mockData";
 import { appendOrders, createManualOrder } from "@/lib/orderStore";
-import { useProjectStore } from "@/lib/projectStore";
 import { useCurrentUser } from "@/lib/authStore";
 import { useClientStore } from "@/lib/clientStore";
 
@@ -25,7 +21,6 @@ export function CreateOrder() {
   const { clients } = useClientStore();
   const [items, setItems] = useState([{ id: "item-1", productCode: "", quantity: 0, poLineNumber: "1" }]);
   const [clientPO, setClientPO] = useState("");
-  const [campaignName, setCampaignName] = useState("");
 
   const linkedClient = useMemo(
     () => (currentUser ? clients.find((c) => c.linkedUserId === currentUser.id) : null),
@@ -40,31 +35,28 @@ export function CreateOrder() {
   const [selectedSalesPoint, setSelectedSalesPoint] = useState("WH020");
   const [deadline, setDeadline] = useState("");
   const [linkFA, setLinkFA] = useState("");
+  const [note, setNote] = useState("");
+  const [tagsInput, setTagsInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { projects, addProject } = useProjectStore();
 
   const salesPoint = mockSalesPoints.find((entry) => entry.wcode === selectedSalesPoint) ?? mockSalesPoints[0];
   const salesPointClient = getSalesPointClientBinding(salesPoint.wcode);
   const totalQuantity = items.reduce((total, item) => total + item.quantity, 0);
-  const projectOptions = useMemo(
-    () =>
-      projects.map((project) => ({
-        value: project,
-        label: project,
-        description: "Shared project record",
-        keywords: project.split(/\s+/).filter(Boolean),
-      })),
-    [projects],
-  );
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) return mockProducts;
+    const q = searchQuery.toLowerCase();
+    return mockProducts.filter(
+      (p) => p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q),
+    );
+  }, [searchQuery]);
 
   const validationErrors = useMemo(() => {
     const errors: string[] = [];
 
-    if (!clientPO.trim()) errors.push("Client PO Ref is required.");
-    if (!campaignName.trim()) errors.push("Campaign Name is required.");
+    if (!clientPO.trim()) errors.push("PO number reference is required.");
 
-    if (!selectedSalesPoint) errors.push("Sales point is required.");
     if (!deadline.trim()) errors.push("Deadline is required.");
 
     items.forEach((item, index) => {
@@ -76,13 +68,19 @@ export function CreateOrder() {
     });
 
     return errors;
-  }, [campaignName, clientPO, deadline, items, selectedSalesPoint]);
+  }, [clientPO, deadline, items]);
 
-  const addItem = () => {
+  const selectProduct = (productCode: string) => {
+    const exists = items.find((item) => item.productCode === productCode);
+    if (exists) {
+      toast.info("Product already in list.");
+      return;
+    }
     setItems((current) => [
       ...current,
-      { id: `item-${Date.now()}`, productCode: "", quantity: 0, poLineNumber: String(current.length + 1) },
+      { id: `item-${Date.now()}`, productCode, quantity: 1, poLineNumber: String(current.length + 1) },
     ]);
+    setSearchQuery("");
   };
 
   const removeItem = (id: string) => {
@@ -108,15 +106,21 @@ export function CreateOrder() {
     setIsSubmitting(true);
     setSubmitError(null);
 
+    const tags = tagsInput
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+
     const order = createManualOrder({
-      campaign: campaignName,
+      campaign: clientPO || "Direct Entry",
       clientPO,
       // soNumber is auto-generated when vendor starts production
       supplier: "Pending",
       salesPointId: selectedSalesPoint,
-      picProjectName: currentUser?.name ?? "Client Submitted",
-      picProjectEmail: currentUser?.email ?? "",
       deadline,
+      note: note.trim() || undefined,
+      tags: tags.length > 0 ? tags : undefined,
+      referenceLink: linkFA.trim() ? { url: linkFA.trim() } : undefined,
       items: items.map((item, index) => {
         const product = mockProducts.find((entry) => entry.code === item.productCode);
 
@@ -130,27 +134,36 @@ export function CreateOrder() {
     });
 
     appendOrders([order]);
-    addProject(campaignName);
     toast.success(`Order ${order.id} created.`);
     navigate("/client");
   };
 
   return (
     <div className="flex min-h-screen bg-canvas-white">
-      <Sidebar role="client" />
+      <Sidebar userRole="client" />
       <ContentArea>
-        <Header title="New Order Request" />
+        <Header
+          title="New Order Request"
+          actions={
+            <Button onClick={handleSubmit} disabled={isSubmitting} size="sm">
+              {isSubmitting ? "Creating..." : "Create Order Request"}
+            </Button>
+          }
+        />
 
-        <main className="mx-auto max-w-4xl space-y-8 p-8">
-          <section className="flex items-center justify-between animate-in-smart">
+        <main className="mx-auto max-w-2xl space-y-6 px-8 py-8">
+          <div className="flex items-center justify-between">
             <Link to="/client" className="flex items-center gap-2 text-xs font-bold text-muted-foreground transition-colors hover:text-primary group">
               <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
               Discard and Return
             </Link>
-          </section>
+            {submitError ? (
+              <p className="text-xs font-medium text-destructive">{submitError}</p>
+            ) : null}
+          </div>
 
           {currentUser || linkedClient ? (
-            <Card className="border-border/70 bg-muted/20 shadow-sm animate-in-smart" style={{ animationDelay: "50ms" }}>
+            <Card className="border-border/70 bg-muted/20 shadow-sm">
               <CardContent className="flex items-center gap-3 p-3 sm:p-4">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <Building2 className="h-4 w-4" />
@@ -169,208 +182,179 @@ export function CreateOrder() {
             </Card>
           ) : null}
 
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            <div className="space-y-8 md:col-span-2">
-              <section className="space-y-6 rounded-lg border border-border bg-white p-6 shadow-sm animate-in-smart" style={{ animationDelay: "100ms" }}>
-                <div className="flex items-center gap-2 border-b border-border pb-4">
-                  <div className="flex h-5 w-5 items-center justify-center rounded bg-primary/10">
-                    <Info className="h-3 w-3 text-primary" />
-                  </div>
-                  <h3 className="text-[10px] font-bold uppercase tracking-widest text-foreground">Project Details</h3>
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader className="flex flex-row items-center gap-2 border-b border-border">
+              <div className="flex h-5 w-5 items-center justify-center rounded bg-primary/10">
+                <Truck className="h-3 w-3 text-primary" />
+              </div>
+              <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Supplier &amp; Destination</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Supplier</p>
+                  <p className="text-sm font-medium text-muted-foreground italic">Pending</p>
                 </div>
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Destination</p>
+                  <p className="text-sm font-medium">
+                    {salesPoint.wcode} - {salesPoint.salesPoint}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Client: {salesPointClient?.clientName ?? "Unbound"} &middot; {salesPointClient?.clientEntityName ?? "No entity"}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <FormInput id="client-po" label="Client PO Ref" placeholder="e.g. 123928098" required value={clientPO} onChange={setClientPO} />
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Campaign Name *
-                    </label>
-                    <SearchableCombobox
-                      value={campaignName}
-                      onValueChange={setCampaignName}
-                      onCreate={(project) => addProject(project)}
-                      options={projectOptions}
-                      placeholder="Select or create a project..."
-                      searchPlaceholder="Search or type a new project name..."
-                      emptyText="No matching projects found."
-                      allowCreate
-                      ariaLabel="Campaign Name"
-                      createLabel="Create project"
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader className="flex flex-row items-center gap-2 border-b border-border">
+              <div className="flex h-5 w-5 items-center justify-center rounded bg-primary/10">
+                <Info className="h-3 w-3 text-primary" />
+              </div>
+              <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Additional details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <FormInput id="client-po" label="PO number reference" placeholder="e.g. 123928098" required value={clientPO} onChange={setClientPO} />
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground" htmlFor="deadline">
+                    Deadline *
+                  </label>
+                  <div className="relative group">
+                    <Calendar className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      id="deadline"
+                      type="date"
+                      value={deadline}
+                      onChange={(event) => setDeadline(event.target.value)}
+                      className="w-full rounded-md border border-border bg-white py-2 pl-9 pr-4 text-xs shadow-sm outline-none transition-all focus:ring-1 focus:ring-primary"
                     />
                   </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground" htmlFor="sales-point">
-                      Sales Point *
-                    </label>
-                    <div className="relative group">
-                      <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                      <select
-                        id="sales-point"
-                        value={selectedSalesPoint}
-                        onChange={(event) => setSelectedSalesPoint(event.target.value)}
-                        className="w-full rounded-md border border-border bg-white py-2 pl-9 pr-4 text-xs shadow-sm outline-none transition-all focus:ring-1 focus:ring-primary"
-                      >
-                        {(clientSalesPoints.length > 0 ? clientSalesPoints : mockSalesPoints).map((entry) => (
-                          <option key={`${entry.wcode}-${entry.salesPoint}`} value={entry.wcode}>
-                            {entry.wcode} - {entry.salesPoint}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground" htmlFor="deadline">
-                      Deadline *
-                    </label>
-                    <div className="relative group">
-                      <Calendar className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                      <input
-                        id="deadline"
-                        type="date"
-                        value={deadline}
-                        onChange={(event) => setDeadline(event.target.value)}
-                        className="w-full rounded-md border border-border bg-white py-2 pl-9 pr-4 text-xs shadow-sm outline-none transition-all focus:ring-1 focus:ring-primary"
-                      />
-                    </div>
-                  </div>
                 </div>
+              </div>
 
-                <FormInput id="link-fa" label="Link FA (Optional)" placeholder="https://..." value={linkFA} onChange={setLinkFA} />
-              </section>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground" htmlFor="note">
+                  Notes to supplier
+                </label>
+                <textarea
+                  id="note"
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  placeholder="Add notes to supplier..."
+                  className="h-16 w-full rounded-md border border-border bg-white px-3 py-2 text-xs shadow-sm outline-none transition-all focus:ring-1 focus:ring-primary resize-none"
+                />
+              </div>
 
-              <section className="space-y-6 rounded-lg border border-border bg-white p-6 shadow-sm animate-in-smart" style={{ animationDelay: "200ms" }}>
-                <div className="flex items-center justify-between border-b border-border pb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-5 w-5 items-center justify-center rounded bg-primary/10">
-                      <Package className="h-3 w-3 text-primary" />
-                    </div>
-                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-foreground">Item Specification</h3>
-                  </div>
-                  <button
-                    onClick={addItem}
-                    className="flex items-center gap-1.5 rounded px-2 py-1 text-[10px] font-bold text-primary transition-colors hover:bg-primary/5 btn-press"
-                  >
-                    <Plus className="h-3 w-3" />
-                    Add Item
-                  </button>
-                </div>
+              <FormInput id="tags" label="Tags" placeholder="e.g. urgent, bulk" value={tagsInput} onChange={setTagsInput} />
 
-                <div className="space-y-4">
-                  <AnimatePresence initial={false}>
-                    {items.map((item, index) => (
-                      <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-                        animate={{ opacity: 1, height: "auto", marginBottom: 16 }}
-                        exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-                        className="grid grid-cols-12 items-end gap-3 overflow-hidden"
+              <FormInput id="link" label="Link" placeholder="https://..." value={linkFA} onChange={setLinkFA} />
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-sm font-semibold">Add items</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-0">
+              <div className="relative pt-5">
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search item"
+                  className="w-full rounded-md border border-border bg-white py-2 pl-9 pr-4 text-xs shadow-sm outline-none transition-all focus:ring-1 focus:ring-primary"
+                />
+                {searchQuery && filteredProducts.length > 0 ? (
+                  <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-auto rounded-md border border-border bg-white shadow-lg">
+                    {filteredProducts.map((product) => (
+                      <button
+                        key={product.code}
+                        onClick={() => selectProduct(product.code)}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-muted"
                       >
-                        <div className="col-span-7 space-y-1.5">
-                          {index === 0 ? <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Product</label> : null}
-                          <Select value={item.productCode} onValueChange={(value) => updateItem(item.id, "productCode", value)}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select product..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {mockProducts.map((product) => (
-                                <SelectItem key={product.code} value={product.code}>
-                                  {product.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="col-span-4 space-y-1.5">
-                          {index === 0 ? <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Quantity</label> : null}
-                          <input
-                            type="number"
-                            value={item.quantity || ""}
-                            onChange={(event) => updateItem(item.id, "quantity", event.target.value)}
-                            placeholder="0"
-                            className="w-full rounded-md border border-border bg-white px-3 py-2 text-xs shadow-sm outline-none transition-all focus:ring-1 focus:ring-primary"
-                          />
-                        </div>
-                        <div className="col-span-1 pb-1">
-                          <button
-                            onClick={() => removeItem(item.id)}
-                            className={cn(
-                              "rounded-md p-2 text-muted-foreground transition-all hover:bg-destructive/5 hover:text-destructive btn-press",
-                              items.length === 1 && "pointer-events-none cursor-not-allowed opacity-20",
-                            )}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </motion.div>
+                        <span className="font-medium">{product.name}</span>
+                        <span className="text-muted-foreground font-mono">{product.code}</span>
+                      </button>
                     ))}
-                  </AnimatePresence>
-                </div>
-              </section>
-            </div>
-
-            <div className="space-y-6">
-              <section className="sticky top-24 rounded-lg bg-primary p-6 text-white shadow-xl shadow-primary/20 animate-in-smart" style={{ animationDelay: "300ms" }}>
-                <h3 className="mb-4 flex items-center gap-2 text-sm font-bold tracking-tight">
-                  <CheckCircle className="h-4 w-4" />
-                  Order Summary
-                </h3>
-
-                <div className="space-y-4 text-xs">
-                  {submitError ? (
-                    <Alert className="border-destructive/20 bg-destructive/5 text-foreground">
-                      <AlertTitle>Cannot create yet</AlertTitle>
-                      <AlertDescription>
-                        {submitError}
-                        {validationErrors.length > 0 ? (
-                          <ul className="mt-2 list-disc space-y-1 pl-5">
-                            {validationErrors.slice(0, 5).map((error) => (
-                              <li key={error}>{error}</li>
-                            ))}
-                          </ul>
-                        ) : null}
-                      </AlertDescription>
-                    </Alert>
-                  ) : null}
-
-                  <div className="space-y-2 border-b border-white/20 pb-4">
-                    <div className="flex justify-between italic opacity-80">
-                      <span>Total Items</span>
-                      <span>{items.length} items</span>
-                    </div>
-                    <div className="flex justify-between font-bold">
-                      <span>Total Qty</span>
-                      <span>{totalQuantity} qty</span>
-                    </div>
-                    <div className="flex justify-between font-bold">
-                      <span>Campaign</span>
-                      <span className="ml-4 truncate">{campaignName || "Sunscreen Q2..."}</span>
-                    </div>
                   </div>
+                ) : null}
+              </div>
 
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">Destination</p>
-                    <p className="font-medium">
-                      {salesPoint.wcode} - {salesPoint.salesPoint}
-                    </p>
-                    <p className="text-[10px] uppercase tracking-widest opacity-70">
-                      Client: {salesPointClient?.clientName ?? "Unbound"} · {salesPointClient?.clientEntityName ?? "No entity"}
-                    </p>
-                  </div>
+              <div className="overflow-hidden rounded-md border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10 text-[9px] font-bold uppercase tracking-wider">#</TableHead>
+                      <TableHead className="text-[9px] font-bold uppercase tracking-wider">Product</TableHead>
+                      <TableHead className="w-20 text-[9px] font-bold uppercase tracking-wider">Qty</TableHead>
+                      <TableHead className="w-10" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                          No items yet. Search and select a product.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      items.map((item, index) => {
+                        const product = mockProducts.find((p) => p.code === item.productCode);
+                        return (
+                          <TableRow key={item.id}>
+                            <TableCell className="py-2.5 text-muted-foreground font-mono">{index + 1}</TableCell>
+                            <TableCell className="py-2.5">
+                              {product ? (
+                                <div>
+                                  <p className="font-medium">{product.name}</p>
+                                  <p className="text-muted-foreground font-mono text-[10px]">{product.code}</p>
+                                </div>
+                              ) : (
+                                <span className="italic text-muted-foreground">Select a product</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="py-2.5">
+                              <input
+                                type="number"
+                                value={item.quantity || ""}
+                                onChange={(event) => updateItem(item.id, "quantity", event.target.value)}
+                                placeholder="0"
+                                className="w-full rounded border border-border bg-white px-2 py-1 text-xs outline-none transition-all focus:ring-1 focus:ring-primary"
+                              />
+                            </TableCell>
+                            <TableCell className="py-2.5">
+                              <button
+                                onClick={() => removeItem(item.id)}
+                                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/5 hover:text-destructive"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+            <CardFooter className="justify-between border-t text-xs text-muted-foreground">
+              <span>
+                <span className="font-medium text-foreground">{items.length}</span> item{items.length !== 1 ? "s" : ""}
+              </span>
+              <span>
+                Total: <span className="font-medium text-foreground">{totalQuantity}</span> qty
+              </span>
+            </CardFooter>
+          </Card>
 
-                  <button
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    className="mt-4 w-full rounded-md bg-white py-3 text-xs font-bold uppercase tracking-widest text-primary shadow-md shadow-black/10 transition-all hover:bg-slate-50 disabled:opacity-70 btn-press"
-                  >
-                    {isSubmitting ? "Creating..." : "Create Order Request"}
-                  </button>
-                  <p className="text-center text-[10px] italic opacity-70">By clicking create, the order will be sent to the admin for review.</p>
-                </div>
-              </section>
-            </div>
-          </div>
+          <p className="text-center text-xs italic text-muted-foreground">
+            By clicking create, the order will be sent to the admin for review.
+          </p>
         </main>
       </ContentArea>
     </div>

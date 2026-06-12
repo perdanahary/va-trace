@@ -11,8 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { OrderMetadataSummary } from "@/components/shared/OrderMetadataSummary";
 import { startProduction, useOrders, type StoredOrder } from "@/lib/orderStore";
-import { getBaseOrderStatus } from "@/lib/orderStatus";
 import { cn } from "@/lib/utils";
 
 type VendorTab = "Pending" | "Production" | "Shipping" | "History";
@@ -22,20 +22,15 @@ export function VendorDashboard() {
   const orders = useOrders();
 
   const metrics = useMemo(() => {
-    const pending = orders.filter((o) => {
-      const base = getBaseOrderStatus(o.status);
-      return base === "New" || base === "Waiting";
-    }).length;
-    const inProduction = orders.filter((o) => {
-      const base = getBaseOrderStatus(o.status);
-      return base === "In Production";
-    }).length;
-    const ready = orders.filter((o) => getBaseOrderStatus(o.status) === "Ready to Ship").length;
-    const shipping = orders.filter((o) => getBaseOrderStatus(o.status) === "On Delivery").length;
-    const completed = orders.filter((o) => {
-      const base = getBaseOrderStatus(o.status);
-      return base === "Completed" || base === "Delivered";
-    }).length;
+    const pending = orders.filter((o) => o.productionStatus === "NEW" || o.productionStatus === "SUBMITTED").length;
+    const inProduction = orders.filter((o) =>
+      ["ACCEPTED", "PRINTING", "FINISHING", "QUALITY_CONTROL"].includes(o.productionStatus),
+    ).length;
+    const ready = orders.filter((o) => o.productionStatus === "READY_FOR_DISTRIBUTION" || o.productionStatus === "COMPLETED").length;
+    const shipping = orders.filter((o) =>
+      ["PARTIALLY_DISTRIBUTED", "FULLY_DISTRIBUTED", "PARTIALLY_RECEIVED"].includes(o.distributionStatus),
+    ).length;
+    const completed = orders.filter((o) => o.productionStatus === "COMPLETED" && o.distributionStatus === "FULLY_RECEIVED").length;
 
     return [
       { label: "Pending", value: String(pending).padStart(2, "0"), change: "Awaiting confirmation", color: "text-warning" },
@@ -53,7 +48,7 @@ export function VendorDashboard() {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role="vendor" />
+      <Sidebar userRole="vendor" />
       <ContentArea>
         <Header title="Vendor Dashboard" />
 
@@ -138,7 +133,9 @@ function VendorOrderTable({ orders, tab }: { orders: StoredOrder[]; tab: VendorT
               <TableHead>Client PO</TableHead>
               <TableHead>Created</TableHead>
               <TableHead>Deadline</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Production Status</TableHead>
+              <TableHead>Distribution Status</TableHead>
+              <TableHead>Delivery Progress</TableHead>
               <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
@@ -148,11 +145,16 @@ function VendorOrderTable({ orders, tab }: { orders: StoredOrder[]; tab: VendorT
               return (
                 <TableRow key={order.id}>
                   <TableCell>
-                    <Link to={`/vendor/update/${order.id}`} className="font-mono text-xs text-primary hover:underline">
+                    <Link to={`/vendor/update/${order.id}`} className="font-mono text-xs text-link hover:underline">
                       {order.id}
                     </Link>
                   </TableCell>
-                  <TableCell className="text-sm font-medium">{order.campaign}</TableCell>
+                  <TableCell className="text-sm font-medium">
+                    <div className="space-y-1">
+                      <div>{order.campaign ?? ""}</div>
+                      <OrderMetadataSummary tags={order.tags} referenceLink={order.referenceLink} />
+                    </div>
+                  </TableCell>
                   <TableCell className="text-sm">{order.clientPO}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{formatCreatedDate(order.createdDate)}</TableCell>
                   <TableCell
@@ -168,7 +170,16 @@ function VendorOrderTable({ orders, tab }: { orders: StoredOrder[]; tab: VendorT
                     {deadlineInfo.label}
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
-                    <StatusBadge status={order.status} />
+                    <StatusBadge status={order.productionStatus} />
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <StatusBadge status={order.distributionStatus} />
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-sm">
+                    <span className="font-medium text-foreground">{order.deliveryProgress.percentage}%</span>
+                    <span className="ml-1 text-muted-foreground">
+                      ({order.deliveryProgress.receivedQuantity}/{order.deliveryProgress.allocatedQuantity})
+                    </span>
                   </TableCell>
                   <TableCell className="text-right">
                     {tab === "Pending" && (
@@ -204,25 +215,16 @@ function VendorOrderTable({ orders, tab }: { orders: StoredOrder[]; tab: VendorT
 function getOrdersForTab(tab: VendorTab, orders: StoredOrder[]) {
   switch (tab) {
     case "Pending":
-      return orders.filter((order) => {
-        const base = getBaseOrderStatus(order.status);
-        return base === "New" || base === "Waiting";
-      });
+      return orders.filter((order) => order.productionStatus === "NEW" || order.productionStatus === "SUBMITTED");
     case "Production":
-      return orders.filter((order) => {
-        const base = getBaseOrderStatus(order.status);
-        return base === "In Production";
-      });
+      return orders.filter((order) => ["ACCEPTED", "PRINTING", "FINISHING", "QUALITY_CONTROL"].includes(order.productionStatus));
     case "Shipping":
-      return orders.filter((order) => {
-        const base = getBaseOrderStatus(order.status);
-        return base === "Ready to Ship" || base === "On Delivery";
-      });
+      return orders.filter((order) =>
+        ["READY_FOR_DISTRIBUTION", "COMPLETED"].includes(order.productionStatus) &&
+        order.distributionStatus !== "FULLY_RECEIVED"
+      );
     case "History":
-      return orders.filter((order) => {
-        const base = getBaseOrderStatus(order.status);
-        return base === "Completed" || base === "Delivered";
-      });
+      return orders.filter((order) => order.distributionStatus === "FULLY_RECEIVED");
   }
 }
 

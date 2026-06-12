@@ -42,21 +42,21 @@ const fallbackAccountByRole: Record<
 };
 
 interface UserAccountMenuProps {
-  role: UserRole;
+  userRole: UserRole;
   compact?: boolean;
   className?: string;
   contentClassName?: string;
   leading?: ReactNode;
 }
 
-export function UserAccountMenu({ role, compact = false, className, contentClassName, leading }: UserAccountMenuProps) {
+export function UserAccountMenu({ userRole, compact = false, className, contentClassName, leading }: UserAccountMenuProps) {
   const { currentUser } = useCurrentUser();
-  const account = currentUser ?? fallbackAccountByRole[role];
+  const account = currentUser ?? fallbackAccountByRole[userRole];
 
-  const name = currentUser?.name ?? fallbackAccountByRole[role].name;
-  const initials = currentUser ? getInitials(currentUser.name) : fallbackAccountByRole[role].initials;
-  const status = currentUser?.status ?? fallbackAccountByRole[role].status;
-  const title = currentUser ? role.charAt(0).toUpperCase() + role.slice(1) : fallbackAccountByRole[role].title;
+  const name = currentUser?.name ?? fallbackAccountByRole[userRole].name;
+  const initials = currentUser ? getInitials(currentUser.name) : fallbackAccountByRole[userRole].initials;
+  const status = currentUser?.status ?? fallbackAccountByRole[userRole].status;
+  const title = currentUser ? userRole.charAt(0).toUpperCase() + userRole.slice(1) : fallbackAccountByRole[userRole].title;
 
   return (
     <DropdownMenu>

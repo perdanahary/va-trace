@@ -2,7 +2,6 @@ import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Building2,
-  ExternalLink,
   MapPin,
   Save,
   ShoppingCart,
@@ -16,7 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,6 +42,7 @@ export function ClientDetail() {
     address: "",
     city: "",
     province: "",
+    subDistrict: "",
     postalCode: "",
   });
 
@@ -65,6 +64,7 @@ export function ClientDetail() {
       address: client.shippingAddress.address,
       city: client.shippingAddress.city,
       province: client.shippingAddress.province,
+      subDistrict: client.shippingAddress.subDistrict,
       postalCode: client.shippingAddress.postalCode,
     });
   }
@@ -87,6 +87,11 @@ export function ClientDetail() {
     [orders, id],
   );
 
+  const uniqueProjects = useMemo(
+    () => [...new Set(clientOrders.map((o) => o.campaign))],
+    [clientOrders],
+  );
+
   const handleSave = () => {
     if (!client) return;
     updateClient(client.id, {
@@ -101,6 +106,7 @@ export function ClientDetail() {
         address: form.address,
         city: form.city,
         province: form.province,
+        subDistrict: form.subDistrict,
         postalCode: form.postalCode,
       },
     });
@@ -109,7 +115,7 @@ export function ClientDetail() {
   if (!client) {
     return (
       <div className="flex min-h-screen bg-background">
-        <Sidebar role="admin" />
+        <Sidebar userRole="admin" />
         <ContentArea>
           <Header title="Client Not Found" />
           <main className="p-4 sm:p-6 lg:p-8">
@@ -131,7 +137,7 @@ export function ClientDetail() {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role="admin" />
+      <Sidebar userRole="admin" />
       <ContentArea>
         <Header
           title={client.name}
@@ -228,7 +234,7 @@ export function ClientDetail() {
                     <MapPin className="h-4 w-4" />
                     Address
                   </CardTitle>
-                  <CardDescription>Shipping address for this client</CardDescription>
+
                 </CardHeader>
                 <CardContent className="p-6">
                   <div className="grid gap-5 md:grid-cols-2">
@@ -249,6 +255,12 @@ export function ClientDetail() {
                       <Input
                         value={form.province}
                         onChange={(e) => setForm({ ...form, province: e.target.value })}
+                      />
+                    </Field>
+                    <Field label="Sub-district">
+                      <Input
+                        value={form.subDistrict}
+                        onChange={(e) => setForm({ ...form, subDistrict: e.target.value })}
                       />
                     </Field>
                     <Field label="Postal Code">
@@ -303,45 +315,28 @@ export function ClientDetail() {
                     Project History
                   </CardTitle>
                   <CardDescription>
-                    {clientOrders.length} order{clientOrders.length !== 1 ? "s" : ""} linked to this client
+                    {uniqueProjects.length} project{uniqueProjects.length !== 1 ? "s" : ""}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
-                  {clientOrders.length > 0 ? (
+                  {uniqueProjects.length > 0 ? (
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Order ID</TableHead>
                           <TableHead>Project / Campaign</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Created</TableHead>
-                          <TableHead>Deadline</TableHead>
-                          <TableHead>Supplier</TableHead>
-                          <TableHead className="text-right" />
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {clientOrders.map((order) => (
-                          <TableRow key={order.id}>
+                        {uniqueProjects.map((campaign) => (
+                          <TableRow key={campaign}>
                             <TableCell>
-                              <span className="font-mono text-xs font-medium">{order.id}</span>
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-sm font-medium">{order.campaign}</span>
-                            </TableCell>
-                            <TableCell>
-                              <StatusBadge status={order.status} />
-                            </TableCell>
-                            <TableCell className="text-xs text-muted-foreground">{order.createdDate}</TableCell>
-                            <TableCell className="text-xs text-muted-foreground">{order.deadline}</TableCell>
-                            <TableCell className="text-sm">{order.supplier}</TableCell>
-                            <TableCell className="text-right">
-                              <Button asChild variant="ghost" size="sm" className="gap-1">
-                                <Link to={`/admin/orders/${order.id}`}>
-                                  Details
-                                  <ExternalLink className="h-3.5 w-3.5" />
-                                </Link>
-                              </Button>
+                              <Link
+                                to="/admin/orders"
+                                state={{ initialSearch: campaign }}
+                                className="text-sm font-medium text-link hover:underline"
+                              >
+                                {campaign}
+                              </Link>
                             </TableCell>
                           </TableRow>
                         ))}

@@ -28,5 +28,9 @@
       "type": "remote",
       "url": "https://mcp.jam.dev/mcp"
     }
-  }
+  },
+  "plugin": [
+    "opencode-notificator",
+    "@tarquinen/opencode-dcp@latest"
+  ]
 }

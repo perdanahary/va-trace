@@ -12,25 +12,25 @@ import { generateDeliveryNote, type DeliveryNoteLine } from "@/lib/deliveryNote"
 import { useOrders } from "@/lib/orderStore";
 
 interface DeliveryNotePrintProps {
-  role?: UserRole;
+  userRole?: UserRole;
 }
 
-export function DeliveryNotePrint({ role = "admin" }: DeliveryNotePrintProps) {
+export function DeliveryNotePrint({ userRole = "admin" }: DeliveryNotePrintProps) {
   const { id } = useParams();
   const orders = useOrders();
   const order = orders.find((entry) => entry.id === id) ?? orders[0];
   const deliveryNote = generateDeliveryNote(order);
-  const backPath = role === "admin" ? `/admin/orders/${order.id}` : `/${role}/orders/${order.id}`;
-  const qrTarget = `${window.location.origin}${role === "admin" ? `/admin/orders/${order.id}/delivery-note` : `/${role}/orders/${order.id}/delivery-note`}`;
+  const backPath = userRole === "admin" ? `/admin/orders/${order.id}` : `/${userRole}/orders/${order.id}`;
+  const qrTarget = `${window.location.origin}${userRole === "admin" ? `/admin/orders/${order.id}/delivery-note` : `/${userRole}/orders/${order.id}/delivery-note`}`;
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role={role} />
+      <Sidebar userRole={userRole} />
       <ContentArea>
         <Header
           title={`Delivery Note: ${deliveryNote.doNumber}`}
           breadcrumbs={[
-            { label: "All Orders", to: role === "admin" ? "/admin/orders" : `/${role}/orders` },
+            { label: "All Orders", to: userRole === "admin" ? "/admin/orders" : `/${userRole}/orders` },
             { label: order.id, to: backPath },
             { label: `Delivery Note: ${deliveryNote.doNumber}` },
           ]}
@@ -96,7 +96,7 @@ export function DeliveryNotePrint({ role = "admin" }: DeliveryNotePrintProps) {
             <section className="delivery-note-project">
               <KeyValue label="PO No" value={deliveryNote.poNumber} />
               <KeyValue label="Project" value={deliveryNote.projectName} />
-              <KeyValue label="PIC Project" value={deliveryNote.picProject} />
+              <KeyValue label="PIC Project" value={deliveryNote.picProject ?? "—"} />
             </section>
 
             <table className="delivery-note-table">

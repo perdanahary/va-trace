@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { OrderMetadataSummary } from "@/components/shared/OrderMetadataSummary";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useOrders } from "@/lib/orderStore";
@@ -84,7 +85,7 @@ export function ClientDashboard() {
   if (!currentUser) {
     return (
       <div className="flex min-h-screen bg-background">
-        <Sidebar role="client" />
+        <Sidebar userRole="client" />
         <ContentArea>
           <Header title="Client Dashboard" />
           <main className="space-y-8 p-4 sm:p-6 lg:p-8">
@@ -104,7 +105,7 @@ export function ClientDashboard() {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role="client" />
+      <Sidebar userRole="client" />
       <ContentArea>
         <Header title="Client Dashboard" />
 
@@ -237,7 +238,12 @@ export function ClientDashboard() {
                     {clientOrders.slice(0, 5).map((order) => (
                       <TableRow key={order.id}>
                         <TableCell className="font-mono text-xs font-medium">{order.id}</TableCell>
-                        <TableCell className="text-sm">{order.campaign}</TableCell>
+                        <TableCell className="text-sm">
+                          <div className="space-y-1">
+                            <div>{order.campaign ?? ""}</div>
+                            <OrderMetadataSummary tags={order.tags} referenceLink={order.referenceLink} />
+                          </div>
+                        </TableCell>
                         <TableCell className="whitespace-nowrap">
                           <StatusBadge status={order.status} />
                         </TableCell>

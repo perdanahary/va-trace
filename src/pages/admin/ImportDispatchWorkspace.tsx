@@ -33,11 +33,12 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface ImportDispatchWorkspaceProps {
-  role?: UserRole;
+  userRole?: UserRole;
 }
 
 type WorkspaceTab = "issue-groups" | "assignment-groups" | "raw-rows" | "or-preview" | "import-log";
 type RuleConditionDraft = ImportAssignmentRuleCondition;
+const DEMO_VENDOR_ID = "SUP-004";
 
 const ruleFieldOptions: Array<{ value: ImportAssignmentRuleField; label: string }> = [
   { value: "region", label: "Region" },
@@ -58,7 +59,7 @@ function getRuleFieldLabel(field: ImportAssignmentRuleField) {
   return ruleFieldOptions.find((option) => option.value === field)?.label ?? field;
 }
 
-export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorkspaceProps) {
+export function ImportDispatchWorkspace({ userRole = "admin" }: ImportDispatchWorkspaceProps) {
   const {
     batches,
     isHydrating,
@@ -224,6 +225,10 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
   const ruleVendorName = useMemo(
     () => suppliers.find((supplier) => supplier.id === ruleVendorId)?.name ?? null,
     [ruleVendorId, suppliers],
+  );
+  const demoVendor = useMemo(
+    () => suppliers.find((supplier) => supplier.id === DEMO_VENDOR_ID && supplier.status === "ACTIVE") ?? null,
+    [suppliers],
   );
 
   const issueSummaries = useMemo(() => {
@@ -510,7 +515,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
   if (isHydrating) {
     return (
       <div className="flex min-h-[100dvh] overflow-x-hidden bg-slate-50">
-        <Sidebar role={role} />
+        <Sidebar userRole={userRole} />
         <ContentArea className="flex flex-col">
           <Header title="Import Dispatch Workspace" showMobileMenu={false} />
           <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
@@ -526,7 +531,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
   }
 
   if (!batch || !summary) {
-    return <ImportUploadPage role={role} />;
+    return <ImportUploadPage userRole={userRole} />;
   }
 
   const updateRuleCondition = (index: number, nextCondition: Partial<RuleConditionDraft>) => {
@@ -618,6 +623,32 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
     toast.success(`${rowIds.length} row(s) assigned.`);
   };
 
+  const handleAssignAllToDemoVendor = () => {
+    if (!demoVendor) {
+      toast.error("Demo vendor PT. HH Global Services Indonesia is not active.");
+      return;
+    }
+
+    const rowIds = (batch?.rows ?? [])
+      .filter(
+        (row) =>
+          row.status === "unassigned" &&
+          row.match.issues.length === 0 &&
+          (!row.possibleDuplicate || row.duplicateDecision === "include"),
+      )
+      .map((row) => row.id);
+
+    if (rowIds.length === 0 || !batch) {
+      toast.info("No eligible rows are ready for demo vendor assignment.");
+      return;
+    }
+
+    assignRowsToVendor(batch.id, rowIds, demoVendor.id);
+    setSelectedRowIds([]);
+    setActiveTab("or-preview");
+    toast.success(`${rowIds.length} row(s) assigned to ${demoVendor.name}.`);
+  };
+
   const handleDispatch = () => {
     const result = dispatchBatch(batch.id);
     const parts = [];
@@ -670,7 +701,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
   };
 
   const handleBulkMapToProduct = (issueLabel: string) => {
-    if (role !== "admin") {
+    if (userRole !== "admin") {
       toast.info(`${issueLabel} needs Admin product mapping access.`);
       return;
     }
@@ -679,7 +710,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
   };
 
   const handleBulkCreateProduct = (issueLabel: string) => {
-    if (role !== "admin") {
+    if (userRole !== "admin") {
       toast.info(`${issueLabel} needs Admin product creation access.`);
       return;
     }
@@ -759,7 +790,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
 
   return (
     <div className="flex min-h-[100dvh] overflow-x-hidden bg-slate-50">
-      {sidebarOpen ? <Sidebar role={role} /> : null}
+      {sidebarOpen ? <Sidebar userRole={userRole} /> : null}
 
       <ContentArea className="flex flex-col">
         <Header
@@ -872,8 +903,8 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                                 <TableCell>Rows with matching PO, sales point, item, and quantity</TableCell>
                                 <TableCell className="text-right">
                                   <div className="flex justify-end gap-2">
-                                    <Button size="sm" variant="outline" className="text-cyan-700 border-cyan-200 bg-cyan-50 hover:bg-cyan-100" onClick={() => handleBulkDuplicateDecision(duplicateSummary.label, duplicateSummary.rowIds, "include")}>Import anyway</Button>
-                                    <Button size="sm" variant="outline" className="text-rose-700 border-rose-200 bg-rose-50 hover:bg-rose-100" onClick={() => handleBulkDuplicateDecision(duplicateSummary.label, duplicateSummary.rowIds, "exclude")}>Exclude all matching</Button>
+                                    <Button size="sm" variant="outline" className="text-primary border-primary/20 bg-primary/5 hover:bg-primary/10" onClick={() => handleBulkDuplicateDecision(duplicateSummary.label, duplicateSummary.rowIds, "include")}>Import anyway</Button>
+                                    <Button size="sm" variant="outline" className="text-destructive border-destructive/20 bg-destructive/5 hover:bg-destructive/10" onClick={() => handleBulkDuplicateDecision(duplicateSummary.label, duplicateSummary.rowIds, "exclude")}>Exclude all matching</Button>
                                     <Button size="sm" variant="outline" onClick={() => handleExportIssueList(duplicateSummary.label, duplicateSummary.rows)}>Export issue list</Button>
                                   </div>
                                 </TableCell>
@@ -905,9 +936,9 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                                   <TableCell>{issue.rows[0]?.raw.itemCode || issue.rows[0]?.raw.itemName || "—"}</TableCell>
                                   <TableCell className="text-right">
                                     <div className="flex justify-end gap-2">
-                                      <Button size="sm" variant="outline" className="text-cyan-700 border-cyan-200 bg-cyan-50 hover:bg-cyan-100" onClick={() => handleBulkMapToProduct(issue.label)}>Map to product</Button>
+                                      <Button size="sm" variant="outline" className="text-primary border-primary/20 bg-primary/5 hover:bg-primary/10" onClick={() => handleBulkMapToProduct(issue.label)}>Map to product</Button>
                                       <Button size="sm" variant="outline" onClick={() => handleBulkCreateProduct(issue.label)}>Create product</Button>
-                                      <Button size="sm" variant="outline" className="text-rose-700 border-rose-200 bg-rose-50 hover:bg-rose-100" onClick={() => handleBulkExclude(issue.label, issue.rowIds)}>Exclude all matching</Button>
+                                      <Button size="sm" variant="outline" className="text-destructive border-destructive/20 bg-destructive/5 hover:bg-destructive/10" onClick={() => handleBulkExclude(issue.label, issue.rowIds)}>Exclude all matching</Button>
                                       <Button size="sm" variant="outline" onClick={() => handleExportIssueList(issue.label, issue.rows)}>Export issue list</Button>
                                     </div>
                                   </TableCell>
@@ -1007,7 +1038,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                             size="sm"
                             disabled={assignableFilteredRows.length === 0}
                             onClick={handleSelectAllVisible}
-                            className="h-auto px-0 text-xs font-semibold normal-case tracking-normal text-slate-950 hover:bg-transparent hover:text-cyan-700"
+                            className="h-auto px-0 text-xs font-semibold normal-case tracking-normal text-slate-950 hover:bg-transparent hover:text-primary"
                           >
                             Select all visible
                           </Button>
@@ -1021,7 +1052,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                             Clear selection
                           </Button>
                           {activeFilterCount > 0 ? (
-                            <Badge variant="outline" className="rounded-full border-cyan-200 bg-cyan-50 text-xs normal-case tracking-normal text-cyan-800">
+                            <Badge variant="outline" className="rounded-full border-primary/20 bg-primary/5 text-xs normal-case tracking-normal text-primary">
                               {activeFilterCount} filter{activeFilterCount === 1 ? "" : "s"} active
                             </Badge>
                           ) : null}
@@ -1133,7 +1164,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                                               {orGroup.count} rows · {orGroup.totalQty} qty
                                             </p>
                                           </div>
-                                          <Badge variant="outline" className="rounded-full border-emerald-200 bg-emerald-50 text-xs normal-case tracking-normal text-emerald-700">
+                                          <Badge variant="outline" className="rounded-full border-success/20 bg-success/5 text-xs normal-case tracking-normal text-success">
                                             Ready
                                           </Badge>
                                         </div>
@@ -1167,7 +1198,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                                 <div>
                                   <p className="text-xs font-semibold normal-case tracking-normal text-slate-500">Import Job</p>
                                   <p className="mt-1 text-sm font-semibold tracking-[-0.02em] text-slate-950">
-                                    Status: <span className={cn(batch.importJob.status === "imported" ? "text-emerald-600" : batch.importJob.status === "failed" ? "text-rose-600" : "text-amber-600")}>{batch.importJob.status}</span>
+                                    Status: <span className={cn(batch.importJob.status === "imported" ? "text-success" : batch.importJob.status === "failed" ? "text-destructive" : "text-warning")}>{batch.importJob.status}</span>
                                   </p>
                                 </div>
                                 {batch.importJob.status === "failed" ? (
@@ -1192,7 +1223,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                               </div>
 
                               {batch.importJob.lastError ? (
-                                <Alert className="rounded-xl border-rose-200 bg-rose-50 text-rose-950">
+                                <Alert className="rounded-xl border-destructive/20 bg-destructive/5 text-destructive">
                                   <AlertTriangle className="h-4 w-4" />
                                   <AlertTitle>Last error</AlertTitle>
                                   <AlertDescription>{batch.importJob.lastError}</AlertDescription>
@@ -1219,14 +1250,14 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                                     </Badge>
                                   </div>
                                   {run.skippedExistingOrderIds.length > 0 ? (
-                                    <p className="mt-2 text-xs leading-5 text-amber-600">
+                                    <p className="mt-2 text-xs leading-5 text-warning">
                                       {run.skippedExistingOrderIds.length} existing OR(s) skipped
                                     </p>
                                   ) : null}
                                   {run.createdOrderIds.length > 0 ? (
                                     <div className="mt-2 flex flex-wrap gap-2">
                                       {run.createdOrderIds.map((id) => (
-                                        <Badge key={id} variant="outline" className="rounded-full border-emerald-200 bg-emerald-50 text-xs normal-case tracking-normal text-emerald-700">
+                                        <Badge key={id} variant="outline" className="rounded-full border-success/20 bg-success/5 text-xs normal-case tracking-normal text-success">
                                           {id}
                                         </Badge>
                                       ))}
@@ -1258,7 +1289,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                   {/* ===== BOTTOM: Dispatch result message ===== */}
                   {dispatchResultMessage ? (
                     <div className="border-t border-slate-200/80 px-5 py-4 sm:px-6">
-                      <Alert className="rounded-xl border-cyan-200 bg-cyan-50 text-cyan-950">
+                      <Alert className="rounded-xl border-primary/20 bg-primary/5 text-foreground">
                         <AlertTitle>Import result</AlertTitle>
                         <AlertDescription>{dispatchResultMessage}</AlertDescription>
                       </Alert>
@@ -1303,6 +1334,29 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                      <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-semibold normal-case tracking-normal text-primary">Demo shortcut</p>
+                            <p className="mt-1 text-sm font-semibold tracking-[-0.02em] text-slate-950">
+                              Assign eligible rows to PT. HH Global Services Indonesia
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-slate-600">
+                              Use this for the fresh demo path after uploading the sample workbook.
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleAssignAllToDemoVendor}
+                            disabled={!demoVendor || summary.unassignedRows === 0 || summary.blockerRows > 0}
+                            className="h-8 shrink-0 rounded-full px-3 text-xs"
+                          >
+                            Assign demo vendor
+                          </Button>
+                        </div>
+                      </div>
+
                       <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
                         <div className="flex items-start justify-between gap-3">
                           <div>
@@ -1377,7 +1431,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                           Add condition
                         </Button>
 
-                        <label className="grid gap-2 text-xs font-semibold normal-case tracking-normal text-slate-500">
+                        <label className="grid gap-1.5 text-sm font-semibold normal-case tracking-normal text-slate-500">
                           Assign to vendor
                           <Select value={ruleVendorId} onValueChange={setRuleVendorId}>
                             <SelectTrigger aria-label="Rule vendor" className="h-11 rounded-xl border-slate-200 bg-white normal-case tracking-normal">
@@ -1554,7 +1608,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                           Use this only for exceptions after the rule draft has covered the bulk of the batch.
                         </p>
 
-                        <label className="grid gap-2 text-xs font-semibold normal-case tracking-normal text-slate-500">
+                        <label className="grid gap-1.5 text-sm font-semibold normal-case tracking-normal text-slate-500">
                           Assign vendor
                           <Select value={selectedVendorId} onValueChange={setSelectedVendorId}>
                             <SelectTrigger aria-label="Manual vendor" className="h-11 rounded-xl border-slate-200 bg-slate-50 normal-case tracking-normal">
@@ -1619,7 +1673,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                           Vendor: {selectedVendorName ?? "Not selected"}
                         </p>
 
-                        <label className="grid gap-2 text-xs font-semibold normal-case tracking-normal text-slate-500">
+                        <label className="grid gap-1.5 text-sm font-semibold normal-case tracking-normal text-slate-500">
                           Assign vendor
                           <Select value={selectedVendorId} onValueChange={setSelectedVendorId}>
                             <SelectTrigger aria-label="Manual vendor" className="h-11 rounded-xl border-slate-200 bg-slate-50 normal-case tracking-normal">
@@ -1660,8 +1714,8 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                             className={cn(
                               "rounded-full text-xs normal-case tracking-normal",
                               canImport
-                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                : "border-amber-200 bg-amber-50 text-amber-700",
+                                ? "border-success/20 bg-success/5 text-success"
+                                : "border-warning/20 bg-warning/5 text-warning",
                             )}
                           >
                             {canImport ? "Ready" : "Blocked"}
@@ -1683,17 +1737,17 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
 
                         <div className="space-y-2 text-xs leading-5 text-slate-600">
                           <p className="flex items-start gap-2">
-                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-amber-500" />
+                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-warning" />
                             Review duplicates and unresolved rows before assignment.
                           </p>
                           <p className="flex items-start gap-2">
-                            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 text-emerald-600" />
+                            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 text-success" />
                             Retry skips OR groups that were already created.
                           </p>
                         </div>
 
                         {dispatchResultMessage ? (
-                          <Alert className="rounded-xl border-cyan-200 bg-cyan-50 text-cyan-950">
+                          <Alert className="rounded-xl border-primary/20 bg-primary/5 text-foreground">
                             <AlertTitle>Import result</AlertTitle>
                             <AlertDescription>{dispatchResultMessage}</AlertDescription>
                           </Alert>
@@ -1742,19 +1796,19 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                       <div className="space-y-2 text-xs leading-5 text-slate-600">
                         {summary.blockerRows > 0 ? (
                           <p className="flex items-start gap-2">
-                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-amber-500" />
+                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-warning" />
                             {summary.blockerRows} blocker(s) must be resolved before import.
                           </p>
                         ) : null}
                         {summary.unassignedRows > 0 ? (
                           <p className="flex items-start gap-2">
-                            <AlertCircle className="mt-0.5 h-3.5 w-3.5 text-cyan-600" />
+                            <AlertCircle className="mt-0.5 h-3.5 w-3.5 text-primary" />
                             {summary.unassignedRows} row(s) are unassigned and will remain in the queue for later.
                           </p>
                         ) : null}
                         {(dispatchReadiness?.dispatchableRows.length ?? 0) > 0 && summary.blockerRows === 0 ? (
                           <p className="flex items-start gap-2">
-                            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 text-emerald-600" />
+                            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 text-success" />
                             Ready to create ORs for assigned rows.
                           </p>
                         ) : null}
@@ -1770,7 +1824,7 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                       </Button>
 
                       {dispatchResultMessage ? (
-                        <Alert className="rounded-xl border-cyan-200 bg-cyan-50 text-cyan-950">
+                        <Alert className="rounded-xl border-primary/20 bg-primary/5 text-foreground">
                           <AlertTitle>Import result</AlertTitle>
                           <AlertDescription>{dispatchResultMessage}</AlertDescription>
                         </Alert>
@@ -1800,15 +1854,15 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                       </div>
 
                       {batch.importJob?.status === "failed" ? (
-                        <div className="space-y-2 rounded-xl border border-rose-200 bg-rose-50 p-3.5">
-                          <p className="text-xs font-semibold normal-case tracking-normal text-rose-800">Last import failed</p>
-                          <p className="text-xs leading-5 text-rose-700">{batch.importJob.lastError || "Unknown error"}</p>
+                        <div className="space-y-2 rounded-xl border border-destructive/20 bg-destructive/5 p-3.5">
+                          <p className="text-xs font-semibold normal-case tracking-normal text-destructive">Last import failed</p>
+                          <p className="text-xs leading-5 text-destructive">{batch.importJob.lastError || "Unknown error"}</p>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
                             onClick={handleDispatch}
-                            className="mt-2 h-8 rounded-full border-rose-200 bg-white px-3 text-xs text-rose-700 hover:bg-rose-100"
+                            className="mt-2 h-8 rounded-full border-destructive/20 bg-white px-3 text-xs text-destructive hover:bg-destructive/10"
                           >
                             <RotateCcw className="mr-1 h-3 w-3" />
                             Retry failed import
@@ -1817,11 +1871,11 @@ export function ImportDispatchWorkspace({ role = "admin" }: ImportDispatchWorksp
                       ) : null}
 
                       {summary.totalRows > 0 && summary.dispatchedRows === summary.totalRows ? (
-                        <div className="flex items-center gap-3 rounded-xl border-emerald-200 bg-emerald-50 p-3.5">
-                          <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                        <div className="flex items-center gap-3 rounded-xl border-success/20 bg-success/5 p-3.5">
+                          <CheckCircle2 className="h-5 w-5 text-success" />
                           <div>
-                            <p className="text-xs font-semibold normal-case tracking-normal text-emerald-800">Batch fully imported</p>
-                            <p className="text-xs leading-5 text-emerald-700">All {summary.totalRows} rows have been processed.</p>
+                            <p className="text-xs font-semibold normal-case tracking-normal text-success">Batch fully imported</p>
+                            <p className="text-xs leading-5 text-success">All {summary.totalRows} rows have been processed.</p>
                           </div>
                         </div>
                       ) : null}
@@ -1858,11 +1912,11 @@ function BatchMetric({
 }) {
   const classes =
     tone === "warning"
-      ? "border-amber-200 bg-amber-50 text-amber-800"
+      ? "border-warning/20 bg-warning/5 text-warning"
       : tone === "success"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+        ? "border-success/20 bg-success/5 text-success"
         : tone === "danger"
-          ? "border-rose-200 bg-rose-50 text-rose-800"
+          ? "border-destructive/20 bg-destructive/5 text-destructive"
           : "border-slate-200 bg-white text-slate-700";
 
   return (
@@ -1892,13 +1946,13 @@ function WorkflowStep({
       className={cn(
         "flex items-center gap-3 rounded-xl border px-3.5 py-3 text-sm",
         complete
-          ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+          ? "border-success/20 bg-success/5 text-success"
           : active
-            ? "border-cyan-200 bg-cyan-50 text-cyan-950"
+            ? "border-primary/20 bg-primary/5 text-foreground"
             : "border-slate-200 bg-white text-slate-700",
       )}
     >
-      <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", complete ? "bg-emerald-100 text-emerald-700" : active ? "bg-cyan-100 text-cyan-800" : "bg-slate-100 text-slate-500")}>
+      <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", complete ? "bg-success/10 text-success" : active ? "bg-primary/10 text-primary" : "bg-slate-100 text-slate-500")}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0">
@@ -1932,16 +1986,16 @@ function StateBlock({ label, value, tone = "default" }: { label: string; value: 
     <div className={cn(
       "rounded-xl border p-4",
       tone === "success"
-        ? "border-emerald-200 bg-emerald-50"
+        ? "border-success/20 bg-success/5"
         : "border-slate-200/80 bg-slate-50",
     )}>
       <p className={cn(
         "text-xs font-semibold normal-case tracking-normal",
-        tone === "success" ? "text-emerald-700" : "text-slate-500",
+        tone === "success" ? "text-success" : "text-slate-500",
       )}>{label}</p>
       <p className={cn(
         "mt-2 text-lg font-semibold tracking-[-0.03em]",
-        tone === "success" ? "text-emerald-800" : "text-slate-950",
+        tone === "success" ? "text-success" : "text-slate-950",
       )}>{value}</p>
     </div>
   );
@@ -1961,7 +2015,7 @@ function FilterSelect({
   const comboboxOptions = useMemo(() => options.map((opt) => ({ value: opt, label: opt })), [options]);
 
   return (
-    <label className="grid gap-2 text-xs font-semibold normal-case tracking-normal text-slate-500">
+    <label className="grid gap-1.5 text-sm font-semibold normal-case tracking-normal text-slate-500">
       {label}
       <SearchableCombobox
         value={value}
@@ -2110,7 +2164,7 @@ function AssignmentGroupCard({
                 const v = suppliers.find((s) => s.name === recommendedVendorName);
                 if (v) onAssign(v.id);
               }}
-              className="h-8 rounded-full border-cyan-200 bg-cyan-50 px-3 text-xs text-cyan-800 hover:bg-cyan-100"
+              className="h-8 rounded-full border-primary/20 bg-primary/5 px-3 text-xs text-primary hover:bg-primary/10"
             >
               Assign {recommendedVendorName}
             </Button>
@@ -2125,13 +2179,13 @@ function FlowProgressRow({ label, value, active, complete }: { label: string; va
   return (
     <div className={cn(
       "flex items-center gap-3 rounded-xl px-3 py-2 text-xs",
-      active ? "bg-cyan-50 text-cyan-800" : complete ? "bg-emerald-50 text-emerald-800" : "bg-slate-50 text-slate-500",
+      active ? "bg-primary/5 text-primary" : complete ? "bg-success/5 text-success" : "bg-slate-50 text-slate-500",
     )}>
       <div className={cn(
         "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
-        active ? "bg-cyan-200" : complete ? "bg-emerald-200" : "bg-slate-200",
+        active ? "bg-primary/20" : complete ? "bg-success/20" : "bg-slate-200",
       )}>
-        {complete ? <CheckCircle2 className="h-3 w-3" /> : <ArrowRight className={cn("h-3 w-3", active ? "text-cyan-700" : "text-slate-400")} />}
+        {complete ? <CheckCircle2 className="h-3 w-3" /> : <ArrowRight className={cn("h-3 w-3", active ? "text-primary" : "text-slate-400")} />}
       </div>
       <span className="font-semibold">{label}</span>
       <span className="ml-auto font-mono tabular-nums">{value.toLocaleString()}</span>
@@ -2172,7 +2226,7 @@ function ImportRowTableRow({
     (!row.possibleDuplicate || row.duplicateDecision === "include");
 
   return (
-    <TableRow className={cn("align-top text-xs transition-colors", checked && "bg-cyan-50/70", isFrozen && "opacity-60")}>
+    <TableRow className={cn("align-top text-xs transition-colors", checked && "bg-primary/5", isFrozen && "opacity-60")}>
       <TableCell className="px-4 py-4 sm:px-6">
         <Checkbox checked={checked} disabled={!isSelectable} onCheckedChange={(value) => onCheckedChange(value === true)} />
       </TableCell>
@@ -2264,11 +2318,11 @@ function FlagBadge({
 }) {
   const classes =
     tone === "warning"
-      ? "bg-amber-100 text-amber-800"
+      ? "bg-warning/10 text-warning"
       : tone === "success"
-        ? "bg-emerald-100 text-emerald-800"
+        ? "bg-success/10 text-success"
         : tone === "danger"
-          ? "bg-rose-100 text-rose-800"
+          ? "bg-destructive/10 text-destructive"
           : "bg-slate-100 text-slate-600";
 
   return (
@@ -2289,9 +2343,9 @@ function MiniAction({
 }) {
   const classes =
     tone === "primary"
-      ? "border-cyan-200 bg-cyan-50 text-cyan-800 hover:border-cyan-300 hover:bg-cyan-100"
+      ? "border-primary/20 bg-primary/5 text-primary hover:border-primary/30 hover:bg-primary/10"
       : tone === "danger"
-        ? "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100"
+        ? "border-destructive/20 bg-destructive/5 text-destructive hover:border-destructive/30 hover:bg-destructive/10"
         : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950";
 
   return (

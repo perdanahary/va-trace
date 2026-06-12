@@ -1,12 +1,15 @@
 import {
   mockProducts,
   mockSalesPoints,
-  type StoredPackagingLabel,
-  type StoredDeliveryNoteRecord,
-  type Order,
-  type LabelStatus,
-  type SalesPointMapping,
 } from "@/lib/mockData";
+import type {
+  StoredPackagingLabel,
+  StoredDeliveryNoteRecord,
+  Order,
+  LabelStatus,
+  SalesPointMapping,
+} from "@/lib/types";
+import type { ShipmentBatch } from "@/lib/types/logistics";
 import { findSupplierByName } from "@/lib/supplierStore";
 import { getOrdersSnapshot } from "@/lib/orderStore";
 
@@ -48,13 +51,15 @@ export interface DeliveryNoteLine {
 export interface DeliveryNote {
   id: string;
   orderId: string;
+  shipmentBatchId?: string;
+  status?: string;
   doNumber: string;
   barcodeValue: string;
   qrPayload: string;
   poNumber: string;
   soNumber: string;
   projectName: string;
-  picProject: string;
+  picProject?: string;
   senderProfile: CompanyProfile;
   hhGlobalContacts: HHGlobalContact[];
   deliverySnapshot: SalesPointDeliveryProfile;
@@ -161,6 +166,7 @@ export function buildLabelRecord(
   item: Order['items'][number],
   doNumber: string,
   deliverySnapshot: SalesPointDeliveryProfile,
+  shipmentBatch?: ShipmentBatch,
 ): StoredPackagingLabel {
   const deliveredQty = item.deliveredQuantity ?? 0;
   const labelCode = `${doNumber}-${item.poLineNumber.padStart(3, "0")}`;
@@ -171,6 +177,7 @@ export function buildLabelRecord(
     labelCode,
     qrPayload: `va-trace://packaging-label/${doNumber}/${item.id}`,
     orderId: order.id,
+    shipmentBatchId: shipmentBatch?.id,
     doNumber,
     poLineNumber: item.poLineNumber,
     productCode: item.productCode,
@@ -181,7 +188,7 @@ export function buildLabelRecord(
     destinationLocationName: deliverySnapshot.deliveryLocationName,
     destinationAddress: deliverySnapshot.address,
     salesPointCode: deliverySnapshot.wcode,
-    projectName: order.campaign,
+    projectName: order.campaign ?? "",
     createdAt: new Date().toISOString(),
   };
 }
@@ -207,6 +214,7 @@ export function buildDeliveryNoteRecord(
   scopeLabels: StoredPackagingLabel[],
   doNumber: string,
   deliverySnapshot: SalesPointDeliveryProfile,
+  shipmentBatch?: ShipmentBatch,
 ): StoredDeliveryNoteRecord {
   const senderProfile = getSenderProfile(order.supplier);
   const scopeLabelIds = scopeLabels.map((l) => l.id);
@@ -227,13 +235,15 @@ export function buildDeliveryNoteRecord(
 
   return {
     id: doNumber,
+    shipmentBatchId: shipmentBatch?.id,
+    status: "GENERATED",
     doNumber,
     barcodeValue: doNumber,
     qrPayload: `va-trace://delivery-note/${doNumber}`,
     poNumber: order.clientPO,
     soNumber: order.soNumber,
-    projectName: order.campaign,
-    picProject: `${order.picProject.name}(${order.picProject.email})`,
+    projectName: order.campaign ?? "",
+    picProject: order.picProject ? `${order.picProject.name}(${order.picProject.email})` : undefined,
     senderProfile: {
       name: senderProfile.name,
       addressLines: senderProfile.addressLines,
@@ -252,6 +262,31 @@ export function buildDeliveryNoteRecord(
     createdAt: new Date().toISOString(),
     scopeLabelIds,
   };
+}
+
+export function buildDeliveryNoteRecordFromShipmentBatch(
+  order: Order,
+  shipmentBatch: ShipmentBatch,
+  doNumber: string,
+  deliverySnapshot: SalesPointDeliveryProfile,
+): StoredDeliveryNoteRecord {
+  const labels = shipmentBatch.items.map((shipmentItem) => {
+    const item = order.items.find((entry) => entry.id === shipmentItem.orderLineId);
+
+    if (!item) {
+      return null;
+    }
+
+    return buildLabelRecord(
+      order,
+      { ...item, deliveredQuantity: shipmentItem.quantity },
+      doNumber,
+      deliverySnapshot,
+      shipmentBatch,
+    );
+  }).filter((label): label is StoredPackagingLabel => Boolean(label));
+
+  return buildDeliveryNoteRecord(order, labels, doNumber, deliverySnapshot, shipmentBatch);
 }
 
 function createDoNumber(order: Order) {
@@ -282,13 +317,22 @@ export function generateDeliveryNote(order: Order): DeliveryNote {
   const deliverySnapshot = getSalesPointDeliveryProfile(order.salesPointId);
   const senderProfile = getSenderProfile(order.supplier);
   const doNumber = createDoNumber(order);
+  const shipmentBatch = order.shipmentBatches[0];
+  const storedBatchNote = shipmentBatch
+    ? order.storedDeliveryNotes.find((note) => note.shipmentBatchId === shipmentBatch.id)
+    : undefined;
+  const generatedBatchNote = shipmentBatch
+    ? buildDeliveryNoteRecordFromShipmentBatch(order, shipmentBatch, storedBatchNote?.doNumber ?? doNumber, deliverySnapshot)
+    : undefined;
 
   // Use stored labels as source of truth if available
   const storedLabels = order.storedLabels ?? [];
   const lines = order.items.map((item) => {
     const product = mockProducts.find((entry) => entry.code === item.productCode);
-    const storedLabel = storedLabels.find((l) => l.lineId === item.id);
-    const deliveredQty = storedLabel?.deliveredQty ?? item.deliveredQuantity ?? 0;
+    const storedLabel = storedLabels.find((l) => l.lineId === item.id && (!shipmentBatch || l.shipmentBatchId === shipmentBatch.id));
+    const batchItem = shipmentBatch?.items.find((entry) => entry.orderLineId === item.id);
+    const batchLine = generatedBatchNote?.lines.find((entry) => entry.id === item.id);
+    const deliveredQty = batchLine?.deliveredQty ?? batchItem?.quantity ?? storedLabel?.deliveredQty ?? item.deliveredQuantity ?? 0;
     const areaText = getAreaText(product?.dimensions, deliveredQty);
 
     return {
@@ -309,13 +353,15 @@ export function generateDeliveryNote(order: Order): DeliveryNote {
   return {
     id: doNumber,
     orderId: order.id,
+    shipmentBatchId: shipmentBatch?.id,
+    status: generatedBatchNote?.status,
     doNumber,
     barcodeValue: doNumber,
     qrPayload: `va-trace://delivery-note/${doNumber}`,
     poNumber: order.clientPO,
     soNumber: order.soNumber,
-    projectName: order.campaign,
-    picProject: `${order.picProject.name}(${order.picProject.email})`,
+    projectName: order.campaign ?? "",
+    picProject: order.picProject ? `${order.picProject.name}(${order.picProject.email})` : undefined,
     senderProfile,
     hhGlobalContacts,
     deliverySnapshot,
@@ -384,7 +430,7 @@ export function generatePackagingLabels(order: Order): PackagingLabelsDocument {
       destinationLocationName: deliverySnapshot.deliveryLocationName,
       destinationAddress: deliverySnapshot.address,
       salesPointCode: deliverySnapshot.wcode,
-      projectName: order.campaign,
+      projectName: order.campaign ?? "",
     });
   }
 
@@ -407,7 +453,7 @@ function getMissingRequiredFields(order: Order, salesPoint: SalesPointDeliveryPr
   const missing: string[] = [];
 
   if (!order.campaign) missing.push("Campaign Name / Project");
-  if (!order.picProject.name || !order.picProject.email) missing.push("PIC Project");
+  if (!order.picProject?.name || !order.picProject?.email) missing.push("PIC Project");
   if (!salesPoint.deliveryCompanyName) missing.push("Deliver-to company");
   if (!salesPoint.deliveryLocationName) missing.push("Deliver-to location");
   if (!salesPoint.address) missing.push("Deliver-to address");

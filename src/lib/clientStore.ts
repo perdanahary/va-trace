@@ -6,6 +6,7 @@ export interface ClientAddress {
   country: "Indonesia";
   city: string;
   province: string;
+  subDistrict: string;
   address: string;
   postalCode: string;
 }
@@ -39,6 +40,7 @@ const initialClients: Client[] = [
       country: "Indonesia",
       city: "",
       province: "",
+      subDistrict: "",
       address: "",
       postalCode: "",
     },

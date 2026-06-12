@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Download, Filter, MoreHorizontal, Plus, Search } from "lucide-react";
+import { MoreHorizontal, Plus, Search } from "lucide-react";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
-import { FilterField, FilterSection } from "@/components/shared/FilterSection";
 import { Header } from "@/components/layout/Header";
-import { StatusBadge } from "@/components/ui/StatusBadge";
+import { OrderRequestTable, type OrderRequestTableColumn } from "@/components/domain/tables/OrderRequestTable";
+import { AppliedFilterRow, FilterMenu } from "@/components/shared/AdvancedFilterBar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,54 +18,176 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
-import { getBaseOrderStatus } from "@/lib/orderStatus";
-import { useOrders } from "@/lib/orderStore";
-import type { Order } from "@/lib/mockData";
+import { DISTRIBUTION_STATUSES, PRODUCTION_STATUSES } from "@/lib/types/v2/status";
+import type { OrderListRow } from "@/lib/types/v2/orderRequest";
+import { buildDemoClaims, canWriteOrders } from "@/lib/v2/permissions";
+import { formatStatusLabel } from "@/lib/v2/selectors/derivedStatus";
+import { useOrderListRows } from "@/lib/v2/selectors/viewModels";
+import { matchesFilterValue } from "@/components/shared/AdvancedFilterBar";
 
 interface AllOrdersProps {
-  role?: UserRole;
+  userRole?: UserRole;
 }
 
-export function AllOrders({ role = "admin" }: AllOrdersProps) {
-  const orders = useOrders();
+const adminOrderColumns: OrderRequestTableColumn[] = [
+  "clientPo",
+  "orderRequest",
+  "client",
+  "project",
+  "vendor",
+  "created",
+  "deadline",
+  "production",
+  "distribution",
+  "progress",
+  "exception",
+];
+
+export function AllOrders({ userRole = "admin" }: AllOrdersProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const rolePrefix = `/${userRole}`;
+  const rows = useOrderListRows(rolePrefix);
+  const writeDecision = canWriteOrders(buildDemoClaims(userRole.toUpperCase() as "ADMIN" | "OPERATOR" | "ANALYST" | "CLIENT" | "VENDOR"));
   const [searchTerm, setSearchTerm] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState("All Statuses");
+  const [productionOperator, setProductionOperator] = useState<"is" | "is not">("is");
+  const [selectedProductionStatus, setSelectedProductionStatus] = useState("all");
+  const [distributionOperator, setDistributionOperator] = useState<"is" | "is not">("is");
+  const [selectedDistributionStatus, setSelectedDistributionStatus] = useState("all");
+  const [vendorOperator, setVendorOperator] = useState<"is" | "is not">("is");
   const [selectedVendor, setSelectedVendor] = useState("All Vendors");
+  const [legacyOperator, setLegacyOperator] = useState<"is" | "is not">("is");
+  const [legacyStatusFilter, setLegacyStatusFilter] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const detailPath = (id: string) => (role === "admin" ? `/admin/orders/${id}` : `/${role}/orders/${id}`);
-  const createPath = role === "admin" ? "/admin/create" : role === "operator" ? "/operator/create" : "/admin/create";
-  const showVendorColumn = role !== "vendor";
-  const pageSize = 5;
+  const createPath = userRole === "operator" ? "/operator/create" : "/admin/create";
+  const pageSize = 10;
 
-  const statusOptions = useMemo(() => ["All Statuses", ...Array.from(new Set(orders.map((order) => order.status))).sort()], [orders]);
-  const vendorOptions = useMemo(() => ["All Vendors", ...Array.from(new Set(orders.map((order) => order.supplier))).sort()], [orders]);
+  const vendorOptions = useMemo(() => ["All Vendors", ...Array.from(new Set(rows.map((row) => row.vendorName))).sort()], [rows]);
+  const legacyStatusOptions = useMemo(
+    () => Array.from(new Set(rows.map((row) => row.legacyStatusLabel).filter((status): status is string => Boolean(status)))).sort(),
+    [rows],
+  );
 
-  const filteredOrders = useMemo(() => {
+  const filterGroups = useMemo(
+    () => [
+      {
+        id: "production",
+        label: "Production",
+        operator: productionOperator,
+        value: selectedProductionStatus === "all" ? null : selectedProductionStatus,
+        onValueChange: (value: string | null) => setSelectedProductionStatus(value ?? "all"),
+        onOperatorChange: setProductionOperator,
+        allLabel: "All production",
+        options: PRODUCTION_STATUSES.map((status) => ({
+          label: formatStatusLabel(status),
+          value: status,
+          keywords: [status],
+        })),
+      },
+      {
+        id: "distribution",
+        label: "Distribution",
+        operator: distributionOperator,
+        value: selectedDistributionStatus === "all" ? null : selectedDistributionStatus,
+        onValueChange: (value: string | null) => setSelectedDistributionStatus(value ?? "all"),
+        onOperatorChange: setDistributionOperator,
+        allLabel: "All distribution",
+        options: DISTRIBUTION_STATUSES.map((status) => ({
+          label: formatStatusLabel(status),
+          value: status,
+          keywords: [status],
+        })),
+      },
+      {
+        id: "vendor",
+        label: "Vendor",
+        operator: vendorOperator,
+        value: selectedVendor === "All Vendors" ? null : selectedVendor,
+        onValueChange: (value: string | null) => setSelectedVendor(value ?? "All Vendors"),
+        onOperatorChange: setVendorOperator,
+        allLabel: "All vendors",
+        options: vendorOptions.slice(1).map((vendor) => ({
+          label: vendor,
+          value: vendor,
+          keywords: [vendor],
+        })),
+      },
+      {
+        id: "legacy-status",
+        label: "Legacy Status",
+        operator: legacyOperator,
+        value: legacyStatusFilter,
+        onValueChange: setLegacyStatusFilter,
+        onOperatorChange: setLegacyOperator,
+        allLabel: "All legacy statuses",
+        options: legacyStatusOptions.map((status) => ({
+          label: status,
+          value: status,
+          keywords: [status],
+        })),
+      },
+    ],
+    [
+      distributionOperator,
+      legacyOperator,
+      legacyStatusFilter,
+      legacyStatusOptions,
+      productionOperator,
+      selectedDistributionStatus,
+      selectedProductionStatus,
+      selectedVendor,
+      vendorOperator,
+      vendorOptions,
+    ],
+  );
+
+  const filteredRows = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
 
-    return orders.filter((order) => {
+    return rows.filter((row) => {
       const matchesSearch =
         !query ||
-        [order.id, order.clientPO, order.campaign, order.supplier, formatCreatedDate(order.createdDate), order.deadline].some((value) =>
-          value.toLowerCase().includes(query),
-        );
-      const matchesStatus = selectedStatus === "All Statuses" || order.status === selectedStatus;
-      const matchesVendor = selectedVendor === "All Vendors" || order.supplier === selectedVendor;
-      return matchesSearch && matchesStatus && matchesVendor;
-    });
-  }, [orders, searchTerm, selectedStatus, selectedVendor]);
+        [
+          row.orderRequestNumber,
+          row.clientPoNumber ?? "",
+          row.clientName,
+          row.projectName,
+          row.vendorName,
+          row.deadlineDate,
+          row.legacyStatusLabel ?? "",
+          row.tags?.join(" ") ?? "",
+          row.referenceLink?.displayTitle ?? row.referenceLink?.url ?? "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+      const matchesProduction =
+        selectedProductionStatus === "all" || matchesFilterValue(productionOperator, row.productionStatus, selectedProductionStatus);
+      const matchesDistribution =
+        selectedDistributionStatus === "all" || matchesFilterValue(distributionOperator, row.distributionStatus, selectedDistributionStatus);
+      const matchesVendor = selectedVendor === "All Vendors" || matchesFilterValue(vendorOperator, row.vendorName, selectedVendor);
+      const matchesLegacyStatus = !legacyStatusFilter || matchesFilterValue(legacyOperator, row.legacyStatusLabel ?? "", legacyStatusFilter);
 
-  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / pageSize));
-  const visibleOrders = useMemo(() => {
+      return matchesSearch && matchesProduction && matchesDistribution && matchesVendor && matchesLegacyStatus;
+    });
+  }, [
+    distributionOperator,
+    legacyOperator,
+    legacyStatusFilter,
+    productionOperator,
+    rows,
+    searchTerm,
+    selectedDistributionStatus,
+    selectedProductionStatus,
+    selectedVendor,
+    vendorOperator,
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const visibleRows = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredOrders.slice(start, start + pageSize);
-  }, [filteredOrders, currentPage]);
+    return filteredRows.slice(start, start + pageSize);
+  }, [currentPage, filteredRows]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -75,26 +197,45 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedStatus, selectedVendor]);
+  }, [
+    distributionOperator,
+    legacyOperator,
+    legacyStatusFilter,
+    productionOperator,
+    searchTerm,
+    selectedDistributionStatus,
+    selectedProductionStatus,
+    selectedVendor,
+    vendorOperator,
+  ]);
 
   useEffect(() => {
-    const state = location.state as { initialStatus?: string } | null;
+    const state = location.state as { initialStatus?: string; initialSearch?: string } | null;
     if (state?.initialStatus && state.initialStatus !== "All Statuses") {
-      setSelectedStatus(state.initialStatus);
-      setShowFilters(true);
+      setLegacyStatusFilter(state.initialStatus);
+      window.history.replaceState({}, document.title);
+    }
+    if (state?.initialSearch) {
+      setSearchTerm(state.initialSearch);
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
 
   const clearFilters = () => {
-    setSelectedStatus("All Statuses");
+    setSelectedProductionStatus("all");
+    setProductionOperator("is");
+    setSelectedDistributionStatus("all");
+    setDistributionOperator("is");
     setSelectedVendor("All Vendors");
+    setVendorOperator("is");
+    setLegacyStatusFilter(null);
+    setLegacyOperator("is");
     setSearchTerm("");
   };
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role={role} />
+      <Sidebar userRole={userRole} />
       <ContentArea>
         <Header title="All Order Requests" />
 
@@ -105,163 +246,40 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
               <Input
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search by vendor name, order ID, or client PO..."
+                placeholder="Search by order, client PO, project, vendor, or status..."
                 className="pl-9"
               />
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <FilterMenu groups={filterGroups} />
               <Button
-                variant={showFilters || selectedStatus !== "All Statuses" || selectedVendor !== "All Vendors" ? "secondary" : "outline"}
-                onClick={() => setShowFilters((value) => !value)}
+                onClick={() => navigate(createPath)}
+                disabled={!writeDecision.allowed}
+                title={writeDecision.disabledReason}
               >
-                <Filter className="h-4 w-4" />
-                Filters
-              </Button>
-              <Button variant="outline">
-                <Download className="h-4 w-4" />
-                Export CSV
-              </Button>
-              <Button onClick={() => navigate(createPath)}>
                 <Plus className="h-4 w-4" />
                 Create New OR
               </Button>
             </div>
           </section>
 
-          {showFilters ? (
-            <FilterSection
-              actions={
-                <>
-                  <Button
-                    variant="ghost"
-                    onClick={clearFilters}
-                    className="h-auto px-0 font-normal text-muted-foreground hover:bg-transparent hover:text-primary hover:underline"
-                  >
-                    Reset all filters
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => setShowFilters(false)}
-                    className="h-auto px-0 font-normal text-muted-foreground hover:bg-transparent hover:text-primary hover:underline"
-                  >
-                    Hide filters
-                  </Button>
-                </>
-              }
-            >
-              <FilterField label="Status">
-                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {status}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FilterField>
-              <FilterField label="Vendor">
-                <Select value={selectedVendor} onValueChange={setSelectedVendor}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select vendor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vendorOptions.map((vendor) => (
-                      <SelectItem key={vendor} value={vendor}>
-                        {vendor}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FilterField>
-            </FilterSection>
-          ) : null}
+          <AppliedFilterRow groups={filterGroups} onClearAll={clearFilters} />
 
           <Card className="border-border/70 py-0 shadow-sm">
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Client PO</TableHead>
-                    <TableHead>Order Request</TableHead>
-                    {showVendorColumn ? <TableHead>Vendor</TableHead> : null}
-                    <TableHead>Date Created</TableHead>
-                    <TableHead>Deadline</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visibleOrders.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={showVendorColumn ? 7 : 6} className="py-16 text-center">
-                        <div className="mx-auto max-w-sm space-y-2">
-                          <p className="text-sm font-medium">No order requests found</p>
-                          <p className="text-sm text-muted-foreground">Try a different vendor name, order ID, or client PO.</p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    visibleOrders.map((order) => {
-                      const deadlineInfo = getDeadlineInfo(order.deadline, order.createdDate);
-                      const tone = getOrderTone(order);
-
-                      return (
-                        <TableRow
-                          key={order.id}
-                          className={cn(
-                            tone === "warning" && "bg-warning/10",
-                            tone === "danger" && "bg-destructive/10",
-                          )}
-                        >
-                          <TableCell>
-                            <Link to={detailPath(order.id)} className="text-sm font-semibold text-primary hover:underline">
-                              {order.clientPO || <span className="italic text-muted-foreground">—</span>}
-                            </Link>
-                          </TableCell>
-                          <TableCell className="font-mono text-xs text-muted-foreground">{order.id}</TableCell>
-                          {showVendorColumn ? (
-                            <TableCell className={cn("text-sm", order.supplier === "Pending" && "italic text-destructive")}>{order.supplier}</TableCell>
-                          ) : null}
-                          <TableCell className="text-sm">{formatCreatedDate(order.createdDate)}</TableCell>
-                          <TableCell className={cn("text-sm", deadlineInfo.isOverdue ? "font-semibold text-destructive" : deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3 ? "font-semibold text-warning" : "text-muted-foreground")}>
-                            {deadlineInfo.label}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap">
-                            <StatusBadge status={order.status} />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => navigate(detailPath(order.id))}>Open details</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => navigate(`${detailPath(order.id)}/packaging-labels`)}>Packaging labels</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => navigate(`${detailPath(order.id)}/delivery-note`)}>Delivery note</DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
+              <OrderRequestTable
+                rows={visibleRows}
+                columns={adminOrderColumns}
+                emptyMessage="No order requests found."
+                renderActions={(row) => <AdminOrderActions row={row} />}
+              />
             </CardContent>
           </Card>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
-              Page {currentPage} of {totalPages}
+              Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredRows.length)} of {filteredRows.length} rows
             </p>
             <div className="flex items-center gap-2">
               <Button variant="outline" onClick={() => setCurrentPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1}>
@@ -278,52 +296,27 @@ export function AllOrders({ role = "admin" }: AllOrdersProps) {
   );
 }
 
-function formatCreatedDate(date: string) {
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
-function getDeadlineInfo(deadline: string, createdDate?: string) {
-  const now = new Date();
-  const normalizeDate = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
-  const parsedDate = new Date(deadline);
-  if (!Number.isNaN(parsedDate.getTime()) && deadline.includes(parsedDate.getFullYear().toString())) {
-    const diffMs = normalizeDate(parsedDate).getTime() - normalizeDate(now).getTime();
-    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-    if (diffDays > 0) {
-      return { label: `${diffDays} day${diffDays !== 1 ? "s" : ""} left`, isOverdue: false, daysLeft: diffDays };
-    }
-    if (diffDays === 0) {
-      return { label: "Due today", isOverdue: false, daysLeft: 0 };
-    }
-    const overdue = Math.abs(diffDays);
-    return { label: `${overdue} day${overdue !== 1 ? "s" : ""} overdue`, isOverdue: true, daysLeft: null };
-  }
-
-  if (deadline === "Overdue" && createdDate) {
-    const parsedCreated = new Date(createdDate);
-    if (!Number.isNaN(parsedCreated.getTime())) {
-      const daysSince = Math.floor((normalizeDate(now).getTime() - normalizeDate(parsedCreated).getTime()) / (1000 * 60 * 60 * 24));
-      return { label: `${daysSince} days overdue`, isOverdue: true, daysLeft: null };
-    }
-  }
-  if (deadline === "Overdue") {
-    return { label: "Overdue", isOverdue: true, daysLeft: null };
-  }
-  const daysLeftMatch = deadline.match(/(\d+)/);
-  const daysLeft = daysLeftMatch ? Number(daysLeftMatch[1]) : null;
-  return { label: deadline, isOverdue: false, daysLeft };
-}
-
-function getOrderTone(order: Order) {
-  const deadlineInfo = getDeadlineInfo(order.deadline, order.createdDate);
-  if (deadlineInfo.isOverdue) return "danger";
-  if (deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3) return "danger";
-  const status = getBaseOrderStatus(order.status);
-  if (status === "Waiting") return "warning";
-  return "default";
+function AdminOrderActions({ row }: { row: OrderListRow }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to={row.actionTargets.detailPath}>Open details</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to={`${row.actionTargets.detailPath}/packaging-labels`}>Packaging labels</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to={`${row.actionTargets.detailPath}/delivery-note`}>Delivery note</Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }

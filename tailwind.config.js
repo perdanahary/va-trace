@@ -38,24 +38,28 @@ export default {
         },
         "canvas-white": "hsl(var(--background))",
         success: {
-          DEFAULT: "#10B981", // Success Green
-          foreground: "#FFFFFF",
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
         },
         warning: {
-          DEFAULT: "#F59E0B", // Warning Amber
-          foreground: "#FFFFFF",
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
         },
         processing: {
-          DEFAULT: "#3B82F6", // Processing Blue
-          foreground: "#FFFFFF",
+          DEFAULT: "hsl(var(--processing))",
+          foreground: "hsl(var(--processing-foreground))",
+        },
+        link: {
+          DEFAULT: "hsl(var(--link))",
+          foreground: "hsl(var(--link-foreground))",
         },
         muted: {
-          DEFAULT: "#F1F5F9",
-          foreground: "#64748B",
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
         },
         accent: {
-          DEFAULT: "#F1F5F9",
-          foreground: "#0F172A",
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",

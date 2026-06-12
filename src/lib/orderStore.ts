@@ -3,18 +3,23 @@ import {
   generateSoNumber,
   getSalesPointClientBinding,
   mockOrders,
-  type ComplaintHistoryEntry,
-  type ComplaintLineItem,
-  type ComplaintStatus,
-  type Order,
-  type OrderComplaint,
-  type OrderLine,
-  type StoredPackagingLabel,
-  type StoredDeliveryNoteRecord,
-  type LabelStatus,
 } from "@/lib/mockData";
+import { normalizeOrderReferenceLink, normalizeOrderTags, type OrderReferenceLink } from "@/lib/orderMetadata";
+import type {
+  ComplaintHistoryEntry,
+  ComplaintLineItem,
+  ComplaintStatus,
+  Order,
+  OrderComplaint,
+  OrderLine,
+  StoredPackagingLabel,
+  StoredDeliveryNoteRecord,
+  LabelStatus,
+} from "@/lib/types";
+import { normalizeOrder, normalizeOrders } from "@/lib/orderDomain";
 import { getOrderRequestStatus } from "@/lib/orderStatus";
 import { buildLabelRecord, buildDeliveryNoteRecord, computeLabelStatus, getSalesPointDeliveryProfile } from "@/lib/deliveryNote";
+import type { DeliveryConfirmation, ShipmentBatch } from "@/lib/types/logistics";
 
 export interface ImportedOrderLine extends OrderLine {
   sourceBatchId?: string;
@@ -23,7 +28,7 @@ export interface ImportedOrderLine extends OrderLine {
   brandNamePo?: string;
 }
 
-export interface StoredOrder extends Omit<Order, "items"> {
+export interface StoredOrder extends Order {
   sourceType?: "manual" | "bulk_po_import";
   importBatchId?: string;
   importRowIds?: string[];
@@ -43,12 +48,14 @@ export interface ManualOrderLineDraft {
 
 export interface ManualOrderDraft {
   campaign: string;
+  tags?: string[];
+  referenceLink?: OrderReferenceLink;
   clientPO: string;
   soNumber?: string;
   supplier: string;
   salesPointId: string;
-  picProjectName: string;
-  picProjectEmail: string;
+  picProjectName?: string;
+  picProjectEmail?: string;
   deadline: string;
   createdDate?: string;
   sourceType?: "manual";
@@ -68,23 +75,45 @@ export interface ResolveComplaintInput {
   reviewNote?: string;
 }
 
+export interface CreateShipmentBatchInput {
+  items?: Array<{
+    orderLineId: string;
+    quantity: number;
+    salesPointId?: string;
+  }>;
+}
+
+export interface PodUploadInput {
+  salesPointId?: string;
+  receiverName: string;
+  receivedAt?: string;
+  scannedDeliveryNoteUrl?: string;
+  photoUrls?: string[];
+  remarks?: string;
+}
+
 const STORAGE_KEY = "va-trace-orders";
 const STORE_EVENT = "va-trace-orders:change";
-let cachedOrders: StoredOrder[] = mockOrders;
+const defaultOrders = normalizeOrders(mockOrders) as StoredOrder[];
+let cachedOrders: StoredOrder[] = defaultOrders;
 let cachedStorageValue: string | null = null;
 
 function readStoredOrders(): StoredOrder[] {
   if (typeof window === "undefined") {
-    return mockOrders;
+    return defaultOrders;
   }
 
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
 
     if (!stored) {
-      cachedOrders = mockOrders;
+      if (cachedStorageValue === null) {
+        return cachedOrders;
+      }
+
+      cachedOrders = defaultOrders;
       cachedStorageValue = null;
-      return mockOrders;
+      return cachedOrders;
     }
 
     if (stored === cachedStorageValue) {
@@ -92,17 +121,17 @@ function readStoredOrders(): StoredOrder[] {
     }
 
     const parsed = JSON.parse(stored) as StoredOrder[];
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      cachedOrders = parsed;
+    if (Array.isArray(parsed)) {
+      cachedOrders = normalizeOrders(parsed) as StoredOrder[];
       cachedStorageValue = stored;
-      return parsed;
+      return cachedOrders;
     }
 
-    cachedOrders = mockOrders;
+    cachedOrders = defaultOrders;
     cachedStorageValue = null;
-    return mockOrders;
+    return cachedOrders;
   } catch {
-    return mockOrders;
+    return cachedOrders;
   }
 }
 
@@ -111,8 +140,9 @@ function writeStoredOrders(nextOrders: StoredOrder[]) {
     return;
   }
 
-  const serialized = JSON.stringify(nextOrders);
-  cachedOrders = nextOrders;
+  const normalizedOrders = normalizeOrders(nextOrders) as StoredOrder[];
+  const serialized = JSON.stringify(normalizedOrders);
+  cachedOrders = normalizedOrders;
   cachedStorageValue = serialized;
   window.localStorage.setItem(STORAGE_KEY, serialized);
   window.dispatchEvent(new Event(STORE_EVENT));
@@ -145,7 +175,7 @@ export function getOrdersSnapshot() {
 }
 
 export function useOrders() {
-  return useSyncExternalStore(subscribe, readStoredOrders, () => mockOrders);
+  return useSyncExternalStore(subscribe, readStoredOrders, () => defaultOrders);
 }
 
 export function saveOrders(nextOrders: StoredOrder[]) {
@@ -159,9 +189,10 @@ export function appendOrders(newOrders: StoredOrder[]) {
 
 export function upsertOrder(updatedOrder: StoredOrder) {
   const existingOrders = readStoredOrders();
+  const normalizedOrder = normalizeOrder(updatedOrder) as StoredOrder;
   const nextOrders = existingOrders.some((order) => order.id === updatedOrder.id)
-    ? existingOrders.map((order) => (order.id === updatedOrder.id ? updatedOrder : order))
-    : [updatedOrder, ...existingOrders];
+    ? existingOrders.map((order) => (order.id === updatedOrder.id ? normalizedOrder : order))
+    : [normalizedOrder, ...existingOrders];
 
   writeStoredOrders(nextOrders);
 }
@@ -228,7 +259,8 @@ export function generateLabelForItem(orderId: string, lineId: string): StoredPac
 
     const dn = getSalesPointDeliveryProfile(order.salesPointId);
     const doNumber = createDoNumber(order);
-    const label = buildLabelRecord(order, item, doNumber, dn);
+    const shipmentBatch = order.shipmentBatches.find((batch) => batch.items.some((batchItem) => batchItem.orderLineId === lineId));
+    const label = buildLabelRecord(order, item, doNumber, dn, shipmentBatch);
 
     const alreadyExists = order.storedLabels.some((l) => l.lineId === lineId);
     const nextLabels = alreadyExists
@@ -274,7 +306,10 @@ export function generateBulkLabels(orderId: string): StoredPackagingLabel[] {
 
     const newLabels = order.items
       .filter((item) => (item.deliveredQuantity ?? 0) > 0 && !order.storedLabels.some((l) => l.lineId === item.id))
-      .map((item) => buildLabelRecord(order, item, doNumber, dn));
+      .map((item) => {
+        const shipmentBatch = order.shipmentBatches.find((batch) => batch.items.some((batchItem) => batchItem.orderLineId === item.id));
+        return buildLabelRecord(order, item, doNumber, dn, shipmentBatch);
+      });
 
     const nextLabels = [...order.storedLabels, ...newLabels];
     generatedLabels = nextLabels;
@@ -301,6 +336,7 @@ export function regenerateDeliveryNote(orderId: string, scopeLineIds?: string[])
 
     const dn = getSalesPointDeliveryProfile(order.salesPointId);
     const doNumber = createDoNumber(order);
+    const shipmentBatch = order.shipmentBatches[0];
 
     const scopeLabels = scopeLineIds
       ? order.storedLabels.filter((l) => scopeLineIds.includes(l.lineId))
@@ -308,7 +344,7 @@ export function regenerateDeliveryNote(orderId: string, scopeLineIds?: string[])
 
     if (scopeLabels.length === 0) return order;
 
-    const note = buildDeliveryNoteRecord(order, scopeLabels, doNumber, dn);
+    const note = buildDeliveryNoteRecord(order, scopeLabels, doNumber, dn, shipmentBatch);
     const alreadyExists = order.storedDeliveryNotes.some((n) => n.id === note.id);
     const nextNotes = alreadyExists
       ? order.storedDeliveryNotes.map((n) => (n.id === note.id ? note : n))
@@ -321,6 +357,137 @@ export function regenerateDeliveryNote(orderId: string, scopeLineIds?: string[])
 
   writeStoredOrders(nextOrders);
   return generatedNote;
+}
+
+export function createShipmentBatch(orderId: string, input: CreateShipmentBatchInput = {}): ShipmentBatch | null {
+  const existingOrders = readStoredOrders();
+  let createdBatch: ShipmentBatch | null = null;
+
+  const nextOrders = existingOrders.map((order) => {
+    if (order.id !== orderId) return order;
+
+    const batchNumber = order.shipmentBatches.length + 1;
+    const requestedItems: Array<{ orderLineId: string; quantity: number; salesPointId?: string }> = input.items?.length
+      ? input.items
+      : order.items
+          .filter((item) => item.quantity > 0)
+          .map((item) => ({
+            orderLineId: item.id,
+            quantity: item.deliveredQuantity && item.deliveredQuantity > 0 ? item.deliveredQuantity : item.quantity,
+          }));
+
+    const items = requestedItems.map((item) => {
+      const line = order.items.find((entry) => entry.id === item.orderLineId);
+      return {
+        id: `${order.id}-SHP-${batchNumber}-${item.orderLineId}`,
+        orderLineId: item.orderLineId,
+        productCode: line?.productCode ?? "",
+        salesPointId: item.salesPointId ?? order.salesPointId,
+        quantity: clampQuantity(item.quantity, line?.quantity ?? item.quantity),
+        receivedQuantity: 0,
+      };
+    });
+
+    createdBatch = {
+      id: `${order.id}-SHP-${batchNumber}`,
+      orderId: order.id,
+      batchNumber,
+      status: "READY",
+      salesPointIds: [...new Set(items.map((item) => item.salesPointId))],
+      items,
+      deliveryConfirmations: [],
+    };
+
+    return normalizeOrder({
+      ...order,
+      shipmentBatches: [...order.shipmentBatches, createdBatch],
+    }) as StoredOrder;
+  });
+
+  writeStoredOrders(nextOrders);
+  return createdBatch;
+}
+
+export function dispatchShipmentBatch(orderId: string, batchId: string) {
+  const existingOrders = readStoredOrders();
+  const nextOrders = existingOrders.map((order) => {
+    if (order.id !== orderId) return order;
+
+    const shipmentBatches = order.shipmentBatches.map((batch) =>
+      batch.id === batchId
+        ? {
+            ...batch,
+            status: "DISPATCHED" as const,
+            dispatchedAt: new Date().toISOString(),
+          }
+        : batch,
+    );
+
+    return normalizeOrder({ ...order, shipmentBatches }) as StoredOrder;
+  });
+
+  writeStoredOrders(nextOrders);
+}
+
+export function uploadPodForShipmentBatch(orderId: string, batchId: string, input: PodUploadInput): DeliveryConfirmation | null {
+  const existingOrders = readStoredOrders();
+  let confirmation: DeliveryConfirmation | null = null;
+
+  const nextOrders = existingOrders.map((order) => {
+    if (order.id !== orderId) return order;
+
+    const shipmentBatches = order.shipmentBatches.map((batch) => {
+      if (batch.id !== batchId) return batch;
+
+      const receivedAt = input.receivedAt ?? new Date().toISOString();
+      confirmation = {
+        id: `${batch.id}-POD-${batch.deliveryConfirmations.length + 1}`,
+        shipmentBatchId: batch.id,
+        salesPointId: input.salesPointId ?? batch.salesPointIds[0] ?? order.salesPointId,
+        deliveryNoteId: batch.deliveryNoteId,
+        receiverName: input.receiverName,
+        receivedAt,
+        status: "SUBMITTED",
+        submittedAt: new Date().toISOString(),
+        scannedDeliveryNoteUrl: input.scannedDeliveryNoteUrl,
+        photoUrls: input.photoUrls ?? [],
+        itemConfirmations: batch.items.map((item) => ({
+          shipmentItemId: item.id,
+          claimedReceivedQuantity: item.quantity,
+        })),
+        remarks: input.remarks,
+      };
+
+      return {
+        ...batch,
+        status: "FULLY_RECEIVED" as const,
+        items: batch.items.map((item) => ({ ...item, receivedQuantity: item.quantity })),
+        deliveryConfirmations: [...batch.deliveryConfirmations, confirmation as DeliveryConfirmation],
+      };
+    });
+
+    const updatedItems = order.items.map((item) => {
+      const receivedQuantity = shipmentBatches.reduce(
+        (total, batch) =>
+          total +
+          batch.items
+            .filter((shipmentItem) => shipmentItem.orderLineId === item.id)
+            .reduce((shipmentTotal, shipmentItem) => shipmentTotal + shipmentItem.receivedQuantity, 0),
+        0,
+      );
+
+      return {
+        ...item,
+        deliveredQuantity: receivedQuantity,
+        status: receivedQuantity >= item.quantity ? "Delivered" as const : item.status,
+      };
+    });
+
+    return normalizeOrder({ ...order, items: updatedItems, shipmentBatches }) as StoredOrder;
+  });
+
+  writeStoredOrders(nextOrders);
+  return confirmation;
 }
 
 export function createManualOrder(draft: ManualOrderDraft): StoredOrder {
@@ -336,9 +503,11 @@ export function createManualOrder(draft: ManualOrderDraft): StoredOrder {
   }));
   const salesPointClient = getSalesPointClientBinding(draft.salesPointId);
 
-  return {
+  return normalizeOrder({
     id: makeOrderId(),
     campaign: draft.campaign.trim(),
+    tags: normalizeOrderTags(draft.tags),
+    referenceLink: normalizeOrderReferenceLink(draft.referenceLink),
     status: getOrderRequestStatus(items),
     createdDate: draft.createdDate ?? toIsoDate(),
     deadline: draft.deadline.trim(),
@@ -350,8 +519,8 @@ export function createManualOrder(draft: ManualOrderDraft): StoredOrder {
     clientName: salesPointClient?.clientName,
     clientEntityName: salesPointClient?.clientEntityName,
     picProject: {
-      name: draft.picProjectName.trim(),
-      email: draft.picProjectEmail.trim(),
+      name: draft.picProjectName?.trim() ?? "",
+      email: draft.picProjectEmail?.trim() ?? "",
     },
     sourceType: draft.sourceType ?? "manual",
     note: draft.note?.trim(),
@@ -359,7 +528,7 @@ export function createManualOrder(draft: ManualOrderDraft): StoredOrder {
     labelStatus: "none" as LabelStatus,
     storedLabels: [],
     storedDeliveryNotes: [],
-  };
+  }) as StoredOrder;
 }
 
 export function startProduction(orderId: string) {

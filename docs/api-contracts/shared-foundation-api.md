@@ -250,17 +250,20 @@ export enum DeliveryConfirmationStatus {
   CLOSED = "CLOSED",
 }
 
+// AMENDED (V2 implementation alignment): the previous draft of this enum used
+// NOT_STARTED/DRAFT/PENDING/PARTIALLY_VERIFIED/MISSING values that conflicted with
+// the entity contracts (sales-point-api, shipment-batch-api, delivery-note-api) and
+// docs/implementation/01-domain-model-refactor.md, which all agree on the vocabulary
+// below. The entity-contract vocabulary is canonical. "Missing POD" is a derived
+// projection flag (printed/dispatched without submission past threshold), not a status.
 export enum PodStatus {
   NOT_REQUIRED = "NOT_REQUIRED",
-  NOT_STARTED = "NOT_STARTED",
-  DRAFT = "DRAFT",
-  PENDING = "PENDING",
-  PARTIALLY_VERIFIED = "PARTIALLY_VERIFIED",
+  PENDING_UPLOAD = "PENDING_UPLOAD",
+  SUBMITTED = "SUBMITTED",
   VERIFIED = "VERIFIED",
   REJECTED = "REJECTED",
   CORRECTION_REQUESTED = "CORRECTION_REQUESTED",
   VARIANCE = "VARIANCE",
-  MISSING = "MISSING",
 }
 ```
 

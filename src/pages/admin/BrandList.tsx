@@ -2,8 +2,8 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { mockBrands } from "@/lib/mockData";
-import { Search, Plus, MoreHorizontal, Bookmark } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Bookmark, MoreHorizontal, Plus, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,12 +24,12 @@ import {
 
 export function BrandList() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   const filteredBrands = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-
     if (!query) return mockBrands;
-
     return mockBrands.filter((brand) => {
       return (
         brand.name.toLowerCase().includes(query) ||
@@ -39,18 +39,34 @@ export function BrandList() {
     });
   }, [searchQuery]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredBrands.length / pageSize));
+  const visibleBrands = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredBrands.slice(start, start + pageSize);
+  }, [currentPage, filteredBrands]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role="admin" />
+      <Sidebar userRole="admin" />
       <ContentArea>
         <Header title="Brand Management" />
-        
+
         <main className="space-y-4 p-4 sm:p-6 lg:p-8">
-          <section className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between animate-in-smart">
-            <div className="relative w-full xl:max-w-xl group">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
-              <Input 
-                placeholder="Search brands..." 
+          <section className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="relative w-full xl:max-w-xl">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search brands..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -62,7 +78,7 @@ export function BrandList() {
             </Button>
           </section>
 
-          <Card className="border-border/70 shadow-sm p-0 animate-in-smart" style={{ animationDelay: '100ms' }}>
+          <Card className="border-border/70 shadow-sm p-0">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
@@ -74,11 +90,9 @@ export function BrandList() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredBrands.map((brand, index) => (
+                  {visibleBrands.map((brand, index) => (
                     <TableRow
                       key={`${brand.alias}-${brand.sysname}-${index}`}
-                      className="group animate-in-smart"
-                      style={{ animationDelay: `${150 + (index * 20)}ms` }}
                     >
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -86,22 +100,22 @@ export function BrandList() {
                             <Bookmark className="w-4 h-4" />
                           </div>
                           <div>
-                            <p className="text-sm font-medium leading-tight">{brand.name}</p>
-                            <p className="text-[10px] text-muted-foreground mt-1 font-mono uppercase tracking-tighter">
+                            <p className="text-sm font-medium">{brand.name}</p>
+                            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                               Brand master record
                             </p>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm font-medium text-foreground font-mono whitespace-nowrap">
+                        <span className="text-sm text-muted-foreground font-mono">
                           {brand.alias}
                         </span>
                       </TableCell>
                       <TableCell>
                         <span className="text-sm text-muted-foreground font-mono">{brand.sysname}</span>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -118,21 +132,27 @@ export function BrandList() {
                   ))}
                 </TableBody>
               </Table>
-              {filteredBrands.length === 0 && (
+              {visibleBrands.length === 0 && (
                 <div className="px-6 py-12 text-center text-muted-foreground text-sm">
                   No brands match your search.
                 </div>
               )}
             </CardContent>
-            <div className="p-4 bg-muted/30 border-t border-border flex items-center justify-between">
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
-                Showing {filteredBrands.length} of {mockBrands.length} brands
-              </span>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Brand Directory
-              </span>
-            </div>
           </Card>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredBrands.length)} of {filteredBrands.length} rows
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setCurrentPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1}>
+                Previous
+              </Button>
+              <Button variant="outline" onClick={() => setCurrentPage((value) => Math.min(totalPages, value + 1))} disabled={currentPage === totalPages}>
+                Next
+              </Button>
+            </div>
+          </div>
         </main>
       </ContentArea>
     </div>

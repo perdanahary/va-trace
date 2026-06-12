@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
@@ -12,6 +13,7 @@ import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { OrderMetadataSummary } from "@/components/shared/OrderMetadataSummary";
 import {
   Table,
   TableBody,
@@ -22,18 +24,50 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { cn } from "@/lib/utils";
-import { adminMetrics } from "@/lib/mockData";
 import { useOrders } from "@/lib/orderStore";
 
 interface AdminDashboardProps {
-  role?: UserRole;
+  userRole?: UserRole;
 }
 
-export function AdminDashboard({ role = "admin" }: AdminDashboardProps) {
+export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
   const navigate = useNavigate();
   const orders = useOrders();
+
+  const metrics = useMemo(() => {
+    const now = new Date();
+    const normalize = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const today = normalize(now);
+
+    const activeOrders = orders.filter((o) => o.productionStatus !== "COMPLETED").length;
+
+    const atRisk = orders.filter((o) => {
+      if (o.productionStatus === "COMPLETED" && o.distributionStatus === "FULLY_RECEIVED") return false;
+      const parsed = new Date(o.deadline);
+      if (Number.isNaN(parsed.getTime()) || !o.deadline.includes(parsed.getFullYear().toString())) return false;
+      const diff = Math.round((normalize(parsed).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return diff >= 0 && diff <= 3;
+    }).length;
+
+    const completed = orders.filter(
+      (o) => o.productionStatus === "COMPLETED" && o.distributionStatus === "FULLY_RECEIVED",
+    ).length;
+
+    const thisMonth = orders.filter((o) => {
+      const created = new Date(o.createdDate);
+      return !Number.isNaN(created.getTime()) && created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
+    }).length;
+
+    return [
+      { label: "Active Orders", value: String(activeOrders), change: "Ongoing orders", color: "text-primary" },
+      { label: "At Risk", value: String(atRisk), change: "Deadline ≤ 3 days", color: "text-destructive" },
+      { label: "Completed", value: String(completed), change: "Completed orders", color: "text-success" },
+      { label: "Work Volume This Month", value: String(thisMonth), change: "Orders this month", color: "text-primary" },
+    ];
+  }, [orders]);
+
   const getHeaderTitle = () => {
-    switch (role) {
+    switch (userRole) {
       case "analyst":
         return "Insights & Reports";
       case "operator":
@@ -45,13 +79,13 @@ export function AdminDashboard({ role = "admin" }: AdminDashboardProps) {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role={role} />
+      <Sidebar userRole={userRole} />
       <ContentArea>
         <Header title={getHeaderTitle()} />
 
         <main className="space-y-8 p-4 sm:p-6 lg:p-8">
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {adminMetrics.map((metric, index) => {
+            {metrics.map((metric, index) => {
               const filterState = getMetricFilterState(metric.label);
               return (
                 <Card
@@ -89,27 +123,53 @@ export function AdminDashboard({ role = "admin" }: AdminDashboardProps) {
               </Button>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>Project</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Deadline</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {orders.slice(0, 5).map((order) => {
+              {orders.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <div className="mx-auto max-w-sm space-y-2 text-center">
+                    <p className="text-sm font-medium">No orders yet</p>
+                    <p className="text-sm text-muted-foreground">
+                      Import purchase orders or add them manually to get started.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order ID</TableHead>
+                      <TableHead>Project</TableHead>
+                      <TableHead>Production Status</TableHead>
+                      <TableHead>Distribution Status</TableHead>
+                      <TableHead>Delivery Progress</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Deadline</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {orders.slice(0, 5).map((order) => {
                     const deadlineInfo = getDeadlineInfo(order.deadline, order.createdDate);
                     return (
                       <TableRow key={order.id}>
                         <TableCell className="font-mono text-xs font-medium">{order.id}</TableCell>
-                        <TableCell className="max-w-[260px] truncate text-sm">{order.campaign}</TableCell>
+                        <TableCell className="max-w-[260px] text-sm">
+                          <div className="space-y-1">
+                            <div className="truncate">{order.campaign ?? ""}</div>
+                            <OrderMetadataSummary tags={order.tags} referenceLink={order.referenceLink} />
+                          </div>
+                        </TableCell>
                         <TableCell className="whitespace-nowrap">
-                          <StatusBadge status={order.status} />
+                          <StatusBadge status={order.productionStatus} />
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <StatusBadge status={order.distributionStatus} />
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">
+                          <span className="font-medium text-foreground">{order.deliveryProgress.percentage}%</span>
+                          <span className="ml-1 text-muted-foreground">
+                            ({order.deliveryProgress.receivedQuantity}/{order.deliveryProgress.allocatedQuantity})
+                          </span>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{formatCreatedDate(order.createdDate)}</TableCell>
                         <TableCell className={cn("text-sm", deadlineInfo.isOverdue ? "font-semibold text-destructive" : deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3 ? "font-semibold text-warning" : "text-muted-foreground")}>
@@ -131,6 +191,7 @@ export function AdminDashboard({ role = "admin" }: AdminDashboardProps) {
                   })}
                 </TableBody>
               </Table>
+              )}
             </CardContent>
           </Card>
         </main>

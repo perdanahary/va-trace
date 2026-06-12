@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Edit2, Eye, MoreHorizontal, Plus, Search, Shield, Trash2, User as UserIcon } from "lucide-react";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
@@ -16,22 +16,44 @@ import { useUserStore, type AppUser } from "@/lib/userStore";
 import { UserModal } from "./UserModal";
 
 interface UserListProps {
-  role?: Extract<UserRole, "admin" | "analyst">;
+  userRole?: Extract<UserRole, "admin" | "analyst">;
 }
 
-export function UserList({ role = "admin" }: UserListProps) {
+export function UserList({ userRole = "admin" }: UserListProps) {
   const { users, addUser, updateUser, deleteUser } = useUserStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const canManageUsers = role === "admin";
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+  const canManageUsers = userRole === "admin";
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.company.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredUsers = useMemo(
+    () =>
+      users.filter(
+        (user) =>
+          user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          user.company.toLowerCase().includes(searchQuery.toLowerCase()),
+      ),
+    [users, searchQuery],
   );
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
+  const visibleUsers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredUsers.slice(start, start + pageSize);
+  }, [currentPage, filteredUsers]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   const handleSave = (userData: Omit<AppUser, "id"> | AppUser) => {
     if ("id" in userData) {
@@ -52,7 +74,7 @@ export function UserList({ role = "admin" }: UserListProps) {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role={role} />
+      <Sidebar userRole={userRole} />
       <ContentArea>
         <Header title={canManageUsers ? "User Management" : "User Directory"} />
 
@@ -106,7 +128,7 @@ export function UserList({ role = "admin" }: UserListProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.map((user) => (
+                  {visibleUsers.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -115,7 +137,9 @@ export function UserList({ role = "admin" }: UserListProps) {
                           </div>
                           <div>
                             <p className="text-sm font-medium">{user.name}</p>
-                            <p className="text-xs text-muted-foreground">{user.email}</p>
+                            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                              {user.email}
+                            </p>
                           </div>
                         </div>
                       </TableCell>
@@ -127,7 +151,7 @@ export function UserList({ role = "admin" }: UserListProps) {
                               user.role === "admin"
                                 ? "text-primary"
                                 : user.role === "analyst"
-                                  ? "text-blue-500"
+                                  ? "text-processing"
                                   : user.role === "operator"
                                     ? "text-success"
                                     : "text-muted-foreground",
@@ -140,7 +164,7 @@ export function UserList({ role = "admin" }: UserListProps) {
                       <TableCell className="whitespace-nowrap">
                         <StatusBadge status={user.status} />
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
                         {canManageUsers ? (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -170,9 +194,9 @@ export function UserList({ role = "admin" }: UserListProps) {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {filteredUsers.length === 0 ? (
+                  {visibleUsers.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
+                      <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
                         No users found matching your search.
                       </TableCell>
                     </TableRow>
@@ -181,6 +205,20 @@ export function UserList({ role = "admin" }: UserListProps) {
               </Table>
             </CardContent>
           </Card>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredUsers.length)} of {filteredUsers.length} rows
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setCurrentPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1}>
+                Previous
+              </Button>
+              <Button variant="outline" onClick={() => setCurrentPage((value) => Math.min(totalPages, value + 1))} disabled={currentPage === totalPages}>
+                Next
+              </Button>
+            </div>
+          </div>
         </main>
       </ContentArea>
 

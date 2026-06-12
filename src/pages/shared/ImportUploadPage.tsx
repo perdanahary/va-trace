@@ -16,18 +16,18 @@ import { cn } from "@/lib/utils";
 import { getImportBatchSummary, useImportStore } from "@/lib/importStore";
 
 interface ImportUploadPageProps {
-  role?: UserRole;
+  userRole?: UserRole;
 }
 
-export function ImportUploadPage({ role = "client" }: ImportUploadPageProps) {
+export function ImportUploadPage({ userRole = "client" }: ImportUploadPageProps) {
   const { batches, isHydrating, uploadWorkbook } = useImportStore();
   const [dragActive, setDragActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastUploadedBatch, setLastUploadedBatch] = useState<Awaited<ReturnType<typeof uploadWorkbook>> | null>(null);
 
-  const batchLinkBase = role === "client" ? "/admin/imports" : `/${role}/imports`;
-  const pageTitle = role === "client" ? "Bulk PO Upload" : "Import Inbox";
+  const batchLinkBase = userRole === "client" ? "/admin/imports" : `/${userRole}/imports`;
+  const pageTitle = userRole === "client" ? "Bulk PO Upload" : "Import Inbox";
   const visibleBatches = useMemo(() => batches.slice(0, 8), [batches]);
 
   const handleUpload = async (file: File | null) => {
@@ -38,7 +38,7 @@ export function ImportUploadPage({ role = "client" }: ImportUploadPageProps) {
     setIsUploading(true);
 
     try {
-      const nextBatch = await uploadWorkbook(file, role === "client" ? "Client Portal" : "Operations Desk");
+      const nextBatch = await uploadWorkbook(file, userRole === "client" ? "Client Portal" : "Operations Desk");
       setLastUploadedBatch(nextBatch);
       toast.success(`Uploaded ${nextBatch.fileName}. Review the staged batch next.`);
     } catch (error) {
@@ -50,7 +50,7 @@ export function ImportUploadPage({ role = "client" }: ImportUploadPageProps) {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role={role} />
+      <Sidebar userRole={userRole} />
       <ContentArea>
         <Header title={pageTitle} />
 

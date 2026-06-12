@@ -24,7 +24,7 @@ export function VendorProfile() {
   if (!vendorData.user) {
     return (
       <div className="flex min-h-screen bg-background">
-        <Sidebar role="vendor" />
+        <Sidebar userRole="vendor" />
         <ContentArea>
           <Header title="My Profile" />
           <main className="flex items-center justify-center p-8">
@@ -39,14 +39,14 @@ export function VendorProfile() {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role="vendor" />
+      <Sidebar userRole="vendor" />
       <ContentArea>
         <Header title="My Profile" />
 
         <main className="space-y-6 p-4 sm:p-6 lg:p-8">
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+          <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-foreground shadow-sm">
             <p className="font-medium">Informasi</p>
-            <p>Silakan hubungi PMG Indonesia untuk melakukan pembaruan profil perusahaan Anda.</p>
+            <p className="mt-1 text-muted-foreground">Silakan hubungi PMG Indonesia untuk melakukan pembaruan profil perusahaan Anda.</p>
           </div>
 
           <Card>
@@ -62,7 +62,7 @@ export function VendorProfile() {
               <Field label="Perusahaan" value={vendor.company} />
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">Status</p>
-                <Badge variant={vendor.status === "Active" ? "default" : "secondary"}>
+                <Badge variant={vendor.status === "Active" ? "success" : "secondary"}>
                   {vendor.status}
                 </Badge>
               </div>
@@ -85,7 +85,7 @@ export function VendorProfile() {
                 <Field label="Telepon" value={supplier.phone} />
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground">Status</p>
-                  <Badge variant={supplier.status === "ACTIVE" ? "default" : "secondary"}>
+                  <Badge variant={supplier.status === "ACTIVE" ? "success" : "secondary"}>
                     {supplier.status}
                   </Badge>
                 </div>

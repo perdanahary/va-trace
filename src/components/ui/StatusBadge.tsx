@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
+import { formatDomainStatusLabel } from "@/lib/orderStatus";
 import { cn } from "@/lib/utils";
-import type { OrderRequestStatus } from "@/lib/orderStatus";
+import type { DistributionStatus, OrderRequestStatus, ProductionStatus, ShipmentBatchStatus } from "@/lib/orderStatus";
 
 export type OrderStatus =
   | "New"
@@ -13,7 +14,13 @@ export type OrderStatus =
   | "Waiting";
 
 export type SupplierStatusLabel = "Active" | "Inactive";
-export type StatusBadgeValue = OrderStatus | OrderRequestStatus | SupplierStatusLabel;
+export type StatusBadgeValue =
+  | OrderStatus
+  | OrderRequestStatus
+  | SupplierStatusLabel
+  | ProductionStatus
+  | DistributionStatus
+  | ShipmentBatchStatus;
 
 interface StatusBadgeProps {
   status: StatusBadgeValue;
@@ -32,10 +39,30 @@ const statusVariants: Partial<Record<StatusBadgeValue, "success" | "processing" 
   Waiting: "warning",
   Active: "success",
   Inactive: "secondary",
+  NEW: "secondary",
+  SUBMITTED: "processing",
+  ACCEPTED: "processing",
+  PRINTING: "processing",
+  FINISHING: "processing",
+  QUALITY_CONTROL: "processing",
+  READY_FOR_DISTRIBUTION: "processing",
+  CANCELLED: "destructive",
+  COMPLETED: "success",
+  NOT_STARTED: "secondary",
+  PARTIALLY_DISTRIBUTED: "processing",
+  FULLY_DISTRIBUTED: "processing",
+  PARTIALLY_RECEIVED: "warning",
+  FULLY_RECEIVED: "success",
+  EXCEPTION: "destructive",
+  DRAFT: "secondary",
+  READY: "processing",
+  DISPATCHED: "processing",
+  IN_TRANSIT: "processing",
+  CLOSED: "success",
 };
 
 export function StatusBadge({ status, labelMap, className }: StatusBadgeProps) {
-  const displayStatus = (labelMap?.[status] ?? status) as StatusBadgeValue;
+  const displayStatus = labelMap?.[status] ?? (status.includes("_") ? formatDomainStatusLabel(status) : status);
 
   if (status.startsWith("Partial ")) {
     const baseStatus = status.replace("Partial ", "") as OrderStatus;

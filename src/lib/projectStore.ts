@@ -36,7 +36,7 @@ function dedupeProjects(projects: string[]) {
 }
 
 function getSeedProjects() {
-  return dedupeProjects(mockOrders.map((order) => order.campaign));
+  return dedupeProjects(mockOrders.map((order) => order.campaign ?? ""));
 }
 
 function readStoredProjects(): string[] {

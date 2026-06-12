@@ -61,7 +61,7 @@ export function UserModal({ isOpen, onClose, onSave, user }: UserModalProps) {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="text-sm font-medium">Full Name</label>
             <Input
               required
@@ -72,7 +72,7 @@ export function UserModal({ isOpen, onClose, onSave, user }: UserModalProps) {
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="text-sm font-medium">Email Address</label>
             <Input
               required
@@ -84,7 +84,7 @@ export function UserModal({ isOpen, onClose, onSave, user }: UserModalProps) {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="text-sm font-medium">Role</label>
               <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value as UserRole })}>
                 <SelectTrigger>
@@ -99,7 +99,7 @@ export function UserModal({ isOpen, onClose, onSave, user }: UserModalProps) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="text-sm font-medium">Status</label>
               <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value as "Active" | "Inactive" })}>
                 <SelectTrigger>
@@ -113,7 +113,7 @@ export function UserModal({ isOpen, onClose, onSave, user }: UserModalProps) {
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="text-sm font-medium">Company/Affiliation</label>
             <Input
               required

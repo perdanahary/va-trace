@@ -33,8 +33,8 @@ export function FilterField({
   className?: string;
 }) {
   return (
-    <div className={cn("space-y-2", className)}>
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+    <div className={cn("space-y-1.5", className)}>
+      <label className="text-sm font-medium text-muted-foreground">{label}</label>
       {children}
     </div>
   );

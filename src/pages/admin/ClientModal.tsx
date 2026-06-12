@@ -28,6 +28,7 @@ const emptyForm: ClientFormData = {
     country: "Indonesia",
     city: "",
     province: "",
+    subDistrict: "",
     address: "",
     postalCode: "",
   },
@@ -80,7 +81,7 @@ export function ClientModal({ isOpen, onClose, onSave, client }: ClientModalProp
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="text-sm font-medium">Name</label>
               <Input
                 required
@@ -89,7 +90,7 @@ export function ClientModal({ isOpen, onClose, onSave, client }: ClientModalProp
                 placeholder="e.g. Sampoerna"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="text-sm font-medium">Company / Entity</label>
               <Input
                 required
@@ -98,7 +99,7 @@ export function ClientModal({ isOpen, onClose, onSave, client }: ClientModalProp
                 placeholder="e.g. PT HM Sampoerna Tbk"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="text-sm font-medium">NPWP (Business Number)</label>
               <Input
                 value={formData.npwp}
@@ -106,7 +107,7 @@ export function ClientModal({ isOpen, onClose, onSave, client }: ClientModalProp
                 placeholder="Optional"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="text-sm font-medium">Email</label>
               <Input
                 type="email"
@@ -115,7 +116,7 @@ export function ClientModal({ isOpen, onClose, onSave, client }: ClientModalProp
                 placeholder="Optional"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="text-sm font-medium">Phone Number</label>
               <Input
                 value={formData.phone}
@@ -123,7 +124,7 @@ export function ClientModal({ isOpen, onClose, onSave, client }: ClientModalProp
                 placeholder="Optional"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="text-sm font-medium">Bound User</label>
               <Select value={formData.linkedUserId} onValueChange={(value) => setFormData((current) => ({ ...current, linkedUserId: value }))}>
                 <SelectTrigger>
@@ -140,7 +141,7 @@ export function ClientModal({ isOpen, onClose, onSave, client }: ClientModalProp
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="text-sm font-medium">Additional Information (Public)</label>
             <Textarea
               value={formData.additionalInfo}
@@ -157,7 +158,7 @@ export function ClientModal({ isOpen, onClose, onSave, client }: ClientModalProp
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <label className="text-sm font-medium">Country</label>
                 <Select
                   value={formData.shippingAddress.country}
@@ -176,7 +177,7 @@ export function ClientModal({ isOpen, onClose, onSave, client }: ClientModalProp
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <label className="text-sm font-medium">Province</label>
                 <Input
                   value={formData.shippingAddress.province}
@@ -188,7 +189,7 @@ export function ClientModal({ isOpen, onClose, onSave, client }: ClientModalProp
                   }
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <label className="text-sm font-medium">City</label>
                 <Input
                   value={formData.shippingAddress.city}
@@ -200,7 +201,19 @@ export function ClientModal({ isOpen, onClose, onSave, client }: ClientModalProp
                   }
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Sub-district</label>
+                <Input
+                  value={formData.shippingAddress.subDistrict}
+                  onChange={(event) =>
+                    setFormData((current) => ({
+                      ...current,
+                      shippingAddress: { ...current.shippingAddress, subDistrict: event.target.value },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
                 <label className="text-sm font-medium">Postal Code</label>
                 <Input
                   value={formData.shippingAddress.postalCode}
@@ -214,7 +227,7 @@ export function ClientModal({ isOpen, onClose, onSave, client }: ClientModalProp
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label className="text-sm font-medium">Address</label>
               <Textarea
                 value={formData.shippingAddress.address}

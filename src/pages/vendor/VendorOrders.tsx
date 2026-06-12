@@ -1,62 +1,147 @@
 import { useEffect, useMemo, useState } from "react";
-import { Download, Eye, Filter, MoreHorizontal, Play, Search } from "lucide-react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { Download, Eye, Play, Search } from "lucide-react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
-import { FilterField, FilterSection } from "@/components/shared/FilterSection";
+import { AppliedFilterRow, FilterMenu } from "@/components/shared/AdvancedFilterBar";
 import { Header } from "@/components/layout/Header";
-import { StatusBadge } from "@/components/ui/StatusBadge";
+import { OrderRequestTable, type OrderRequestTableColumn } from "@/components/domain/tables/OrderRequestTable";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
-import { getBaseOrderStatus } from "@/lib/orderStatus";
-import { startProduction, useOrders, type StoredOrder } from "@/lib/orderStore";
+import { startProduction, useOrders } from "@/lib/orderStore";
+import { useUserStore } from "@/lib/userStore";
+import type { OrderListRow } from "@/lib/types/v2/orderRequest";
+import { DISTRIBUTION_STATUSES, PRODUCTION_STATUSES } from "@/lib/types/v2/status";
+import { buildOrderListRowsFromStoredOrders } from "@/lib/v2/compat/orderListRows";
+import { formatStatusLabel } from "@/lib/v2/selectors/derivedStatus";
+import { matchesFilterValue } from "@/components/shared/AdvancedFilterBar";
+
+const vendorOrderColumns: OrderRequestTableColumn[] = [
+  "clientPo",
+  "orderRequest",
+  "project",
+  "created",
+  "deadline",
+  "production",
+  "distribution",
+  "readyQuantity",
+  "shippedQuantity",
+  "pod",
+];
 
 export function VendorOrders() {
   const orders = useOrders();
-  const navigate = useNavigate();
+  const { users } = useUserStore();
   const location = useLocation();
+  const vendorCompany = useMemo(() => users.find((user) => user.role === "vendor" && user.status === "Active")?.company ?? null, [users]);
+  const rows = useMemo(() => {
+    const nextRows = buildOrderListRowsFromStoredOrders(orders, "/vendor");
+    if (!vendorCompany) {
+      return nextRows;
+    }
+
+    const vendorSearch = vendorCompany.toLowerCase();
+    return nextRows.filter((row) => row.vendorName.toLowerCase().includes(vendorSearch));
+  }, [orders, vendorCompany]);
+
   const [searchTerm, setSearchTerm] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState("All Statuses");
+  const [productionOperator, setProductionOperator] = useState<"is" | "is not">("is");
+  const [selectedProductionStatus, setSelectedProductionStatus] = useState("all");
+  const [distributionOperator, setDistributionOperator] = useState<"is" | "is not">("is");
+  const [selectedDistributionStatus, setSelectedDistributionStatus] = useState("all");
+  const [legacyOperator, setLegacyOperator] = useState<"is" | "is not">("is");
+  const [legacyStatusFilter, setLegacyStatusFilter] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
-
-  const statusOptions = useMemo(
-    () => ["All Statuses", ...Array.from(new Set(orders.map((o) => o.status))).sort()],
-    [orders],
+  const legacyStatusOptions = useMemo(
+    () => Array.from(new Set(rows.map((row) => row.legacyStatusLabel).filter((status): status is string => Boolean(status)))).sort(),
+    [rows],
   );
-  const filteredOrders = useMemo(() => {
+
+  const filterGroups = useMemo(
+    () => [
+      {
+        id: "production",
+        label: "Production",
+        operator: productionOperator,
+        value: selectedProductionStatus === "all" ? null : selectedProductionStatus,
+        onValueChange: (value: string | null) => setSelectedProductionStatus(value ?? "all"),
+        onOperatorChange: setProductionOperator,
+        allLabel: "All production",
+        options: PRODUCTION_STATUSES.map((status) => ({
+          label: formatStatusLabel(status),
+          value: status,
+          keywords: [status],
+        })),
+      },
+      {
+        id: "distribution",
+        label: "Distribution",
+        operator: distributionOperator,
+        value: selectedDistributionStatus === "all" ? null : selectedDistributionStatus,
+        onValueChange: (value: string | null) => setSelectedDistributionStatus(value ?? "all"),
+        onOperatorChange: setDistributionOperator,
+        allLabel: "All distribution",
+        options: DISTRIBUTION_STATUSES.map((status) => ({
+          label: formatStatusLabel(status),
+          value: status,
+          keywords: [status],
+        })),
+      },
+      {
+        id: "legacy-status",
+        label: "Legacy Status",
+        operator: legacyOperator,
+        value: legacyStatusFilter,
+        onValueChange: setLegacyStatusFilter,
+        onOperatorChange: setLegacyOperator,
+        allLabel: "All legacy statuses",
+        options: legacyStatusOptions.map((status) => ({
+          label: status,
+          value: status,
+          keywords: [status],
+        })),
+      },
+    ],
+    [legacyStatusFilter, legacyStatusOptions, selectedDistributionStatus, selectedProductionStatus],
+  );
+
+  const filteredRows = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
 
-    return orders.filter((order) => {
+    return rows.filter((row) => {
       const matchesSearch =
         !query ||
-        [order.id, order.clientPO, order.campaign, order.supplier, formatCreatedDate(order.createdDate), order.deadline].some((v) =>
-          v.toLowerCase().includes(query),
-        );
-      const matchesStatus = selectedStatus === "All Statuses" || order.status === selectedStatus;
-      return matchesSearch && matchesStatus;
-    });
-  }, [orders, searchTerm, selectedStatus]);
+        [
+          row.orderRequestNumber,
+          row.clientPoNumber ?? "",
+          row.projectName,
+          row.vendorName,
+          row.deadlineDate,
+          row.legacyStatusLabel ?? "",
+          row.tags?.join(" ") ?? "",
+          row.referenceLink?.displayTitle ?? row.referenceLink?.url ?? "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+      const matchesProduction =
+        selectedProductionStatus === "all" || matchesFilterValue(productionOperator, row.productionStatus, selectedProductionStatus);
+      const matchesDistribution =
+        selectedDistributionStatus === "all" || matchesFilterValue(distributionOperator, row.distributionStatus, selectedDistributionStatus);
+      const matchesLegacyStatus = !legacyStatusFilter || matchesFilterValue(legacyOperator, row.legacyStatusLabel ?? "", legacyStatusFilter);
 
-  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / pageSize));
-  const visibleOrders = useMemo(() => {
+      return matchesSearch && matchesProduction && matchesDistribution && matchesLegacyStatus;
+    });
+  }, [distributionOperator, legacyOperator, legacyStatusFilter, productionOperator, rows, searchTerm, selectedDistributionStatus, selectedProductionStatus]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const visibleRows = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredOrders.slice(start, start + pageSize);
-  }, [filteredOrders, currentPage]);
+    return filteredRows.slice(start, start + pageSize);
+  }, [currentPage, filteredRows]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -66,25 +151,29 @@ export function VendorOrders() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedStatus]);
+  }, [distributionOperator, legacyOperator, legacyStatusFilter, productionOperator, searchTerm, selectedDistributionStatus, selectedProductionStatus]);
 
   useEffect(() => {
     const state = location.state as { initialStatus?: string } | null;
     if (state?.initialStatus && state.initialStatus !== "All Statuses") {
-      setSelectedStatus(state.initialStatus);
-      setShowFilters(true);
+      setLegacyStatusFilter(state.initialStatus);
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
 
   const clearFilters = () => {
-    setSelectedStatus("All Statuses");
+    setSelectedProductionStatus("all");
+    setProductionOperator("is");
+    setSelectedDistributionStatus("all");
+    setDistributionOperator("is");
+    setLegacyStatusFilter(null);
+    setLegacyOperator("is");
     setSearchTerm("");
   };
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role="vendor" />
+      <Sidebar userRole="vendor" />
       <ContentArea>
         <Header title="My Orders" />
 
@@ -95,19 +184,13 @@ export function VendorOrders() {
               <Input
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search by order ID or client PO..."
+                placeholder="Search by order, client PO, project, or status..."
                 className="pl-9"
               />
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant={showFilters || selectedStatus !== "All Statuses" ? "secondary" : "outline"}
-                onClick={() => setShowFilters((v) => !v)}
-              >
-                <Filter className="h-4 w-4" />
-                Filters
-              </Button>
+              <FilterMenu groups={filterGroups} />
               <Button variant="outline">
                 <Download className="h-4 w-4" />
                 Export CSV
@@ -115,175 +198,28 @@ export function VendorOrders() {
             </div>
           </section>
 
-          {showFilters ? (
-            <FilterSection
-              actions={
-                <>
-                  <Button
-                    variant="ghost"
-                    onClick={clearFilters}
-                    className="h-auto px-0 font-normal text-muted-foreground hover:bg-transparent hover:text-primary hover:underline"
-                  >
-                    Reset all filters
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => setShowFilters(false)}
-                    className="h-auto px-0 font-normal text-muted-foreground hover:bg-transparent hover:text-primary hover:underline"
-                  >
-                    Hide filters
-                  </Button>
-                </>
-              }
-            >
-              <FilterField label="Status">
-                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {status}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FilterField>
-            </FilterSection>
-          ) : null}
+          <AppliedFilterRow groups={filterGroups} onClearAll={clearFilters} />
 
           <Card className="border-border/70 py-0 shadow-sm">
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Client PO</TableHead>
-                    <TableHead>Order Request</TableHead>
-                    <TableHead>Date Created</TableHead>
-                    <TableHead>Deadline</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visibleOrders.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="py-16 text-center">
-                        <div className="mx-auto max-w-sm space-y-2">
-                          <p className="text-sm font-medium">No orders found</p>
-                          <p className="text-sm text-muted-foreground">Try a different vendor name, order ID, or client PO.</p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    visibleOrders.map((order) => {
-                      const deadlineInfo = getDeadlineInfo(order.deadline, order.createdDate);
-                      const tone = getOrderTone(order);
-                      const baseStatus = getBaseOrderStatus(order.status);
-                      const actionTab =
-                        baseStatus === "New" || baseStatus === "Waiting"
-                          ? "Pending"
-                          : baseStatus === "In Production"
-                            ? "Production"
-                            : baseStatus === "Ready to Ship" || baseStatus === "On Delivery"
-                              ? "Shipping"
-                              : "History";
-
-                      return (
-                        <TableRow
-                          key={order.id}
-                          className={cn(
-                            tone === "warning" && "bg-warning/10",
-                            tone === "danger" && "bg-destructive/10",
-                          )}
-                        >
-                          <TableCell>
-                            <Link
-                              to={`/vendor/update/${order.id}`}
-                              className="text-sm font-semibold text-primary hover:underline"
-                            >
-                              {order.clientPO || <span className="italic text-muted-foreground">—</span>}
-                            </Link>
-                          </TableCell>
-                          <TableCell className="font-mono text-xs text-muted-foreground">{order.id}</TableCell>
-                          <TableCell className="text-sm">{formatCreatedDate(order.createdDate)}</TableCell>
-                          <TableCell
-                            className={cn(
-                              "text-sm",
-                              deadlineInfo.isOverdue
-                                ? "font-semibold text-destructive"
-                                : deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3
-                                  ? "font-semibold text-warning"
-                                  : "text-muted-foreground",
-                            )}
-                          >
-                            {deadlineInfo.label}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap">
-                            <StatusBadge status={order.status} />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {actionTab === "Pending" && (
-                              <Button size="sm" onClick={() => startProduction(order.id)}>
-                                <Play className="mr-1 h-3.5 w-3.5" />
-                                Start Production
-                              </Button>
-                            )}
-                            {actionTab !== "Pending" ? (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                  <DropdownMenuSeparator />
-                                  {(actionTab === "Production" || actionTab === "Shipping") && (
-                                    <DropdownMenuItem onClick={() => navigate(`/vendor/update/${order.id}`)}>
-                                      Update Progress
-                                    </DropdownMenuItem>
-                                  )}
-                                  {actionTab === "History" && (
-                                    <DropdownMenuItem onClick={() => navigate(`/vendor/update/${order.id}`)}>
-                                      <Eye className="mr-2 h-3.5 w-3.5" />
-                                      View
-                                    </DropdownMenuItem>
-                                  )}
-                                  <DropdownMenuItem onClick={() => navigate(`/vendor/orders/${order.id}/delivery-note`)}>
-                                    Delivery note
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            ) : null}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
+              <OrderRequestTable
+                rows={visibleRows}
+                columns={vendorOrderColumns}
+                emptyMessage="No vendor orders found."
+                renderActions={(row) => <VendorOrderActions row={row} />}
+              />
             </CardContent>
           </Card>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
-              Page {currentPage} of {totalPages}
+              Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredRows.length)} of {filteredRows.length} rows
             </p>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setCurrentPage((v) => Math.max(1, v - 1))}
-                disabled={currentPage === 1}
-              >
+              <Button variant="outline" onClick={() => setCurrentPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1}>
                 Previous
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => setCurrentPage((v) => Math.min(totalPages, v + 1))}
-                disabled={currentPage === totalPages}
-              >
+              <Button variant="outline" onClick={() => setCurrentPage((value) => Math.min(totalPages, value + 1))} disabled={currentPage === totalPages}>
                 Next
               </Button>
             </div>
@@ -294,54 +230,24 @@ export function VendorOrders() {
   );
 }
 
-function formatCreatedDate(date: string) {
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
+function VendorOrderActions({ row }: { row: OrderListRow }) {
+  const isNotStarted = row.productionStatus === "NEW" || row.productionStatus === "SUBMITTED";
 
-function getDeadlineInfo(deadline: string, createdDate?: string) {
-  const now = new Date();
-  const normalizeDate = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
-  const parsedDate = new Date(deadline);
-  if (!Number.isNaN(parsedDate.getTime()) && deadline.includes(parsedDate.getFullYear().toString())) {
-    const diffMs = normalizeDate(parsedDate).getTime() - normalizeDate(now).getTime();
-    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-    if (diffDays > 0) {
-      return { label: `${diffDays} day${diffDays !== 1 ? "s" : ""} left`, isOverdue: false, daysLeft: diffDays };
-    }
-    if (diffDays === 0) {
-      return { label: "Due today", isOverdue: false, daysLeft: 0 };
-    }
-    const overdue = Math.abs(diffDays);
-    return { label: `${overdue} day${overdue !== 1 ? "s" : ""} overdue`, isOverdue: true, daysLeft: null };
+  if (isNotStarted) {
+    return (
+      <Button size="sm" onClick={() => startProduction(row.id)}>
+        <Play className="mr-1 h-3.5 w-3.5" />
+        Start Production
+      </Button>
+    );
   }
 
-  if (deadline === "Overdue" && createdDate) {
-    const parsedCreated = new Date(createdDate);
-    if (!Number.isNaN(parsedCreated.getTime())) {
-      const daysSince = Math.floor(
-        (normalizeDate(now).getTime() - normalizeDate(parsedCreated).getTime()) / (1000 * 60 * 60 * 24),
-      );
-      return { label: `${daysSince} days overdue`, isOverdue: true, daysLeft: null };
-    }
-  }
-  if (deadline === "Overdue") {
-    return { label: "Overdue", isOverdue: true, daysLeft: null };
-  }
-  const daysLeftMatch = deadline.match(/(\d+)/);
-  const daysLeft = daysLeftMatch ? Number(daysLeftMatch[1]) : null;
-  return { label: deadline, isOverdue: false, daysLeft };
-}
-
-function getOrderTone(order: StoredOrder) {
-  const deadlineInfo = getDeadlineInfo(order.deadline, order.createdDate);
-  if (deadlineInfo.isOverdue) return "danger";
-  if (deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3) return "danger";
-  const status = getBaseOrderStatus(order.status);
-  if (status === "Waiting") return "warning";
-  return "default";
+  return (
+    <Button asChild size="sm" variant={row.distributionStatus === "FULLY_RECEIVED" ? "ghost" : "outline"}>
+      <Link to={row.actionTargets.detailPath}>
+        {row.distributionStatus === "FULLY_RECEIVED" ? <Eye className="mr-1 h-3.5 w-3.5" /> : null}
+        {row.distributionStatus === "FULLY_RECEIVED" ? "View" : "Update Progress"}
+      </Link>
+    </Button>
+  );
 }

@@ -8,7 +8,7 @@ const Form = ({ className, ...props }: React.ComponentProps<"form">) => (
 Form.displayName = "Form";
 
 const FormItem = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("space-y-2", className)} {...props} />
+  <div className={cn("space-y-1.5", className)} {...props} />
 );
 FormItem.displayName = "FormItem";
 

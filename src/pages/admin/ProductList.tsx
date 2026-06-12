@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { Box, MoreHorizontal, Package, Plus, Search, Tag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -10,14 +11,46 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { mockProducts } from "@/lib/productMaster";
+import { useProductCatalog } from "@/lib/productMaster";
 
 export function ProductList() {
   const navigate = useNavigate();
+  const products = useProductCatalog();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  const filteredProducts = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (!query) return products;
+    return products.filter(
+      (product) =>
+        product.name.toLowerCase().includes(query) ||
+        product.code.toLowerCase().includes(query) ||
+        (product.brand || "").toLowerCase().includes(query) ||
+        (product.material || "").toLowerCase().includes(query)
+    );
+  }, [products, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
+  const visibleProducts = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredProducts.slice(start, start + pageSize);
+  }, [currentPage, filteredProducts]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role="admin" />
+      <Sidebar userRole="admin" />
       <ContentArea>
         <Header title="Product Catalog" />
 
@@ -25,7 +58,12 @@ export function ProductList() {
           <section className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="relative w-full xl:max-w-xl">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search products by name or code..." className="pl-9" />
+              <Input
+                placeholder="Search products by name or code..."
+                className="pl-9"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
             <Button onClick={() => navigate("/admin/products/new")}>
               <Plus className="h-4 w-4" />
@@ -47,7 +85,7 @@ export function ProductList() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mockProducts.map((product) => (
+                  {visibleProducts.map((product) => (
                     <TableRow
                       key={product.code}
                       className="cursor-pointer"
@@ -103,6 +141,20 @@ export function ProductList() {
               </Table>
             </CardContent>
           </Card>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredProducts.length)} of {filteredProducts.length} rows
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setCurrentPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1}>
+                Previous
+              </Button>
+              <Button variant="outline" onClick={() => setCurrentPage((value) => Math.min(totalPages, value + 1))} disabled={currentPage === totalPages}>
+                Next
+              </Button>
+            </div>
+          </div>
         </main>
       </ContentArea>
     </div>

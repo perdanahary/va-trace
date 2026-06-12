@@ -22,14 +22,14 @@ import { inboxCategories, inboxMessages, type InboxMessage } from "@/lib/message
 import { cn } from "@/lib/utils";
 
 interface InboxPageProps {
-  role: UserRole;
+  userRole: UserRole;
 }
 
 type DateFilter = "All time" | "Last 7 days" | "Last 30 days";
 
 const dateFilters: DateFilter[] = ["All time", "Last 7 days", "Last 30 days"];
 
-export function InboxPage({ role }: InboxPageProps) {
+export function InboxPage({ userRole }: InboxPageProps) {
   const [messages, setMessages] = useState(inboxMessages);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<(typeof inboxCategories)[number]>("All");
@@ -90,7 +90,7 @@ export function InboxPage({ role }: InboxPageProps) {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role={role} />
+      <Sidebar userRole={userRole} />
       <ContentArea>
         <Header title="Inbox" />
 
@@ -126,9 +126,9 @@ export function InboxPage({ role }: InboxPageProps) {
             </div>
           </div>
 
-          <Alert className="border-sky-200 bg-sky-50/70 shadow-sm">
-            <AlertTitle className="text-sky-900">Message summary</AlertTitle>
-            <AlertDescription className="text-sky-800">
+          <Alert variant="processing" className="shadow-sm">
+            <AlertTitle>Message summary</AlertTitle>
+            <AlertDescription>
               {filteredMessages.length} messages · {unreadCount} unread
             </AlertDescription>
           </Alert>
@@ -181,7 +181,7 @@ export function InboxPage({ role }: InboxPageProps) {
                         <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-4">
                             <Avatar className="h-14 w-14">
-                              <AvatarFallback className="bg-orange-100 text-xl font-semibold text-orange-500">
+                              <AvatarFallback className="bg-primary/10 text-xl font-semibold text-primary">
                                 {selectedMessage.sender.slice(0, 1)}
                               </AvatarFallback>
                             </Avatar>

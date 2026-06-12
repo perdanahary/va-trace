@@ -62,7 +62,7 @@ export function SupplierDetail() {
   if (!isNew && !existingSupplier) {
     return (
       <div className="flex min-h-screen bg-background">
-        <Sidebar role="admin" />
+        <Sidebar userRole="admin" />
         <ContentArea>
           <Header title="Supplier Not Found" />
           <main className="p-4 sm:p-6 lg:p-8">
@@ -154,7 +154,7 @@ export function SupplierDetail() {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role="admin" />
+      <Sidebar userRole="admin" />
       <ContentArea>
         <Header
           title={title}
@@ -344,7 +344,7 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <label className="text-sm font-medium">
         {label} {required ? "*" : ""}
       </label>

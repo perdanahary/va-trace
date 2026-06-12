@@ -11,24 +11,24 @@ import { generatePackagingLabels, type PackagingLabel } from "@/lib/deliveryNote
 import { useOrders } from "@/lib/orderStore";
 
 interface PackagingLabelsPrintProps {
-  role?: UserRole;
+  userRole?: UserRole;
 }
 
-export function PackagingLabelsPrint({ role = "admin" }: PackagingLabelsPrintProps) {
+export function PackagingLabelsPrint({ userRole = "admin" }: PackagingLabelsPrintProps) {
   const { id } = useParams();
   const orders = useOrders();
   const order = orders.find((entry) => entry.id === id) ?? orders[0];
   const labelsDocument = generatePackagingLabels(order);
-  const backPath = role === "admin" ? `/admin/orders/${order.id}` : `/${role}/orders/${order.id}`;
+  const backPath = userRole === "admin" ? `/admin/orders/${order.id}` : `/${userRole}/orders/${order.id}`;
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role={role} />
+      <Sidebar userRole={userRole} />
       <ContentArea>
         <Header
           title={`Packaging Labels: ${labelsDocument.doNumber}`}
           breadcrumbs={[
-            { label: "All Orders", to: role === "admin" ? "/admin/orders" : `/${role}/orders` },
+            { label: "All Orders", to: userRole === "admin" ? "/admin/orders" : `/${userRole}/orders` },
             { label: order.id, to: backPath },
             { label: `Packaging Labels: ${labelsDocument.doNumber}` },
           ]}

@@ -1,0 +1,126 @@
+zone,region,area,wh_code,sales_point
+Jakarta,Jakarta Inner,Jakarta Selatan,WH071,Jakarta Selatan
+Jakarta,Jakarta Inner,Jakarta Timur,WH064,Jakarta Timur
+Jakarta,Jakarta Inner,Jakarta Selatan,WH299,Pondok Pinang Jaksel
+Jakarta,Jakarta Inner,Depok,WH059,Depok
+Jakarta,Jakarta Inner,Jakarta Barat,WH055,Jakarta Barat
+Jakarta,Jakarta Inner,Jakarta Pusat,WH069,Jakarta Pusat
+Jakarta,Jakarta Inner,Jakarta Utara,WH052,Jakarta Utara
+Jakarta,Jakarta Outer,Bogor,WH060,Bogor
+Jakarta,Jakarta Outer,Serang,WH068,Serang
+Jakarta,Jakarta Outer,Bekasi,WH075,Bekasi
+Jakarta,Jakarta Outer,Karawang,WH066,Karawang
+Jakarta,Jakarta Outer,Tangerang,WH057,Tangerang
+Jakarta,Jakarta Outer,Rangkasbitung,WH077,Rangkasbitung
+West Java,Java 1,Bandung 2,WH090,Bandung 2
+West Java,Java 1,Bandung 2,WH169,DPC Sumedang
+West Java,Java 1,Garut,WH083,Garut
+West Java,Java 1,Bandung 1,WH089,Bandung 1
+West Java,Java 1,Bandung 3,WH078,Bandung 3
+West Java,Java 1,Cirebon,WH084,Cirebon
+West Java,Java 1,Sukabumi,WH079,Sukabumi
+West Java,Java 1,Tasikmalaya,WH082,Tasikmalaya
+Central Java,Java 2,Madiun,WH111,Madiun
+Central Java,Java 2,Magelang,WH108,Magelang
+Central Java,Java 2,Purwokerto,WH087,Purwokerto
+Central Java,Java 2,Salatiga,WH112,Salatiga
+Central Java,Java 2,Surakarta,WH109,Surakarta
+Central Java,Java 2,Yogyakarta,WH106,Yogyakarta
+Central Java,Java 3,Kediri,WH117,Kediri
+Central Java,Java 3,Pati,WH104,Pati
+Central Java,Java 3,Semarang,WH099,Semarang
+Central Java,Java 3,Tegal,WH101,Tegal
+Central Java,Java 3,Tuban,WH115,Tuban
+East Java,Java 4,Surabaya,WH131,Surabaya
+East Java,Java 4,Jember,WH122,DPC Banyuwangi
+East Java,Java 4,Jember,WH120,Jember
+East Java,Java 4,Pamekasan,WH119,Pamekasan
+East Java,Java 4,Gresik,WH124,Gresik
+East Java,Java 4,Mojokerto,WH126,Mojokerto
+East Java,Java 4,Probolinggo,WH123,Probolinggo
+East Java,Java 4,Malang,WH116,Malang
+East Java,Java 4,Sidoarjo,WH129,Sidoarjo
+East Java,Bali NT,Denpasar,WH133,Denpasar
+East Java,Bali NT,Kupang,WH137,EZD Alor
+East Java,Bali NT,Kupang,WH137,EZD Atambua
+East Java,Bali NT,Kupang,WH137,Kupang
+East Java,Bali NT,Mataram,WH273,EZD Sumbawa - Bima
+East Java,Bali NT,Mataram,WH273,EZD Sumbawa - Sumbawa
+East Java,Bali NT,Mataram,WH136,Mataram
+East Java,Bali NT,Kupang,WH244,DPC Ende
+East Java,Bali NT,Kupang,WH271,DPC Ruteng
+East Java,Bali NT,Kupang,WH270,EZD Maumere
+East Java,Bali NT,Kupang,WH266,EZD Sumba
+East Java,Bali NT,Denpasar,WH135,DPC Singaraja
+East,Kalimantan 1,Balikpapan,WH145,Balikpapan
+East,Kalimantan 1,Banjarmasin,WH140,Banjarmasin
+East,Kalimantan 1,Banjarmasin,WH141,DPC Barabai
+East,Kalimantan 1,Banjarmasin,WH141,EZD Kotabaru
+East,Kalimantan 1,Berau,WH231,Sales Point Nunukan
+East,Kalimantan 1,Berau,WH274,Sales Point Tanjung Redeb
+East,Kalimantan 1,Berau,WH275,Sales Point Tarakan
+East,Kalimantan 1,Samarinda,WH143,Samarinda
+East,Kalimantan 2,Palangkaraya,WH241,EZD Pangkalan Bun
+East,Kalimantan 2,Palangkaraya,WH277,EZD Sampit
+East,Kalimantan 2,Palangkaraya,WH142,Palangkaraya
+East,Kalimantan 2,Pontianak,WH245,EZD Ketapang
+East,Kalimantan 2,Pontianak,WH138,Pontianak
+East,Kalimantan 2,Sintang,WH139,Sintang
+East,Sulawesi 1,Manado,WH007,Manado
+East,Sulawesi 1,Pare-Pare,WH006,DPC Palopo
+East,Sulawesi 1,Kendari,WH278,EZD Bau-Bau
+East,Sulawesi 1,Palu,WH280,EZD Luwuk
+East,Sulawesi 1,Gorontalo,WH010,Gorontalo
+East,Sulawesi 1,Palu,WH009,Palu
+East,Sulawesi 1,Pare-Pare,WH005,Pare-Pare
+East,Sulawesi 1,Kendari,WH016,Kendari
+East,Sulawesi 1,Makassar 1,WH004,Makassar 1
+East,Sulawesi 1,Makassar 2,WH014,Makassar 2
+East,Sulawesi 2,Ambon,WH008,Ambon
+East,Sulawesi 2,Ambon,WH282,EZD Tual
+East,Sulawesi 2,Jayapura,WH285,EZD Merauke
+East,Sulawesi 2,Jayapura,WH286,EZD Nabire
+East,Sulawesi 2,Sorong,WH289,Sales Point Fak-Fak
+East,Sulawesi 2,Sorong,WH012,Sales Point Kaimana
+East,Sulawesi 2,Sorong,WH290,Sales Point Manokwari
+East,Sulawesi 2,Sorong,WH288,Sales Point Timika
+East,Sulawesi 2,Sorong,WH012,Sorong
+East,Sulawesi 2,Ternate,WH011,Ternate
+East,Sulawesi 2,Jayapura,WH283,EZD Biak
+East,Sulawesi 2,Jayapura,WH287,EZD Serui
+East,Sulawesi 2,Jayapura,WH013,Jayapura
+North Sumatera,Sumatera 2,Padang,WH032,DPC Solok
+North Sumatera,Sumatera 2,Padang,WH031,Padang
+North Sumatera,Sumatera 2,Bukittinggi,WH033,Bukittinggi
+Jakarta,Jakarta Inner,Jakarta Timur,WH295,Pasar Minggu
+West Java,Java 1,Bandung 3,WH096,DPC Padalarang
+North Sumatera,Sumatera 1,Lhokseumawe,WH026,Lhokseumawe
+North Sumatera,Sumatera 1,Medan 1,WH020,Medan 1
+North Sumatera,Sumatera 1,Medan 2,WH021,Medan 2
+North Sumatera,Sumatera 1,Tanah Karo,WH017,Tanah Karo
+North Sumatera,Sumatera 1,Banda Aceh,WH024,Banda Aceh
+North Sumatera,Sumatera 1,Pematang Siantar,WH022,Pematang Siantar
+North Sumatera,Sumatera 1,Kisaran,WH030,Kisaran
+North Sumatera,Sumatera 1,Padang Sidempuan,WH028,Padang Sidempuan
+North Sumatera,Sumatera 2,Batam,WH038,Batam
+North Sumatera,Sumatera 2,Air Molek,WH037,Air Molek
+North Sumatera,Sumatera 2,Duri,WH036,Duri
+North Sumatera,Sumatera 2,Tanjung Pinang,WH256,EZD Tanjung Balai Karimun
+North Sumatera,Sumatera 2,Pekanbaru,WH034,Pekanbaru
+North Sumatera,Sumatera 2,Tanjung Pinang,WH039,Tanjung Pinang
+South Sumatera,Sumatera 3,Lahat,WH045,Lahat
+South Sumatera,Sumatera 3,Jambi,WH047,Jambi
+South Sumatera,Sumatera 3,Palembang 1,WH044,Palembang 1
+South Sumatera,Sumatera 3,Muara Bungo,WH048,Muara Bungo
+South Sumatera,Sumatera 3,Palembang 2,WH179,Palembang 2
+South Sumatera,Sumatera 3,Lahat,WH046,DPC Baturaja
+South Sumatera,Sumatera 3,Pangkal Pinang,WH258,EZD Bangka
+South Sumatera,Sumatera 3,Pangkal Pinang,WH259,EZD Belitung
+South Sumatera,Sumatera 4,Bandar Lampung,WH041,Bandar Lampung
+South Sumatera,Sumatera 4,Bengkulu,WH049,Bengkulu
+South Sumatera,Sumatera 4,Kotabumi,WH042,Kotabumi
+South Sumatera,Sumatera 4,Metro,WH156,Metro
+South Sumatera,Sumatera 4,Bandar Lampung,WH166,DPC Pringsewu
+South Sumatera,Sumatera 4,Bengkulu,WH051,DPC Lubuk Linggau
+South Sumatera,Sumatera 4,Bandar Lampung,WH167,DPC Kalianda
+South Sumatera,Sumatera 4,Kotabumi,WH212,DPC Tulang Bawang

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2, ExternalLink, Mail, MapPin, MoreHorizontal, Phone, Plus, Search, Trash2, User } from "lucide-react";
 
@@ -16,8 +16,8 @@ import { useUserStore } from "@/lib/userStore";
 import { ClientModal } from "./ClientModal";
 
 function formatShippingAddress(client: Client) {
-  const { address, city, province, postalCode, country } = client.shippingAddress;
-  return [address, city, province, postalCode, country].filter(Boolean).join(", ");
+  const { address, city, province, subDistrict, postalCode, country } = client.shippingAddress;
+  return [address, city, subDistrict, province, postalCode, country].filter(Boolean).join(", ");
 }
 
 export function ClientList() {
@@ -27,6 +27,8 @@ export function ClientList() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   const filteredClients = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -48,6 +50,22 @@ export function ClientList() {
     );
   }, [clients, searchQuery]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredClients.length / pageSize));
+  const visibleClients = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredClients.slice(start, start + pageSize);
+  }, [currentPage, filteredClients]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
   const handleSave = (clientData: Omit<Client, "id"> | Client) => {
     if ("id" in clientData) {
       updateClient(clientData.id, clientData);
@@ -67,11 +85,11 @@ export function ClientList() {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role="admin" />
+      <Sidebar userRole="admin" />
       <ContentArea>
         <Header title="Client Management" />
 
-        <main className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <main className="space-y-4 p-4 sm:p-6 lg:p-8">
           <section className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div className="relative w-full xl:max-w-xl">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -93,7 +111,7 @@ export function ClientList() {
             </Button>
           </section>
 
-          <Card className="border-border/70 py-0 shadow-sm">
+          <Card className="border-border/70 shadow-sm p-0">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
@@ -107,7 +125,7 @@ export function ClientList() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredClients.map((client) => {
+                  {visibleClients.map((client) => {
                     const linkedUser = users.find((user) => user.id === client.linkedUserId);
                     const boundSalesPoints = mockSalesPoints.filter((salesPoint) => salesPoint.clientId === client.id);
 
@@ -120,9 +138,13 @@ export function ClientList() {
                             </div>
                             <div>
                               <p className="text-sm font-medium">{client.name}</p>
-                              <p className="mt-1 text-xs text-muted-foreground">{client.entityName}</p>
+                              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                                {client.entityName}
+                              </p>
                               {client.npwp ? (
-                                <p className="mt-1 text-[10px] uppercase tracking-[0.24em] text-muted-foreground">NPWP: {client.npwp}</p>
+                                <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                                  NPWP: {client.npwp}
+                                </p>
                               ) : null}
                             </div>
                           </div>
@@ -194,7 +216,7 @@ export function ClientList() {
                       </TableRow>
                     );
                   })}
-                  {filteredClients.length === 0 ? (
+                  {visibleClients.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
                         No clients found matching your search.
@@ -205,6 +227,20 @@ export function ClientList() {
               </Table>
             </CardContent>
           </Card>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredClients.length)} of {filteredClients.length} rows
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setCurrentPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1}>
+                Previous
+              </Button>
+              <Button variant="outline" onClick={() => setCurrentPage((value) => Math.min(totalPages, value + 1))} disabled={currentPage === totalPages}>
+                Next
+              </Button>
+            </div>
+          </div>
         </main>
       </ContentArea>
 

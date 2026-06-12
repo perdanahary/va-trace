@@ -13,6 +13,19 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './tests',
+  testIgnore: process.env.RUN_STAGING
+    ? '**/unit/**'
+    : [
+        '**/unit/**',
+        '**/analyze-staging.spec.ts',
+        '**/debug-staging.spec.ts',
+        '**/e2e-sample-order.spec.ts',
+        '**/prototype-flows.spec.ts',
+        '**/bulk-import.spec.ts',
+        '**/complaint-flow.spec.ts',
+        '**/create-order-alignment.spec.ts',
+        '**/delivery-note.spec.ts',
+      ],
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */

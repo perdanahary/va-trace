@@ -7,10 +7,7 @@ import {
   ClipboardList,
   Package,
   Printer,
-  Truck,
   XCircle,
-  Play,
-  Tag,
 } from "lucide-react";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
@@ -19,47 +16,45 @@ import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { OrderMetadataSummary } from "@/components/shared/OrderMetadataSummary";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { generateDeliveryNote } from "@/lib/deliveryNote";
-import { generateSoNumber } from "@/lib/mockData";
-import { getBaseOrderStatus, getOrderRequestStatus } from "@/lib/orderStatus";
 import {
-  generateLabelForItem,
-  resolveQuantityComplaint,
-  upsertOrder,
-  useOrders,
-} from "@/lib/orderStore";
+  DistributionStatusBadge,
+  PodStatusBadge,
+  ProductionStatusBadge,
+  ShipmentBatchStatusBadge,
+} from "@/components/domain/badges/badges";
+import { DeliveryProgressBar } from "@/components/domain/DeliveryProgressBar";
+import { CreateBatchDialog } from "@/components/domain/dialogs/CreateBatchDialog";
+import { SalesPointAllocationTable } from "@/components/domain/tables/SalesPointAllocationTable";
+import { generateDeliveryNote } from "@/lib/deliveryNote";
+import { resolveQuantityComplaint, useOrders } from "@/lib/orderStore";
 import { cn } from "@/lib/utils";
-import type { OrderStatus } from "@/components/ui/StatusBadge";
+import { buildAllocationRows, useHydratedOrder } from "@/lib/v2/selectors/viewModels";
+import { useActor } from "@/lib/v2/useActor";
 
 interface VendorUpdateProgressProps {
-  role?: UserRole;
+  userRole?: UserRole;
 }
 
-const STAGE_FLOW: OrderStatus[] = [
-  "New",
-  "In Production",
-  "Ready to Ship",
-  "On Delivery",
-  "Delivered",
-  "Completed",
-];
-
-function getStageIndex(status: string): number {
-  return STAGE_FLOW.indexOf(status as OrderStatus);
-}
-
-export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressProps) {
+export function VendorUpdateProgress({ userRole = "vendor" }: VendorUpdateProgressProps) {
   const { id } = useParams();
   const orders = useOrders();
+  const hydrated = useHydratedOrder(id);
+  const actor = useActor(userRole, "vendor-order-detail");
   const order = orders.find((entry) => entry.id === id) ?? orders[0];
   const deliveryNote = generateDeliveryNote(order);
   const deliverySnapshot = deliveryNote.deliverySnapshot;
   const totalOrdered = getTotalQuantity(order);
-  const backPath = `/${role}/orders`;
+  const backPath = `/${userRole}/orders`;
+  const allocationRows = useMemo(() => (hydrated ? buildAllocationRows(hydrated) : []), [hydrated]);
+  const canCreateBatch = allocationRows.some((row) => row.canAddToBatch);
+  const workflowBatch = useMemo(
+    () => (hydrated ? pickWorkflowBatch(hydrated.shipmentBatches) : undefined),
+    [hydrated],
+  );
 
   const complaint = order.complaint;
   const complaintSummary = useMemo(() => {
@@ -71,88 +66,8 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
   }, [complaint]);
 
   const [vendorNote, setVendorNote] = useState("");
-
-  const stageDistribution = useMemo(() => {
-    const counts: Record<string, number> = {};
-    order.items.forEach((item) => {
-      counts[item.status] = (counts[item.status] || 0) + 1;
-    });
-    return counts;
-  }, [order]);
-
-  const lowestStage = useMemo(() => {
-    const stages = order.items.map((item) => getStageIndex(item.status));
-    return Math.min(...stages);
-  }, [order]);
-
-  const advanceToProduction = () => {
-    const updatedItems = order.items.map((item) => {
-      const idx = getStageIndex(item.status);
-      if (idx < getStageIndex("In Production")) {
-        return { ...item, status: "In Production" as const };
-      }
-      return item;
-    });
-    upsertOrder({
-      ...order,
-      items: updatedItems,
-      status: getOrderRequestStatus(updatedItems),
-      soNumber: order.soNumber || generateSoNumber(),
-    } as any);
-  };
-
-  const advanceToReadyToShip = () => {
-    const updatedItems = order.items.map((item) => {
-      const idx = getStageIndex(item.status);
-      if (idx < getStageIndex("Ready to Ship")) {
-        return { ...item, status: "Ready to Ship" as const };
-      }
-      return item;
-    });
-    upsertOrder({
-      ...order,
-      items: updatedItems,
-      status: getOrderRequestStatus(updatedItems),
-    } as any);
-  };
-
-  const advanceToOnDelivery = () => {
-    const updatedItems = order.items.map((item) => {
-      const idx = getStageIndex(item.status);
-      if (idx < getStageIndex("On Delivery")) {
-        return { ...item, status: "On Delivery" as const };
-      }
-      return item;
-    });
-    upsertOrder({
-      ...order,
-      items: updatedItems,
-      status: getOrderRequestStatus(updatedItems),
-    } as any);
-  };
-
-  const advanceToDelivered = () => {
-    const updatedItems = order.items.map((item) => {
-      const idx = getStageIndex(item.status);
-      if (idx < getStageIndex("Delivered")) {
-        return { ...item, status: "Delivered" as const };
-      }
-      return item;
-    });
-    upsertOrder({
-      ...order,
-      items: updatedItems,
-      status: getOrderRequestStatus(updatedItems),
-    } as any);
-  };
-
-  const generateAllLabels = () => {
-    order.items.forEach((item) => {
-      if (!item.labelGenerated) {
-        generateLabelForItem(order.id, item.id);
-      }
-    });
-  };
+  const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
+  const [preselectedAllocationIds, setPreselectedAllocationIds] = useState<string[]>([]);
 
   const handleComplaintDecision = (decision: "approved" | "rejected") => {
     if (!complaint) return;
@@ -167,82 +82,48 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
     });
   };
 
-  const nextStageIndex = lowestStage + 1;
-  const canAdvanceToProduction = STAGE_FLOW[nextStageIndex] === "In Production";
-  const canAdvanceToReadyToShip = STAGE_FLOW[nextStageIndex] === "Ready to Ship";
-  const canAdvanceToOnDelivery = STAGE_FLOW[nextStageIndex] === "On Delivery";
-  const canAdvanceToDelivered = STAGE_FLOW[nextStageIndex] === "Delivered";
+  const openBatchDialog = (allocationId?: string) => {
+    setPreselectedAllocationIds(allocationId ? [allocationId] : []);
+    setIsBatchDialogOpen(true);
+  };
 
-  const deliverableItems = order.items.filter((i) => (i.deliveredQuantity ?? 0) > 0);
-  const allDeliverableLabeled = deliverableItems.length > 0 && deliverableItems.every((i) => i.labelGenerated);
-
-  const currentStageIdx = getStageIndex(order.status);
-  const nextStage = STAGE_FLOW[currentStageIdx + 1];
-
-  const nextStageButton = nextStage
-    ? (() => {
-        switch (nextStage) {
-          case "In Production":
-            return (
-              <Button size="sm" onClick={advanceToProduction}>
-                <Play className="h-4 w-4" />
-                Start Production
-              </Button>
-            );
-          case "Ready to Ship":
-            return (
-              <StageAdvanceButton
-                label="Ready to Ship"
-                icon={Package}
-                count={stageDistribution["Ready to Ship"] ?? 0}
-                disabled={!canAdvanceToReadyToShip}
-                onClick={advanceToReadyToShip}
-                compact
-              />
-            );
-          case "On Delivery":
-            return (
-              <StageAdvanceButton
-                label="On Delivery"
-                icon={Truck}
-                count={stageDistribution["On Delivery"] ?? 0}
-                disabled={!canAdvanceToOnDelivery}
-                onClick={advanceToOnDelivery}
-                compact
-              />
-            );
-          case "Delivered":
-            return (
-              <StageAdvanceButton
-                label="Delivered"
-                icon={CheckCircle2}
-                count={stageDistribution["Delivered"] ?? 0}
-                disabled={!canAdvanceToDelivered}
-                onClick={advanceToDelivered}
-                compact
-              />
-            );
-          default:
-            return null;
-        }
-      })()
-    : null;
-
-  const headerActions = (
+  const renderWorkflowActions = (size: "default" | "sm" = "sm") => (
     <>
-      {nextStageButton}
-      <Button asChild size="sm" variant="outline" disabled={!allDeliverableLabeled}>
-        <Link to={`/${role}/orders/${order.id}/delivery-note`}>
-          <Printer className="h-4 w-4" />
-          Delivery Note
-        </Link>
-      </Button>
+      {canCreateBatch ? (
+        <Button size={size} onClick={() => openBatchDialog()}>
+          Create Shipment Batch
+        </Button>
+      ) : null}
+      {workflowBatch ? (
+        <Button asChild variant={canCreateBatch ? "outline" : "default"} size={size}>
+          <Link to={`/${userRole}/shipments/${workflowBatch.id}`}>
+            <Package className="h-4 w-4" />
+            {canCreateBatch ? "Open Active Batch" : "Open Shipment Batch"}
+          </Link>
+        </Button>
+      ) : null}
+      {workflowBatch?.deliveryNoteId ? (
+        <Button asChild variant="outline" size={size}>
+          <Link to={`/${userRole}/shipments/${workflowBatch.id}/delivery-note`}>
+            <Printer className="h-4 w-4" />
+            Delivery Note
+          </Link>
+        </Button>
+      ) : null}
+      {workflowBatch ? (
+        <Button asChild variant="outline" size={size}>
+          <Link to={`/${userRole}/shipments/${workflowBatch.id}/labels`}>
+            <Package className="h-4 w-4" />
+            Labels
+          </Link>
+        </Button>
+      ) : null}
     </>
   );
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar role={role} />
+      <Sidebar userRole={userRole} />
       <ContentArea>
         <Header
           title={order.id}
@@ -250,13 +131,78 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
             { label: "All Orders", to: backPath },
             { label: order.id },
           ]}
-          actions={headerActions}
+          actions={renderWorkflowActions()}
         />
 
         <main className="p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-[1280px]">
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_389px]">
               <div className="space-y-6">
+                {hydrated ? (
+                  <Card className="border-border/70 shadow-sm">
+                    <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0">
+                      <div>
+                        <CardTitle className="text-base">Workflow Status</CardTitle>
+                        <CardDescription>Production, shipment, and POD progress from normalized workflow stores.</CardDescription>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <ProductionStatusBadge status={hydrated.productionStatus} />
+                        <DistributionStatusBadge status={hydrated.distributionStatus} />
+                        <PodStatusBadge status={hydrated.podStatus} />
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-5">
+                      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                        <MiniStat label="Ordered" value={`${hydrated.order.quantitySummary.orderedQuantity} pcs`} />
+                        <MiniStat label="Allocated" value={`${hydrated.order.quantitySummary.allocatedQuantity} pcs`} />
+                        <MiniStat label="Shipped" value={`${hydrated.order.quantitySummary.shippedQuantity} pcs`} />
+                        <MiniStat label="Received" value={`${hydrated.order.quantitySummary.receivedQuantity} pcs`} />
+                      </div>
+                      <DeliveryProgressBar
+                        receivedQuantity={hydrated.order.quantitySummary.receivedQuantity}
+                        allocatedQuantity={hydrated.order.quantitySummary.allocatedQuantity}
+                        shippedQuantity={hydrated.order.quantitySummary.shippedQuantity}
+                      />
+
+                      <div>
+                        <div className="mb-2 flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium">Allocation Breakdown by Sales Point ({allocationRows.length})</p>
+                            <p className="text-xs text-muted-foreground">Operational split of each ordered line into destination-level fulfillment.</p>
+                          </div>
+                        </div>
+                        <div className="rounded-md border">
+                          <SalesPointAllocationTable
+                            rows={allocationRows}
+                            onAddToBatch={(allocationId) => openBatchDialog(allocationId)}
+                          />
+                        </div>
+                      </div>
+
+                      {hydrated.shipmentBatches.length > 0 ? (
+                        <div>
+                          <p className="mb-2 text-sm font-medium">Shipment Batches ({hydrated.shipmentBatches.length})</p>
+                          <div className="space-y-2">
+                            {hydrated.shipmentBatches.map((batch) => (
+                              <Link
+                                key={batch.id}
+                                to={`/${userRole}/shipments/${batch.id}`}
+                                className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm hover:bg-accent/40"
+                              >
+                                <span className="font-mono text-xs font-medium">{batch.batchNumber}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {batch.quantitySummary.shippedQuantity} shipped · {batch.quantitySummary.verifiedReceivedQuantity} received
+                                </span>
+                                <ShipmentBatchStatusBadge status={batch.status} />
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </CardContent>
+                  </Card>
+                ) : null}
+
                 <Card className="border-border/70 shadow-sm">
                   <CardHeader className="flex flex-row items-start justify-between space-y-0 border-b bg-muted/20">
                     <div className="flex flex-wrap items-center gap-2">
@@ -296,6 +242,10 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
                     </div>
                   </CardHeader>
                   <CardContent className="p-0">
+                    <div className="border-b border-border/70 px-6 py-4">
+                      <p className="text-sm font-medium">Ordered Line Items</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Original commercial order lines before they are allocated across sales points.</p>
+                    </div>
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -321,30 +271,11 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
                               <TableCell className="text-sm">{item.quantity}</TableCell>
                               <TableCell className="text-sm">{deliveryLine?.deliveredQty ?? 0}</TableCell>
                               <TableCell className="text-sm">{deliveryLine?.outstandingQty ?? item.quantity}</TableCell>
-                            </TableRow>
-                          );
-                        })}
-                  </TableBody>
-                </Table>
-                  </CardContent>
-                  <div className="flex items-center justify-end border-t border-border/70 bg-muted/20 px-6 py-4">
-                    <Button size="sm" onClick={generateAllLabels}>
-                      <Tag className="h-4 w-4" />
-                      Create shipping labels
-                    </Button>
-                  </div>
-                </Card>
-
-                <Card className="border-border/70 shadow-sm">
-                  <CardHeader className="border-b bg-muted/20">
-                    <CardTitle className="text-base">Timeline</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-6 p-6">
-                    <TimelineItem status="New" actor="CUSTOMER (Brand Manager)" date={formatDateLabel(order.createdDate)} time={formatTimeLabel(order.createdDate)} active isLast={false} />
-                    <TimelineItem status="In Production" actor="VENDOR (Supplier)" date={order.createdDate} time="-" active={getStageIndex(getBaseOrderStatus(order.status)) >= getStageIndex("In Production")} />
-                    <TimelineItem status="Ready to Ship" actor="VENDOR (Supplier)" date={order.createdDate} time="-" active={getStageIndex(getBaseOrderStatus(order.status)) >= getStageIndex("Ready to Ship")} />
-                    <TimelineItem status="On Delivery" actor="VENDOR (Supplier)" date={order.createdDate} time="-" active={getStageIndex(getBaseOrderStatus(order.status)) >= getStageIndex("On Delivery")} />
-                    <TimelineItem status="Delivered" actor="VENDOR (Supplier)" date={order.createdDate} time="-" isLast active={getStageIndex(getBaseOrderStatus(order.status)) >= getStageIndex("Delivered")} />
+                          </TableRow>
+                        );
+                      })}
+                      </TableBody>
+                    </Table>
                   </CardContent>
                 </Card>
               </div>
@@ -385,9 +316,27 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
                   <CardContent className="p-0">
                     <div className="divide-y divide-border/70">
                       <StackRow label="Project">
-                        <p>{order.campaign}</p>
+                        <p>{order.campaign ?? ""}</p>
                       </StackRow>
-                      <StackRow label="PIC Project" value={`${order.picProject.name} (${order.picProject.email})`} />
+                      <StackRow label="PIC Project" value={order.picProject ? `${order.picProject.name} (${order.picProject.email})` : "—"} />
+                      <StackRow label="Tags">
+                        <OrderMetadataSummary tags={order.tags} className="pt-1" />
+                      </StackRow>
+                      <StackRow label="Link">
+                        {order.referenceLink ? (
+                          <a
+                            href={order.referenceLink.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm font-medium text-link hover:underline"
+                            title={order.referenceLink.url}
+                          >
+                            {order.referenceLink.displayTitle?.trim() || order.referenceLink.url}
+                          </a>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
+                      </StackRow>
                     </div>
                   </CardContent>
                 </Card>
@@ -468,29 +417,20 @@ export function VendorUpdateProgress({ role = "vendor" }: VendorUpdateProgressPr
           </div>
         </main>
       </ContentArea>
+
+      <CreateBatchDialog
+        open={isBatchDialogOpen}
+        onOpenChange={setIsBatchDialogOpen}
+        order={hydrated}
+        actor={actor}
+        preselectedAllocationIds={preselectedAllocationIds}
+      />
     </div>
   );
 }
 
 function getTotalQuantity(order: { items: Array<{ quantity: number }> }) {
   return order.items.reduce((total, item) => total + item.quantity, 0);
-}
-
-function formatDateLabel(value: string) {
-  if (!value) return "";
-  return new Date(value).toLocaleDateString("en-US", {
-    month: "long",
-    day: "2-digit",
-    year: "numeric",
-  });
-}
-
-function formatTimeLabel(value: string) {
-  if (!value) return "";
-  return new Date(value).toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
@@ -540,56 +480,9 @@ function StatusChip({ status }: { status: "pending" | "approved" | "rejected" })
   );
 }
 
-function TimelineItem({ status, actor, date, time, note, isLast = false, active = false }: { status: string; actor: string; date: string; time: string; note?: string; isLast?: boolean; active?: boolean }) {
-  return (
-    <div className="relative pl-8">
-      <div className={cn("absolute left-0 top-0 h-5 w-5 rounded-full border-4 border-background shadow-sm", active ? "bg-primary" : "bg-border")} />
-      {!isLast ? <div className="absolute left-2.5 top-6 h-full w-px bg-border" /> : null}
-        <div className="space-y-1">
-        <div className="flex items-center justify-between">
-          <p className={cn("text-sm font-medium", active ? "text-primary" : "text-foreground")}>{status}</p>
-          {active ? <span className="text-xs text-muted-foreground">{time}</span> : null}
-        </div>
-        {active ? <p className="text-xs text-muted-foreground">{actor}</p> : null}
-        {active ? <p className="text-xs text-muted-foreground">{date}</p> : null}
-        {note ? <p className="mt-1 text-xs font-medium italic text-primary">"{note}"</p> : null}
-      </div>
-    </div>
-  );
-}
-
-function StageAdvanceButton({
-  label,
-  icon: Icon,
-  count,
-  disabled,
-  onClick,
-  compact = false,
-  variant = "default",
-}: {
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  count: number;
-  disabled: boolean;
-  onClick: () => void;
-  compact?: boolean;
-  variant?: "default" | "outline";
-}) {
-  return (
-    <Button
-      variant={variant}
-      size="sm"
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(compact ? "gap-1.5" : "flex-col h-auto gap-1.5 py-4")}
-    >
-      <Icon className="h-4 w-4" />
-      <span className="text-xs font-semibold whitespace-nowrap">{label}</span>
-      {compact ? (
-        <span className="text-[10px] text-current/60 font-mono">({count})</span>
-      ) : (
-        <span className="text-[10px] text-current/60 font-mono">{count} items</span>
-      )}
-    </Button>
-  );
+function pickWorkflowBatch<T extends { status: string }>(batches: T[]): T | undefined {
+  return batches
+    .slice()
+    .reverse()
+    .find((batch) => !["CLOSED", "FULLY_RECEIVED", "CANCELLED", "VOIDED"].includes(batch.status)) ?? batches.at(-1);
 }

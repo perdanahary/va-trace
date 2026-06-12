@@ -19,13 +19,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { mockBrands } from "@/lib/mockData";
-import { mockProducts, type ProductRecord } from "@/lib/productMaster";
+import { useProductCatalog, type ProductRecord } from "@/lib/productMaster";
 
 export function ProductDetail() {
   const { code } = useParams();
   const navigate = useNavigate();
   const isNew = code === "new";
   const [isEditing, setIsEditing] = useState(isNew);
+  const products = useProductCatalog();
 
   const initialProduct: ProductRecord = isNew
     ? {
@@ -48,7 +49,7 @@ export function ProductDetail() {
         widthCm: "",
         referenceUrl: "",
       }
-    : mockProducts.find((product) => product.code === code) || mockProducts[0];
+    : products.find((product) => product.code === code) || products[0];
 
   const [product, setProduct] = useState<ProductRecord>(initialProduct);
 
@@ -84,7 +85,7 @@ export function ProductDetail() {
 
   return (
     <div className="flex min-h-screen bg-background font-sans">
-      <Sidebar role="admin" />
+      <Sidebar userRole="admin" />
       <ContentArea>
         <Header
           title={isNew ? "Add New Product" : `Product Details: ${product.code}`}
@@ -219,8 +220,8 @@ export function ProductDetail() {
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="space-y-2">
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+    <div className="space-y-1.5">
+      <label className="text-sm font-medium text-muted-foreground">{label}</label>
       {children}
     </div>
   );

@@ -1,7 +1,9 @@
 import { useSyncExternalStore } from "react";
 import * as XLSX from "xlsx";
-import { getSalesPointClientBinding, mockSalesPoints, type SalesPointMapping } from "@/lib/mockData";
-import { mockProducts } from "@/lib/productMaster";
+import { getSalesPointClientBinding, mockSalesPoints } from "@/lib/mockData";
+import type { SalesPointMapping } from "@/lib/types";
+import { normalizeOrder } from "@/lib/orderDomain";
+import { findProductForImport, upsertProvisionalProductsFromImportRows } from "@/lib/productMaster";
 import { getSupplierSnapshot } from "@/lib/supplierStore";
 import { appendOrders, getOrdersSnapshot, type StoredOrder } from "@/lib/orderStore";
 import { getOrderRequestStatus } from "@/lib/orderStatus";
@@ -391,6 +393,14 @@ function markImportQueueAsReset() {
   window.localStorage.setItem(IMPORT_QUEUE_RESET_KEY, "true");
 }
 
+function unmarkImportQueueAsReset() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(IMPORT_QUEUE_RESET_KEY);
+}
+
 async function migrateLegacyLocalStorageIfNeeded() {
   const legacyBatches = readLegacyLocalStorageBatches();
 
@@ -577,6 +587,19 @@ function parseSheetRows(records: ParsedImportSheetRow[]) {
     .filter((row) => Object.values(row.raw).some((value) => value !== ""));
 }
 
+function recordToProvisionalProductInput(record: SheetRowRecord) {
+  return {
+    code: record["Item Code"] ?? "",
+    itemName: record["Item Name"] ?? "",
+    category: record["Catergory"] ?? "",
+    brand: record["Brand"] ?? "",
+    brandSku: record["Brand SKU"] ?? "",
+    brandNamePo: record["Brand Name PO"] ?? "",
+    length: record["Length"] ?? "",
+    width: record["Width"] ?? "",
+  };
+}
+
 function buildImportRow(record: SheetRowRecord, sheetRowNumber: number): ImportBatchRow {
   const raw: ImportRowRaw = {
     poNumber: record["PO Number"] ?? "",
@@ -631,9 +654,7 @@ function buildImportRow(record: SheetRowRecord, sheetRowNumber: number): ImportB
 }
 
 function resolveRowMatch(raw: ImportRowRaw, quantity: number): ImportRowMatch {
-  const product =
-    mockProducts.find((entry) => entry.code === raw.itemCode) ??
-    mockProducts.find((entry) => entry.sourceName.toLowerCase() === raw.itemName.toLowerCase());
+  const product = findProductForImport(raw.itemCode, raw.itemName);
   const salesPoint =
     mockSalesPoints.find((entry) => entry.wcode === raw.wcode) ??
     mockSalesPoints.find((entry) => entry.salesPoint.toLowerCase() === raw.salesPoint.toLowerCase());
@@ -779,6 +800,7 @@ export function buildImportBatch(
   records: ParsedImportSheetRow[],
   sourceHeaderRowNumber?: number,
 ): ImportBatch {
+  upsertProvisionalProductsFromImportRows(records.map((record) => recordToProvisionalProductInput(record.values)));
   const parsedRows = parseSheetRows(records);
   const id = makeId("IMB");
   const rows = applyDuplicateFlags(parsedRows).map((row) => ({
@@ -1221,6 +1243,25 @@ async function clearPersistedImportBatches() {
   await enqueueWrite(() => replaceIndexedDbBatches([]));
 }
 
+export async function resetImportBatchStorageForDemo(options: { seedInitialOnNextLoad: boolean }) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (options.seedInitialOnNextLoad) {
+    unmarkImportQueueAsReset();
+  } else {
+    markImportQueueAsReset();
+  }
+
+  cachedBatches = [];
+  updateSnapshotCache();
+  emitStoreChange();
+  window.localStorage.removeItem(STORAGE_KEY);
+
+  await enqueueWrite(() => replaceIndexedDbBatches([]));
+}
+
 function updateBatchRows(
   batchId: string,
   updater: (rows: ImportBatchRow[]) => ImportBatchRow[],
@@ -1332,7 +1373,7 @@ export function createOrdersFromDispatchableRows(batch: ImportBatch, dispatchabl
       brandNamePo: row.raw.brandNamePo,
     }));
 
-    return {
+    return normalizeOrder({
       id,
       campaign: `Imported ${campaign}`,
       status: getOrderRequestStatus(items),
@@ -1360,7 +1401,7 @@ export function createOrdersFromDispatchableRows(batch: ImportBatch, dispatchabl
       labelStatus: "none" as const,
       storedLabels: [],
       storedDeliveryNotes: [],
-    } satisfies StoredOrder;
+    }) as StoredOrder;
   });
 }
 

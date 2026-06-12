@@ -15,6 +15,11 @@ import {
   PlusCircle,
   ChevronRight,
   Mail,
+  Truck,
+  FileText,
+  ClipboardCheck,
+  AlertTriangle,
+  Tags,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import pmgAsiaLogo from "@/assets/pmg-asia-logo.jpeg";
@@ -36,7 +41,7 @@ const defaultSidebarVisibilityState: SidebarVisibilityContextValue = {
 };
 
 interface SidebarProps {
-  role: UserRole;
+  userRole: UserRole;
   className?: string;
   compact?: boolean;
 }
@@ -70,6 +75,17 @@ const navItems: Record<UserRole, NavEntry[]> = {
         { icon: Package, label: "Imports", path: "/admin/imports" },
       ],
     },
+    {
+      label: "Logistics",
+      items: [
+        { icon: Factory, label: "Production", path: "/admin/production" },
+        { icon: Truck, label: "Shipment Batches", path: "/admin/shipments" },
+        { icon: FileText, label: "Delivery Notes", path: "/admin/delivery-notes" },
+        { icon: Tags, label: "Shipping Labels", path: "/admin/labels" },
+        { icon: ClipboardCheck, label: "POD Verification", path: "/admin/pod" },
+        { icon: AlertTriangle, label: "Exceptions", path: "/admin/exceptions" },
+      ],
+    },
     { icon: Mail, label: "Inbox", path: "/admin/inbox" },
     { icon: Factory, label: "Suppliers", path: "/admin/suppliers" },
     { icon: Tag, label: "Products", path: "/admin/products" },
@@ -86,6 +102,14 @@ const navItems: Record<UserRole, NavEntry[]> = {
         { icon: ShoppingCart, label: "All Orders", path: "/operator/orders" },
         { icon: Package, label: "Order Tracking", path: "/operator/progress" },
         { icon: PlusCircle, label: "Create OR", path: "/operator/create" },
+      ],
+    },
+    {
+      label: "Logistics",
+      items: [
+        { icon: Factory, label: "Production", path: "/operator/production" },
+        { icon: Truck, label: "Shipment Batches", path: "/operator/shipments" },
+        { icon: FileText, label: "Delivery Notes", path: "/operator/delivery-notes" },
       ],
     },
     { icon: Mail, label: "Inbox", path: "/operator/inbox" },
@@ -122,6 +146,15 @@ const navItems: Record<UserRole, NavEntry[]> = {
       items: [
         { icon: ShoppingCart, label: "My Orders", path: "/vendor/orders" },
         { icon: Package, label: "Order Tracking", path: "/vendor/progress" },
+        { icon: Factory, label: "Production", path: "/vendor/production" },
+      ],
+    },
+    {
+      label: "Logistics",
+      items: [
+        { icon: Truck, label: "Shipment Batches", path: "/vendor/shipments" },
+        { icon: FileText, label: "Delivery Notes", path: "/vendor/delivery-notes" },
+        { icon: ClipboardCheck, label: "POD Uploads", path: "/vendor/pod" },
       ],
     },
     { icon: Mail, label: "Inbox", path: "/vendor/inbox" },
@@ -155,12 +188,12 @@ export function useSidebarVisibility() {
   return useContext(SidebarVisibilityContext) ?? defaultSidebarVisibilityState;
 }
 
-export function Sidebar({ role, className, compact = false }: SidebarProps) {
+export function Sidebar({ userRole, className, compact = false }: SidebarProps) {
   const location = useLocation();
   const { open } = useSidebarVisibility();
-  const items = navItems[role];
+  const items = navItems[userRole];
   const firstEntry = items[0];
-  const homePath = firstEntry && "path" in firstEntry ? firstEntry.path : `/${role}`;
+  const homePath = firstEntry && "path" in firstEntry ? firstEntry.path : `/${userRole}`;
 
   if (!open) {
     return null;
@@ -211,13 +244,13 @@ export function Sidebar({ role, className, compact = false }: SidebarProps) {
                           variant={isActive ? "secondary" : "ghost"}
                           className={cn(
                             "h-11 w-full justify-start gap-3 px-3",
-                            isActive ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-muted-foreground",
+                            isActive ? "bg-muted/70 text-foreground hover:bg-muted/80" : "text-muted-foreground",
                           )}
                         >
                           <Link to={subItem.path} aria-current={isActive ? "page" : undefined}>
-                            <subItem.icon className="h-4 w-4" />
+                            <subItem.icon className={cn("h-4 w-4", isActive ? "text-warning" : "text-current")} />
                             <span className="flex-1 text-left text-sm font-medium">{subItem.label}</span>
-                            {isActive ? <ChevronRight className="h-4 w-4" /> : null}
+                            {isActive ? <ChevronRight className="h-4 w-4 text-warning" /> : null}
                           </Link>
                         </Button>
                       );
@@ -227,19 +260,19 @@ export function Sidebar({ role, className, compact = false }: SidebarProps) {
               }
               const isActive = location.pathname === entry.path;
               return (
-                <Button
+              <Button
                   key={entry.path}
                   asChild
                   variant={isActive ? "secondary" : "ghost"}
                   className={cn(
                     "h-11 w-full justify-start gap-3 px-3",
-                    isActive ? "bg-primary text-primary-foreground hover:bg-primary/90" : "text-muted-foreground",
+                    isActive ? "bg-muted/70 text-foreground hover:bg-muted/80" : "text-muted-foreground",
                   )}
                 >
                   <Link to={entry.path} aria-current={isActive ? "page" : undefined}>
-                    <entry.icon className="h-4 w-4" />
+                    <entry.icon className={cn("h-4 w-4", isActive ? "text-warning" : "text-current")} />
                     <span className="flex-1 text-left text-sm font-medium">{entry.label}</span>
-                    {isActive ? <ChevronRight className="h-4 w-4" /> : null}
+                    {isActive ? <ChevronRight className="h-4 w-4 text-warning" /> : null}
                   </Link>
                 </Button>
               );
@@ -250,7 +283,7 @@ export function Sidebar({ role, className, compact = false }: SidebarProps) {
         <div className="my-4 flex-1" />
       )}
       <UserAccountMenu
-        role={role}
+        userRole={userRole}
         compact={compact}
         className="h-auto w-full rounded-2xl border border-border/70 bg-background px-3 py-3 hover:bg-accent/40"
         contentClassName={compact ? "w-72" : "w-72"}

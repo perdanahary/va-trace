@@ -93,7 +93,7 @@ export function Header({ title, className, startActions, actions, breadcrumbs, s
                 </nav>
                 <Separator className="my-4" />
                 <UserAccountMenu
-                  role={currentRole}
+                  userRole={currentRole}
                   className="h-auto w-full rounded-2xl border border-border/70 bg-background px-3 py-3 hover:bg-accent/40"
                   contentClassName="w-72"
                 />
@@ -139,7 +139,7 @@ export function Header({ title, className, startActions, actions, breadcrumbs, s
           </Breadcrumb>
         </div>
 
-        {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+        <div className="flex flex-wrap items-center gap-2">{actions}</div>
       </div>
     </header>
   );
