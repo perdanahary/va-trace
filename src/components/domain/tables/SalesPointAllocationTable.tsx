@@ -104,7 +104,7 @@ export function SalesPointAllocationTable({
         <TableHead className="text-right">Received</TableHead>
         <TableHead className="text-right">Outstanding</TableHead>
         <TableHead>Status</TableHead>
-        <TableHead>POD</TableHead>
+        <TableHead>Proof of Delivery (POD)</TableHead>
         <TableHead>Exception</TableHead>
         <TableHead className="text-right" />
       </TableRow>

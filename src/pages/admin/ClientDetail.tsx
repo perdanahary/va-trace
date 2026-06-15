@@ -21,14 +21,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { useClientStore } from "@/lib/clientStore";
 import { useUserStore } from "@/lib/userStore";
 import { mockSalesPoints } from "@/lib/mockData";
-import { useOrders } from "@/lib/orderStore";
+import { useOrderRequests } from "@/lib/v2/orderRequestStore";
 
 export function ClientDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { clients, updateClient } = useClientStore();
   const { users } = useUserStore();
-  const orders = useOrders();
+  const orders = useOrderRequests();
 
   const client = clients.find((c) => c.id === id);
 
@@ -82,13 +82,13 @@ export function ClientDetail() {
   const clientOrders = useMemo(
     () =>
       orders
-        .filter((o) => o.clientId === id)
-        .sort((a, b) => new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime()),
+        .filter((o) => o.client.id === id)
+        .sort((a, b) => new Date(b.audit.createdAt).getTime() - new Date(a.audit.createdAt).getTime()),
     [orders, id],
   );
 
   const uniqueProjects = useMemo(
-    () => [...new Set(clientOrders.map((o) => o.campaign))],
+    () => [...new Set(clientOrders.map((o) => o.project.name))],
     [clientOrders],
   );
 

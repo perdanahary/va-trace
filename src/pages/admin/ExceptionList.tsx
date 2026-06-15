@@ -103,7 +103,7 @@ export function ExceptionList({ userRole = "admin" }: ExceptionListProps) {
           <Card className="border-border/70 shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">Operational Exceptions Register</CardTitle>
-              <CardDescription>Open blockers, POD variances, document corrections, and resolved exceptions.</CardDescription>
+              <CardDescription>Open blockers, Proof of Delivery (POD) variances, document corrections, and resolved exceptions.</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               {rows.length === 0 ? (

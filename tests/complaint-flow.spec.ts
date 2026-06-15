@@ -23,10 +23,6 @@ test.describe("Quantity complaint flow", () => {
           soNumber: "SO123928",
           supplier: "PT. HH Global Services Indonesia",
           salesPointId: "WH055",
-          picProject: {
-            name: "Chandra Sadikin",
-            email: "Chandra.Sadikin@sampoerna.com",
-          },
           items: [
             {
               id: "item-1",

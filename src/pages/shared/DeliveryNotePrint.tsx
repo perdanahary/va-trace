@@ -96,7 +96,6 @@ export function DeliveryNotePrint({ userRole = "admin" }: DeliveryNotePrintProps
             <section className="delivery-note-project">
               <KeyValue label="PO No" value={deliveryNote.poNumber} />
               <KeyValue label="Project" value={deliveryNote.projectName} />
-              <KeyValue label="PIC Project" value={deliveryNote.picProject ?? "—"} />
             </section>
 
             <table className="delivery-note-table">

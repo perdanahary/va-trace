@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { MoreHorizontal, Plus, Search } from "lucide-react";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
@@ -7,6 +7,7 @@ import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { OrderRequestTable, type OrderRequestTableColumn } from "@/components/domain/tables/OrderRequestTable";
 import { AppliedFilterRow, FilterMenu } from "@/components/shared/AdvancedFilterBar";
+import { ColumnToggle } from "@/components/shared/ColumnToggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -43,9 +44,10 @@ const adminOrderColumns: OrderRequestTableColumn[] = [
   "exception",
 ];
 
+const defaultHiddenColumns: OrderRequestTableColumn[] = ["client", "project", "exception"];
+
 export function AllOrders({ userRole = "admin" }: AllOrdersProps) {
   const navigate = useNavigate();
-  const location = useLocation();
   const rolePrefix = `/${userRole}`;
   const rows = useOrderListRows(rolePrefix);
   const writeDecision = canWriteOrders(buildDemoClaims(userRole.toUpperCase() as "ADMIN" | "OPERATOR" | "ANALYST" | "CLIENT" | "VENDOR"));
@@ -56,17 +58,16 @@ export function AllOrders({ userRole = "admin" }: AllOrdersProps) {
   const [selectedDistributionStatus, setSelectedDistributionStatus] = useState("all");
   const [vendorOperator, setVendorOperator] = useState<"is" | "is not">("is");
   const [selectedVendor, setSelectedVendor] = useState("All Vendors");
-  const [legacyOperator, setLegacyOperator] = useState<"is" | "is not">("is");
-  const [legacyStatusFilter, setLegacyStatusFilter] = useState<string | null>(null);
+
   const [currentPage, setCurrentPage] = useState(1);
+  const [visibleColumns, setVisibleColumns] = useState<OrderRequestTableColumn[]>(
+    adminOrderColumns.filter((col) => !defaultHiddenColumns.includes(col))
+  );
   const createPath = userRole === "operator" ? "/operator/create" : "/admin/create";
   const pageSize = 10;
 
   const vendorOptions = useMemo(() => ["All Vendors", ...Array.from(new Set(rows.map((row) => row.vendorName))).sort()], [rows]);
-  const legacyStatusOptions = useMemo(
-    () => Array.from(new Set(rows.map((row) => row.legacyStatusLabel).filter((status): status is string => Boolean(status)))).sort(),
-    [rows],
-  );
+
 
   const filterGroups = useMemo(
     () => [
@@ -112,33 +113,9 @@ export function AllOrders({ userRole = "admin" }: AllOrdersProps) {
           keywords: [vendor],
         })),
       },
-      {
-        id: "legacy-status",
-        label: "Legacy Status",
-        operator: legacyOperator,
-        value: legacyStatusFilter,
-        onValueChange: setLegacyStatusFilter,
-        onOperatorChange: setLegacyOperator,
-        allLabel: "All legacy statuses",
-        options: legacyStatusOptions.map((status) => ({
-          label: status,
-          value: status,
-          keywords: [status],
-        })),
-      },
+
     ],
-    [
-      distributionOperator,
-      legacyOperator,
-      legacyStatusFilter,
-      legacyStatusOptions,
-      productionOperator,
-      selectedDistributionStatus,
-      selectedProductionStatus,
-      selectedVendor,
-      vendorOperator,
-      vendorOptions,
-    ],
+    [distributionOperator, productionOperator, selectedDistributionStatus, selectedProductionStatus, selectedVendor, vendorOperator, vendorOptions],
   );
 
   const filteredRows = useMemo(() => {
@@ -166,28 +143,22 @@ export function AllOrders({ userRole = "admin" }: AllOrdersProps) {
       const matchesDistribution =
         selectedDistributionStatus === "all" || matchesFilterValue(distributionOperator, row.distributionStatus, selectedDistributionStatus);
       const matchesVendor = selectedVendor === "All Vendors" || matchesFilterValue(vendorOperator, row.vendorName, selectedVendor);
-      const matchesLegacyStatus = !legacyStatusFilter || matchesFilterValue(legacyOperator, row.legacyStatusLabel ?? "", legacyStatusFilter);
 
-      return matchesSearch && matchesProduction && matchesDistribution && matchesVendor && matchesLegacyStatus;
+      return matchesSearch && matchesProduction && matchesDistribution && matchesVendor;
     });
-  }, [
-    distributionOperator,
-    legacyOperator,
-    legacyStatusFilter,
-    productionOperator,
-    rows,
-    searchTerm,
-    selectedDistributionStatus,
-    selectedProductionStatus,
-    selectedVendor,
-    vendorOperator,
-  ]);
+  }, [distributionOperator, productionOperator, rows, searchTerm, selectedDistributionStatus, selectedProductionStatus, selectedVendor, vendorOperator]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const visibleRows = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredRows.slice(start, start + pageSize);
   }, [currentPage, filteredRows]);
+
+  const handleColumnToggle = (column: OrderRequestTableColumn) => {
+    setVisibleColumns((prev) =>
+      prev.includes(column) ? prev.filter((col) => col !== column) : [...prev, column]
+    );
+  };
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -197,29 +168,7 @@ export function AllOrders({ userRole = "admin" }: AllOrdersProps) {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [
-    distributionOperator,
-    legacyOperator,
-    legacyStatusFilter,
-    productionOperator,
-    searchTerm,
-    selectedDistributionStatus,
-    selectedProductionStatus,
-    selectedVendor,
-    vendorOperator,
-  ]);
-
-  useEffect(() => {
-    const state = location.state as { initialStatus?: string; initialSearch?: string } | null;
-    if (state?.initialStatus && state.initialStatus !== "All Statuses") {
-      setLegacyStatusFilter(state.initialStatus);
-      window.history.replaceState({}, document.title);
-    }
-    if (state?.initialSearch) {
-      setSearchTerm(state.initialSearch);
-      window.history.replaceState({}, document.title);
-    }
-  }, [location.state]);
+  }, [distributionOperator, productionOperator, searchTerm, selectedDistributionStatus, selectedProductionStatus, selectedVendor, vendorOperator]);
 
   const clearFilters = () => {
     setSelectedProductionStatus("all");
@@ -228,8 +177,6 @@ export function AllOrders({ userRole = "admin" }: AllOrdersProps) {
     setDistributionOperator("is");
     setSelectedVendor("All Vendors");
     setVendorOperator("is");
-    setLegacyStatusFilter(null);
-    setLegacyOperator("is");
     setSearchTerm("");
   };
 
@@ -253,6 +200,11 @@ export function AllOrders({ userRole = "admin" }: AllOrdersProps) {
 
             <div className="flex flex-wrap items-center gap-2">
               <FilterMenu groups={filterGroups} />
+              <ColumnToggle
+                columns={adminOrderColumns}
+                visibleColumns={visibleColumns}
+                onToggle={handleColumnToggle}
+              />
               <Button
                 onClick={() => navigate(createPath)}
                 disabled={!writeDecision.allowed}
@@ -270,9 +222,10 @@ export function AllOrders({ userRole = "admin" }: AllOrdersProps) {
             <CardContent className="p-0">
               <OrderRequestTable
                 rows={visibleRows}
-                columns={adminOrderColumns}
+                columns={visibleColumns}
                 emptyMessage="No order requests found."
                 renderActions={(row) => <AdminOrderActions row={row} />}
+                onRowClick={(row) => navigate(row.actionTargets.detailPath)}
               />
             </CardContent>
           </Card>

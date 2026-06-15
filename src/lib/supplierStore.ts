@@ -42,7 +42,7 @@ const initialSuppliers: Supplier[] = [
     phone: "02179697969",
     picName: "Marco Polo",
     email: "marco@officebee.co",
-    status: "ACTIVE",
+    status: "INACTIVE",
     vendorPICs: [{ name: "Marco Polo", phone: "02179697969", email: "marco@officebee.co" }],
   },
   {
@@ -67,7 +67,7 @@ const initialSuppliers: Supplier[] = [
     phone: "02188997766",
     picName: "Lidya Smith",
     email: "lidya@printsolusi.id",
-    status: "ACTIVE",
+    status: "INACTIVE",
     vendorPICs: [{ name: "Lidya Smith", phone: "02188997766", email: "lidya@printsolusi.id" }],
   },
   {

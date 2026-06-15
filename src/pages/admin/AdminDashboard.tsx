@@ -13,7 +13,6 @@ import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { OrderMetadataSummary } from "@/components/shared/OrderMetadataSummary";
 import {
   Table,
   TableBody,
@@ -24,7 +23,8 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { cn } from "@/lib/utils";
-import { useOrders } from "@/lib/orderStore";
+import { useOrderRequests } from "@/lib/v2/orderRequestStore";
+import { useOrderListRows } from "@/lib/v2/selectors/viewModels";
 
 interface AdminDashboardProps {
   userRole?: UserRole;
@@ -32,7 +32,8 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
   const navigate = useNavigate();
-  const orders = useOrders();
+  const orders = useOrderRequests();
+  const rows = useOrderListRows(`/${userRole}`);
 
   const metrics = useMemo(() => {
     const now = new Date();
@@ -43,8 +44,8 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
 
     const atRisk = orders.filter((o) => {
       if (o.productionStatus === "COMPLETED" && o.distributionStatus === "FULLY_RECEIVED") return false;
-      const parsed = new Date(o.deadline);
-      if (Number.isNaN(parsed.getTime()) || !o.deadline.includes(parsed.getFullYear().toString())) return false;
+      const parsed = new Date(o.deadlineDate);
+      if (Number.isNaN(parsed.getTime())) return false;
       const diff = Math.round((normalize(parsed).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       return diff >= 0 && diff <= 3;
     }).length;
@@ -54,7 +55,7 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
     ).length;
 
     const thisMonth = orders.filter((o) => {
-      const created = new Date(o.createdDate);
+      const created = new Date(o.audit.createdAt);
       return !Number.isNaN(created.getTime()) && created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
     }).length;
 
@@ -85,13 +86,11 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
 
         <main className="space-y-8 p-4 sm:p-6 lg:p-8">
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {metrics.map((metric, index) => {
-              const filterState = getMetricFilterState(metric.label);
-              return (
+            {metrics.map((metric, index) => (
                 <Card
                   key={metric.label}
                   className="group cursor-pointer border-border/70 shadow-sm transition-colors hover:border-primary/40"
-                  onClick={() => navigate("/admin/orders", { state: filterState })}
+                  onClick={() => navigate("/admin/orders")}
                 >
                   <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                     <div>
@@ -107,8 +106,7 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
                     </Badge>
                   </CardContent>
                 </Card>
-              );
-            })}
+            ))}
           </section>
 
           <Card className="border-border/70 shadow-sm">
@@ -123,7 +121,7 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
               </Button>
             </CardHeader>
             <CardContent className="p-0">
-              {orders.length === 0 ? (
+              {rows.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16">
                   <div className="mx-auto max-w-sm space-y-2 text-center">
                     <p className="text-sm font-medium">No orders yet</p>
@@ -148,30 +146,31 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {orders.slice(0, 5).map((order) => {
-                    const deadlineInfo = getDeadlineInfo(order.deadline, order.createdDate);
+                    {rows.slice(0, 5).map((row) => {
+                    const deadlineInfo = getDeadlineInfo(row.deadlineDate, row.createdAt);
                     return (
-                      <TableRow key={order.id}>
-                        <TableCell className="font-mono text-xs font-medium">{order.id}</TableCell>
+                      <TableRow
+                        key={row.id}
+                        className="cursor-pointer"
+                        onClick={() => navigate(`/${userRole}/orders/${row.id}`)}
+                      >
+                        <TableCell className="font-mono text-xs font-medium">{row.orderRequestNumber}</TableCell>
                         <TableCell className="max-w-[260px] text-sm">
-                          <div className="space-y-1">
-                            <div className="truncate">{order.campaign ?? ""}</div>
-                            <OrderMetadataSummary tags={order.tags} referenceLink={order.referenceLink} />
-                          </div>
+                          <div className="truncate">{row.projectName}</div>
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
-                          <StatusBadge status={order.productionStatus} />
+                          <StatusBadge status={row.productionStatus} />
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
-                          <StatusBadge status={order.distributionStatus} />
+                          <StatusBadge status={row.distributionStatus} />
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-sm">
-                          <span className="font-medium text-foreground">{order.deliveryProgress.percentage}%</span>
+                          <span className="font-medium text-foreground">{row.deliveryProgressPercent}%</span>
                           <span className="ml-1 text-muted-foreground">
-                            ({order.deliveryProgress.receivedQuantity}/{order.deliveryProgress.allocatedQuantity})
+                            ({row.deliveryProgressLabel})
                           </span>
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{formatCreatedDate(order.createdDate)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{formatCreatedDate(row.createdAt)}</TableCell>
                         <TableCell className={cn("text-sm", deadlineInfo.isOverdue ? "font-semibold text-destructive" : deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3 ? "font-semibold text-warning" : "text-muted-foreground")}>
                           <span className="inline-flex items-center gap-1">
                             {!deadlineInfo.isOverdue && deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3 && (
@@ -180,7 +179,7 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
                             {deadlineInfo.label}
                           </span>
                         </TableCell>
-                        <TableCell className="text-right font-medium">{getOrderQuantity(order)}</TableCell>
+                        <TableCell className="text-right font-medium">{row.orderedQuantity}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" className="h-8 w-8">
                             <MoreHorizontal className="h-4 w-4" />
@@ -239,19 +238,4 @@ function formatCreatedDate(date: string) {
     return date;
   }
   return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
-function getOrderQuantity(order: { items: { quantity: number }[] }) {
-  return order.items.reduce((total, item) => total + item.quantity, 0);
-}
-
-function getMetricFilterState(label: string) {
-  switch (label) {
-    case "At Risk":
-      return undefined;
-    case "Completed":
-      return { initialStatus: "Completed" };
-    default:
-      return undefined;
-  }
 }

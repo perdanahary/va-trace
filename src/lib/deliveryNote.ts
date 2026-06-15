@@ -59,7 +59,6 @@ export interface DeliveryNote {
   poNumber: string;
   soNumber: string;
   projectName: string;
-  picProject?: string;
   senderProfile: CompanyProfile;
   hhGlobalContacts: HHGlobalContact[];
   deliverySnapshot: SalesPointDeliveryProfile;
@@ -243,7 +242,6 @@ export function buildDeliveryNoteRecord(
     poNumber: order.clientPO,
     soNumber: order.soNumber,
     projectName: order.campaign ?? "",
-    picProject: order.picProject ? `${order.picProject.name}(${order.picProject.email})` : undefined,
     senderProfile: {
       name: senderProfile.name,
       addressLines: senderProfile.addressLines,
@@ -361,7 +359,6 @@ export function generateDeliveryNote(order: Order): DeliveryNote {
     poNumber: order.clientPO,
     soNumber: order.soNumber,
     projectName: order.campaign ?? "",
-    picProject: order.picProject ? `${order.picProject.name}(${order.picProject.email})` : undefined,
     senderProfile,
     hhGlobalContacts,
     deliverySnapshot,
@@ -453,7 +450,6 @@ function getMissingRequiredFields(order: Order, salesPoint: SalesPointDeliveryPr
   const missing: string[] = [];
 
   if (!order.campaign) missing.push("Campaign Name / Project");
-  if (!order.picProject?.name || !order.picProject?.email) missing.push("PIC Project");
   if (!salesPoint.deliveryCompanyName) missing.push("Deliver-to company");
   if (!salesPoint.deliveryLocationName) missing.push("Deliver-to location");
   if (!salesPoint.address) missing.push("Deliver-to address");

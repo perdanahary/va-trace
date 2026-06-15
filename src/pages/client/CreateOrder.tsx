@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Building2, Calendar, Info, Search, Trash2, Truck } from "lucide-react";
+import { ArrowLeft, Building2, Calendar, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -10,15 +10,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SearchableCombobox, type ComboboxOption } from "@/components/ui/searchable-combobox";
 import { getSalesPointClientBinding, mockProducts, mockSalesPoints } from "@/lib/mockData";
 import { appendOrders, createManualOrder } from "@/lib/orderStore";
 import { useCurrentUser } from "@/lib/authStore";
 import { useClientStore } from "@/lib/clientStore";
+import { useSupplierStore } from "@/lib/supplierStore";
 
 export function CreateOrder() {
   const navigate = useNavigate();
   const { currentUser } = useCurrentUser();
   const { clients } = useClientStore();
+  const { suppliers } = useSupplierStore();
   const [items, setItems] = useState([{ id: "item-1", productCode: "", quantity: 0, poLineNumber: "1" }]);
   const [clientPO, setClientPO] = useState("");
 
@@ -32,17 +35,55 @@ export function CreateOrder() {
     [linkedClient],
   );
 
-  const [selectedSalesPoint, setSelectedSalesPoint] = useState("WH020");
+  const [selectedSalesPoint, setSelectedSalesPoint] = useState("");
+  const [selectedSupplier, setSelectedSupplier] = useState("");
   const [deadline, setDeadline] = useState("");
   const [linkFA, setLinkFA] = useState("");
   const [note, setNote] = useState("");
   const [tagsInput, setTagsInput] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+const [searchQuery, setSearchQuery] = useState("");
+const [submitError, setSubmitError] = useState<string | null>(null);
+const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const salesPoint = mockSalesPoints.find((entry) => entry.wcode === selectedSalesPoint) ?? mockSalesPoints[0];
-  const salesPointClient = getSalesPointClientBinding(salesPoint.wcode);
+const salesPoint = selectedSalesPoint ? mockSalesPoints.find((entry) => entry.wcode === selectedSalesPoint) : null;
+
+const salesPointOptions = useMemo(() => {
+  const seenIds = new Set<string>();
+  const options = [];
+  for (const entry of clientSalesPoints) {
+    if (!seenIds.has(entry.wcode)) {
+      seenIds.add(entry.wcode);
+      options.push({
+        value: entry.wcode,
+        label: `${entry.wcode} - ${entry.salesPoint}`,
+        description: `${entry.area}, ${entry.region}, ${entry.zone}`,
+        keywords: [entry.wcode, entry.salesPoint, entry.area, entry.region, entry.zone, entry.subArea, entry.clientName].filter(Boolean) as string[],
+      });
+    }
+  }
+  return options;
+}, [clientSalesPoints]);
+
+useEffect(() => {
+  if (clientSalesPoints.length > 0 && selectedSalesPoint) {
+    const current = clientSalesPoints.find((sp) => sp.wcode === selectedSalesPoint);
+    if (!current) {
+      setSelectedSalesPoint("");
+    }
+  }
+}, [clientSalesPoints, selectedSalesPoint]);
+
+const supplierOptions = useMemo(
+  () => suppliers.map((entry) => ({
+    value: entry.name,
+    label: entry.name,
+    description: `${entry.type} - ${entry.picName}`,
+    keywords: [entry.name, entry.id, entry.picName, entry.type].filter(Boolean) as string[],
+  })),
+  [suppliers],
+);
+
+  const salesPointClient = salesPoint ? getSalesPointClientBinding(salesPoint.wcode) : null;
   const totalQuantity = items.reduce((total, item) => total + item.quantity, 0);
   const filteredProducts = useMemo(() => {
     if (!searchQuery.trim()) return mockProducts;
@@ -115,7 +156,7 @@ export function CreateOrder() {
       campaign: clientPO || "Direct Entry",
       clientPO,
       // soNumber is auto-generated when vendor starts production
-      supplier: "Pending",
+      supplier: selectedSupplier || "Pending",
       salesPointId: selectedSalesPoint,
       deadline,
       note: note.trim() || undefined,
@@ -183,74 +224,34 @@ export function CreateOrder() {
           ) : null}
 
           <Card className="border-border/70 shadow-sm">
-            <CardHeader className="flex flex-row items-center gap-2 border-b border-border">
-              <div className="flex h-5 w-5 items-center justify-center rounded bg-primary/10">
-                <Truck className="h-3 w-3 text-primary" />
-              </div>
-              <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Supplier &amp; Destination</CardTitle>
+            <CardHeader>
+              <CardTitle>Supplier &amp; Destination</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Supplier</p>
-                  <p className="text-sm font-medium text-muted-foreground italic">Pending</p>
+                  <SearchableCombobox
+                    value={selectedSupplier}
+                    onValueChange={setSelectedSupplier}
+                    options={supplierOptions}
+                    placeholder="Select a supplier..."
+                    searchPlaceholder="Search supplier..."
+                    emptyText="No suppliers match your search."
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Destination</p>
-                  <p className="text-sm font-medium">
-                    {salesPoint.wcode} - {salesPoint.salesPoint}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    Client: {salesPointClient?.clientName ?? "Unbound"} &middot; {salesPointClient?.clientEntityName ?? "No entity"}
-                  </p>
+                  <SearchableCombobox
+                    value={selectedSalesPoint}
+                    onValueChange={setSelectedSalesPoint}
+                    options={salesPointOptions}
+                    placeholder="Select a sales point..."
+                    searchPlaceholder="Search sales point, zone, region, or code..."
+                    emptyText="No sales points match your search."
+                  />
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/70 shadow-sm">
-            <CardHeader className="flex flex-row items-center gap-2 border-b border-border">
-              <div className="flex h-5 w-5 items-center justify-center rounded bg-primary/10">
-                <Info className="h-3 w-3 text-primary" />
-              </div>
-              <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Additional details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <FormInput id="client-po" label="PO number reference" placeholder="e.g. 123928098" required value={clientPO} onChange={setClientPO} />
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground" htmlFor="deadline">
-                    Deadline *
-                  </label>
-                  <div className="relative group">
-                    <Calendar className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      id="deadline"
-                      type="date"
-                      value={deadline}
-                      onChange={(event) => setDeadline(event.target.value)}
-                      className="w-full rounded-md border border-border bg-white py-2 pl-9 pr-4 text-xs shadow-sm outline-none transition-all focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground" htmlFor="note">
-                  Notes to supplier
-                </label>
-                <textarea
-                  id="note"
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  placeholder="Add notes to supplier..."
-                  className="h-16 w-full rounded-md border border-border bg-white px-3 py-2 text-xs shadow-sm outline-none transition-all focus:ring-1 focus:ring-primary resize-none"
-                />
-              </div>
-
-              <FormInput id="tags" label="Tags" placeholder="e.g. urgent, bulk" value={tagsInput} onChange={setTagsInput} />
-
-              <FormInput id="link" label="Link" placeholder="https://..." value={linkFA} onChange={setLinkFA} />
             </CardContent>
           </Card>
 
@@ -288,9 +289,9 @@ export function CreateOrder() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-10 text-[9px] font-bold uppercase tracking-wider">#</TableHead>
-                      <TableHead className="text-[9px] font-bold uppercase tracking-wider">Product</TableHead>
-                      <TableHead className="w-20 text-[9px] font-bold uppercase tracking-wider">Qty</TableHead>
+                      <TableHead className="w-10">#</TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead className="w-20">Qty</TableHead>
                       <TableHead className="w-10" />
                     </TableRow>
                   </TableHeader>
@@ -350,6 +351,49 @@ export function CreateOrder() {
                 Total: <span className="font-medium text-foreground">{totalQuantity}</span> qty
               </span>
             </CardFooter>
+          </Card>
+
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader>
+              <CardTitle>Additional details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <FormInput id="client-po" label="PO number reference" placeholder="e.g. 123928098" required value={clientPO} onChange={setClientPO} />
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground" htmlFor="deadline">
+                    Deadline *
+                  </label>
+                  <div className="relative group">
+                    <Calendar className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      id="deadline"
+                      type="date"
+                      value={deadline}
+                      onChange={(event) => setDeadline(event.target.value)}
+                      className="w-full rounded-md border border-border bg-white py-2 pl-9 pr-4 text-xs shadow-sm outline-none transition-all focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground" htmlFor="note">
+                  Notes to supplier
+                </label>
+                <textarea
+                  id="note"
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  placeholder="Add notes to supplier..."
+                  className="h-16 w-full rounded-md border border-border bg-white px-3 py-2 text-xs shadow-sm outline-none transition-all focus:ring-1 focus:ring-primary resize-none"
+                />
+              </div>
+
+              <FormInput id="tags" label="Tags" placeholder="e.g. urgent, bulk" value={tagsInput} onChange={setTagsInput} />
+
+              <FormInput id="link" label="Link" placeholder="https://..." value={linkFA} onChange={setLinkFA} />
+            </CardContent>
           </Card>
 
           <p className="text-center text-xs italic text-muted-foreground">

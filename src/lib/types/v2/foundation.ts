@@ -41,6 +41,8 @@ export type ClientReference = EntityReference;
 
 export interface ProjectReference extends EntityReference {
   clientId: ID;
+  picName?: string;
+  picEmail?: string;
 }
 
 export type VendorReference = EntityReference;

@@ -110,6 +110,7 @@ export interface SalesPoint {
   name: string;
   clientId: ID;
   clientName: string;
+  companyName: string;
   status: MasterDataStatus;
   entityType?: SalesPointEntityType;
   geography: SalesPointGeography;
@@ -181,6 +182,7 @@ export interface CreateSalesPointDto {
   wCode: string;
   name: string;
   clientId: ID;
+  companyName?: string;
   status?: MasterDataStatus;
   entityType?: SalesPointEntityType;
   geography: SalesPointGeography;
@@ -194,6 +196,7 @@ export interface UpdateSalesPointDto {
   wCode?: string;
   name?: string;
   clientId?: ID;
+  companyName?: string;
   status?: MasterDataStatus;
   entityType?: SalesPointEntityType | null;
   geography?: Partial<SalesPointGeography>;
@@ -269,6 +272,7 @@ export interface SalesPointListRow {
   code: string;
   name: string;
   clientName: string;
+  companyName: string;
   entityType?: SalesPointEntityType;
   primaryContactName?: string;
   primaryContactPhone?: string;

@@ -10,8 +10,6 @@ test.describe("manual order client binding", () => {
       soNumber: "SO-CLNT-1",
       supplier: "Pending",
       salesPointId: "WH020",
-      picProjectName: "Test PIC",
-      picProjectEmail: "test@sampoerna.com",
       deadline: "7 days left",
       items: [
         {

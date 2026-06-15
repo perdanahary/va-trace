@@ -20,10 +20,12 @@ import type {
   VendorReference,
 } from "./foundation";
 import type {
+  AllocationStatus,
   AlertSeverity,
   DeadlineState,
   DeliveryNoteStatus,
   DistributionStatus,
+  ExceptionState,
   OrderPriority,
   OrderSource,
   PodStatus,
@@ -287,9 +289,36 @@ export interface OrderAllocationTableRow {
   outstandingQuantity: Quantity;
   shipmentBatchCount: number;
   podStatus: PodStatus;
-  allocationStatus: import("./status").AllocationStatus;
-  exceptionState: import("./status").ExceptionState;
+  allocationStatus: AllocationStatus;
+  exceptionState: ExceptionState;
   canAddToBatch: boolean;
+}
+
+export interface AllocationProgressRow {
+  allocationId: ID;
+  orderRequestId: ID;
+  orderRequestNumber: string;
+  clientPoNumber: string | null;
+  vendorName: string;
+  deadlineDate: ISODateString;
+  deadlineState: DeadlineState;
+  salesPointName: string;
+  salesPointCode: string;
+  productName: string;
+  productCode: string;
+  allocatedQuantity: Quantity;
+  shippedQuantity: Quantity;
+  receivedQuantity: Quantity;
+  outstandingQuantity: Quantity;
+  deliveryProgressLabel: string;
+  deliveryProgressPercent: number;
+  allocationStatus: AllocationStatus;
+  podStatus: PodStatus;
+  exceptionState: ExceptionState;
+  hasException: boolean;
+  actionTargets: {
+    orderDetailPath: string;
+  };
 }
 
 export interface ShipmentBatchSummaryRef {

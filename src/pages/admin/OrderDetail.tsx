@@ -1,23 +1,23 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   AlertTriangle,
   ArrowRight,
-  Calendar,
+  ArrowUpRight,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   ClipboardList,
   FileText,
-  Info,
+
   MoreHorizontal,
   Package,
   Printer,
   Send,
   ShieldAlert,
   Truck,
-  User,
+
   XCircle,
 } from "lucide-react";
 
@@ -39,7 +39,6 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { OrderMetadataSummary } from "@/components/shared/OrderMetadataSummary";
 import { cn } from "@/lib/utils";
 import { useOrders, raiseQuantityComplaint } from "@/lib/orderStore";
 import {
@@ -52,6 +51,7 @@ import {
   ShipmentBatchStatusBadge,
 } from "@/components/domain/badges/badges";
 import { DeliveryProgressBar } from "@/components/domain/DeliveryProgressBar";
+import { ProductionPipelineStepper } from "@/components/domain/ProductionPipelineStepper";
 import { CreateBatchDialog } from "@/components/domain/dialogs/CreateBatchDialog";
 import { SalesPointAllocationTable } from "@/components/domain/tables/SalesPointAllocationTable";
 import { buildAllocationRows, useHydratedOrder } from "@/lib/v2/selectors/viewModels";
@@ -93,7 +93,7 @@ interface AdminOrderWorkbenchViewModel {
   allocationRows: OrderAllocationTableRow[];
   auditRows: ReturnType<typeof buildOrderAuditRows>;
   exceptionState: ExceptionState;
-  summaryStats: Array<{ label: string; value: string; hint?: string }>;
+  summaryStats: Array<{ label: string; value: string; hint?: string; color?: string }>;
   documentStats: Array<{ label: string; value: string }>;
   topSummary: Array<{ label: string; value: string; emphasis?: boolean }>;
   focusCard: {
@@ -113,9 +113,6 @@ const ORDER_DETAIL_TABS: Array<{ value: OrderDetailTab; label: string }> = [
 ];
 
 const TABLE_LINK_CLASS = "text-link hover:underline";
-const HERO_TITLE_CLASS = "text-[2.15rem] font-semibold tracking-tight text-foreground sm:text-[2.5rem] sm:leading-tight";
-const HERO_SUBTITLE_CLASS = "text-base leading-7 text-muted-foreground";
-const SUMMARY_VALUE_CLASS = "mt-2 text-2xl font-semibold tracking-tight sm:text-[2.125rem]";
 
 export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
   const { id } = useParams();
@@ -138,12 +135,38 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
     [allocationRows, hydrated, orderAudit],
   );
 
+  const totalReadyQty = useMemo(
+    () => hydrated?.productionJobs.reduce((sum, job) => sum + job.readyQuantity, 0) ?? 0,
+    [hydrated],
+  );
+  const isProductionPhase = hydrated
+    ? hydrated.distributionStatus === "NOT_STARTED" && totalReadyQty === 0
+    : false;
+
   const canCreateBatch =
     (userRole === "admin" || userRole === "operator" || userRole === "vendor") &&
+    totalReadyQty > 0 &&
     allocationRows.some((row) => row.canAddToBatch);
   const canRaiseComplaint = userRole === "admin" || userRole === "operator";
 
+  const visibleTabs = useMemo(() => {
+    if (!isProductionPhase) return ORDER_DETAIL_TABS;
+    return ORDER_DETAIL_TABS.filter((tab) =>
+      ["overview", "operations", "audit"].includes(tab.value),
+    ).map((tab) =>
+      tab.value === "operations"
+        ? { ...tab, label: "Allocations & Jobs" }
+        : tab,
+    );
+  }, [isProductionPhase]);
+
   const [activeTab, setActiveTab] = useState<OrderDetailTab>("overview");
+
+  useEffect(() => {
+    if (isProductionPhase && !["overview", "operations", "audit"].includes(activeTab)) {
+      setActiveTab("overview");
+    }
+  }, [isProductionPhase, activeTab]);
   const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
   const [isComplaintDialogOpen, setIsComplaintDialogOpen] = useState(false);
   const [isDocumentsExpanded, setIsDocumentsExpanded] = useState(true);
@@ -189,7 +212,11 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
         totalDelta: complaint.items.reduce((total, item) => total + item.deltaQty, 0),
       }
     : null;
+  const deadlineDate = new Date(viewModel.order.deadlineDate);
   const deadlineDateLabel = formatDateLabel(viewModel.order.deadlineDate);
+  const deadlineDaysLeft = Number.isNaN(deadlineDate.getTime())
+    ? null
+    : Math.ceil((deadlineDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   const latestNoteMeta = formatRelativeDateTime(viewModel.order.audit.updatedAt);
   const recentJobs = hydrated.productionJobs.slice(0, 3);
 
@@ -238,7 +265,11 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
 
   const renderWorkflowActions = (size: "default" | "sm" = "sm") => (
     <>
-      {canCreateBatch ? (
+      {isProductionPhase ? (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-processing/30 bg-processing/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-processing">
+          Production Ongoing (Order Locked)
+        </span>
+      ) : canCreateBatch ? (
         <Button size={size} onClick={() => setIsBatchDialogOpen(true)}>
           Create Shipment Batch
         </Button>
@@ -275,16 +306,18 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          {canRaiseComplaint ? (
+          {canRaiseComplaint && !isProductionPhase ? (
             <DropdownMenuItem onSelect={openComplaintDialog}>
               <AlertTriangle className="mr-2 h-4 w-4" />
               {complaint ? "Review Complaint" : "Raise Complaint"}
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuItem onSelect={() => setActiveTab("compliance")}>
-            <ShieldAlert className="mr-2 h-4 w-4" />
-            Open Compliance
-          </DropdownMenuItem>
+          {!isProductionPhase ? (
+            <DropdownMenuItem onSelect={() => setActiveTab("compliance")}>
+              <ShieldAlert className="mr-2 h-4 w-4" />
+              Open Compliance
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onSelect={() => setActiveTab("audit")}>
             <ClipboardList className="mr-2 h-4 w-4" />
             Open Audit Trail
@@ -311,70 +344,49 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
           <div className="mx-auto max-w-[1440px]">
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
               <div className="space-y-5">
-                <section className="rounded-xl border border-border/70 bg-background px-5 py-5 shadow-sm sm:px-6">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className="rounded-full font-mono text-[11px]">
-                      {viewModel.order.orderRequestNumber}
-                    </Badge>
-                    <ProductionStatusBadge status={hydrated.productionStatus} />
-                    <DistributionStatusBadge status={hydrated.distributionStatus} />
-                    <PodStatusBadge status={hydrated.podStatus} />
-                  </div>
 
-                  <div className="mt-5 space-y-3">
-                    <div className="max-w-5xl">
-                      <h1 className={HERO_TITLE_CLASS}>
-                        {viewModel.order.project.name}
-                      </h1>
-                    </div>
-                    <p className={HERO_SUBTITLE_CLASS}>
-                      {viewModel.focusCard.description}
-                      <span className="ml-1 font-semibold text-foreground">{viewModel.order.deadlineDate} until deadline.</span>
-                    </p>
-                  </div>
-
-                  <div className="mt-6 grid gap-3 rounded-2xl border border-border/70 bg-card p-3 sm:grid-cols-2 xl:grid-cols-6 xl:gap-0 xl:p-0">
-                    <TopSummaryCell icon={User} label="Vendor" value={viewModel.order.vendor.name} />
-                    <TopSummaryCell icon={User} label="Client PO" value={viewModel.order.clientPoNumber ?? "—"} mono />
-                    <TopSummaryCell icon={Calendar} label="Deadline" value={viewModel.order.deadlineDate} />
-                    <TopSummaryCell icon={Package} label="Ordered" value={`${viewModel.order.quantitySummary.orderedQuantity} pcs`} />
-                    <TopSummaryCell icon={Package} label="Received" value={`${viewModel.order.quantitySummary.receivedQuantity} pcs`} />
-                    <TopSummaryCell icon={Info} label="Bottleneck" value={viewModel.focusCard.eyebrow} highlight />
-                  </div>
-                </section>
 
                 <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as OrderDetailTab)} className="space-y-5">
                   <TabsList className="mb-6">
-                    {ORDER_DETAIL_TABS.map((tab) => (
+                    {visibleTabs.map((tab) => (
                       <TabsTrigger key={tab.value} value={tab.value}>
                         {tab.label}
                       </TabsTrigger>
                     ))}
                   </TabsList>
                   <TabsContent value="overview" className="space-y-5">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      {viewModel.summaryStats.map((stat) => (
+                        <OverviewStat key={stat.label} label={stat.label} value={stat.value} hint={stat.hint} color={stat.color} />
+                      ))}
+                    </div>
+
                     <Card className="border-border/70 shadow-sm">
                       <CardHeader className="border-b bg-muted/20">
-                        <CardTitle>Operational Summary</CardTitle>
+                        <CardTitle>{isProductionPhase ? "Production Pipeline" : "Delivery Progress"}</CardTitle>
                         <CardDescription>
-                          Order-level progress across allocations, production, batches, documents, and POD.
+                          {isProductionPhase
+                            ? "Current production stage and readiness."
+                            : "Order-level shipment and receipt progress."}
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1.2fr)_300px]">
-                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                          {viewModel.summaryStats.map((stat) => (
-                            <OverviewStat key={stat.label} label={stat.label} value={stat.value} hint={stat.hint} />
-                          ))}
-                        </div>
-                        <div className="rounded-2xl border border-border/70 bg-card p-5">
-                          <p className="text-base font-semibold">Delivery progress</p>
-                          <div className="mt-5">
+                      <CardContent className="flex flex-col items-center p-5">
+                        <div className="w-full max-w-2xl">
+                          {isProductionPhase ? (
+                            <ProductionPipelineStepper productionStatus={hydrated.productionStatus} className="w-full justify-center" />
+                          ) : (
                             <DeliveryProgressBar
                               receivedQuantity={viewModel.order.quantitySummary.receivedQuantity}
                               allocatedQuantity={viewModel.order.quantitySummary.allocatedQuantity}
                               shippedQuantity={viewModel.order.quantitySummary.shippedQuantity}
                             />
-                          </div>
+                          )}
                         </div>
+                        {isProductionPhase && totalReadyQty > 0 ? (
+                          <p className="mt-3 text-xs text-muted-foreground">
+                            {totalReadyQty} / {viewModel.order.quantitySummary.orderedQuantity} pcs ready for shipping
+                          </p>
+                        ) : null}
                       </CardContent>
                     </Card>
 
@@ -398,7 +410,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                                 <KeyMetric label="Shipped" value={`${viewModel.workflowBatch.quantitySummary.shippedQuantity} pcs`} />
                                 <KeyMetric label="Received" value={`${viewModel.workflowBatch.quantitySummary.verifiedReceivedQuantity} pcs`} />
                                 <KeyMetric label="Status" value={formatBatchStatusLabel(viewModel.workflowBatch.status)} />
-                                <KeyMetric label="POD" value={formatPodLabel(hydrated.podStatus)} />
+                                <KeyMetric label="Proof of Delivery (POD)" value={formatPodLabel(hydrated.podStatus)} />
                               </div>
                             </div>
 
@@ -562,7 +574,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                               <TableHead className="text-right">Shipped</TableHead>
                               <TableHead className="text-right">Received</TableHead>
                               <TableHead>Status</TableHead>
-                              <TableHead>POD</TableHead>
+                              <TableHead>Proof of Delivery (POD)</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -670,7 +682,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                           }
                           mono={viewModel.order.externalReferences.length > 0}
                         />
-                        <DetailPair label="Tags" value={<OrderMetadataSummary tags={viewModel.order.tags} />} />
+
                         <DetailPair
                           label="Link"
                           value={
@@ -716,7 +728,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                             {hydrated.deliveryConfirmations.length === 0 ? (
                               <TableRow>
                                 <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-                                  No POD submissions yet.
+                                  No Proof of Delivery (POD) submissions yet.
                                 </TableCell>
                               </TableRow>
                             ) : (
@@ -880,57 +892,62 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
 
                     <div className="space-y-5 border-b border-border/60 p-5">
                       <p className="text-base font-semibold">Order Essentials</p>
+                      <RailDetail label="Project" value={viewModel.order.project.name} />
                       <RailDetail label="Vendor" value={viewModel.order.vendor.name} />
                       <RailDetail label="Client PO" value={viewModel.order.clientPoNumber ?? "—"} />
-                      <RailDetail label="Deadline" value={viewModel.order.deadlineDate} subvalue={deadlineDateLabel} strong />
+                      <RailDetail label="Deadline" value={deadlineDateLabel} subvalue={deadlineDaysLeft !== null ? `${deadlineDaysLeft} day${deadlineDaysLeft === 1 ? "" : "s"} left` : undefined} strong />
                     </div>
 
-                    <div className="border-b border-border/60">
-                      <button
-                        type="button"
-                        className="flex w-full items-center justify-between p-5 text-left"
-                        onClick={() => setIsDocumentsExpanded((current) => !current)}
-                      >
-                        <span className="text-base font-semibold">Documents</span>
-                        {isDocumentsExpanded ? (
-                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </button>
-                      {isDocumentsExpanded ? (
-                        <div className="grid gap-3 border-t border-border/60 p-5 sm:grid-cols-2">
-                          {viewModel.documentStats.map((stat) => (
-                            <DocumentStat key={stat.label} label={stat.label} value={stat.value} />
-                          ))}
+                    {!isProductionPhase ? (
+                      <>
+                        <div className="border-b border-border/60">
+                          <button
+                            type="button"
+                            className="flex w-full items-center justify-between p-5 text-left"
+                            onClick={() => setIsDocumentsExpanded((current) => !current)}
+                          >
+                            <span className="text-base font-semibold">Documents</span>
+                            {isDocumentsExpanded ? (
+                              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </button>
+                          {isDocumentsExpanded ? (
+                            <div className="grid gap-3 border-t border-border/60 p-5 sm:grid-cols-2">
+                              {viewModel.documentStats.map((stat) => (
+                                <DocumentStat key={stat.label} label={stat.label} value={stat.value} />
+                              ))}
+                            </div>
+                          ) : null}
                         </div>
-                      ) : null}
-                    </div>
 
-                    <div className="border-b border-border/60">
-                      <button
-                        type="button"
-                        className="flex w-full items-center justify-between p-5 text-left"
-                        onClick={() => setIsExceptionsExpanded((current) => !current)}
-                      >
-                        <span className="text-base font-semibold">Exceptions & Complaints</span>
-                        {isExceptionsExpanded ? (
-                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </button>
-                      {isExceptionsExpanded ? (
-                        <div className="space-y-4 border-t border-border/60 p-5">
-                          <InlineStatus icon={CheckCircle2} label={complaint ? "Complaint raised" : "No complaint"} positive={!complaint} />
-                          <InlineStatus
-                            icon={ShieldAlert}
-                            label={viewModel.order.exceptionSummary.latestExceptionReason ? "Active exception" : "No active exceptions"}
-                            positive={!viewModel.order.exceptionSummary.latestExceptionReason}
-                          />
+                        <div className="border-b border-border/60">
+                          <button
+                            type="button"
+                            className="flex w-full items-center justify-between p-5 text-left"
+                            onClick={() => setIsExceptionsExpanded((current) => !current)}
+                          >
+                            <span className="text-base font-semibold">Exceptions & Complaints</span>
+                            {isExceptionsExpanded ? (
+                              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </button>
+                          {isExceptionsExpanded ? (
+                            <div className="space-y-4 border-t border-border/60 p-5">
+                              <InlineStatus icon={CheckCircle2} label={complaint ? "Complaint raised" : "No complaint"} positive={!complaint} />
+                              <InlineStatus
+                                icon={ShieldAlert}
+                                label={viewModel.order.exceptionSummary.latestExceptionReason ? "Active exception" : "No active exceptions"}
+                                positive={!viewModel.order.exceptionSummary.latestExceptionReason}
+                              />
+                            </div>
+                          ) : null}
                         </div>
-                      ) : null}
-                    </div>
+                      </>
+                    ) : null}
 
                     <div>
                       <button
@@ -1142,21 +1159,25 @@ function buildAdminOrderWorkbenchViewModel(
       {
         label: "Ordered",
         value: `${order.quantitySummary.orderedQuantity} pcs`,
+        color: "text-primary",
       },
       {
         label: "Allocated",
         value: `${order.quantitySummary.allocatedQuantity} pcs`,
         hint: `${order.quantitySummary.salesPointCount} sales point${order.quantitySummary.salesPointCount === 1 ? "" : "s"}`,
+        color: "text-primary",
       },
       {
         label: "Shipped",
         value: `${order.quantitySummary.shippedQuantity} pcs`,
         hint: `${order.documentSummary.shipmentBatchCount} batch${order.documentSummary.shipmentBatchCount === 1 ? "" : "es"}`,
+        color: "text-processing",
       },
       {
         label: "Received",
         value: `${order.quantitySummary.receivedQuantity} pcs`,
-        hint: `${order.quantitySummary.openPodIssueCount} open POD issue${order.quantitySummary.openPodIssueCount === 1 ? "" : "s"}`,
+        hint: `${order.quantitySummary.openPodIssueCount} open Proof of Delivery (POD) issue${order.quantitySummary.openPodIssueCount === 1 ? "" : "s"}`,
+        color: "text-success",
       },
     ],
     documentStats: [
@@ -1165,7 +1186,7 @@ function buildAdminOrderWorkbenchViewModel(
         value: `${order.documentSummary.deliveryNoteCount}`,
       },
       {
-        label: "POD",
+        label: "Proof of Delivery (POD)",
         value: `${order.documentSummary.uploadedPodCount}`,
       },
       {
@@ -1236,6 +1257,18 @@ function buildFocusCard(
   workflowBatch: HydratedOrder["shipmentBatches"][number] | undefined,
   exceptionState: ExceptionState,
 ) {
+  const totalReadyQty = hydrated.productionJobs.reduce((sum, job) => sum + job.readyQuantity, 0);
+  const inProductionPhase = hydrated.distributionStatus === "NOT_STARTED" && totalReadyQty === 0;
+
+  if (inProductionPhase) {
+    return {
+      eyebrow: "Production Phase",
+      title: "Waiting for production progress",
+      description:
+        "The vendor is manufacturing the items. Shipment batch creation will unlock once ready quantities are reported.",
+    };
+  }
+
   if (exceptionState === "BLOCKED") {
     return {
       eyebrow: "Attention required",
@@ -1248,10 +1281,10 @@ function buildFocusCard(
 
   if (hydrated.deliveryConfirmations.length > 0 && hydrated.podStatus !== "VERIFIED") {
     return {
-      eyebrow: "POD review",
-      title: "POD review is the current bottleneck",
+      eyebrow: "Proof of Delivery (POD) review",
+      title: "Proof of Delivery (POD) review is the current bottleneck",
       description:
-        "POD review is the current bottleneck.",
+        "Proof of Delivery (POD) review is the current bottleneck.",
     };
   }
 
@@ -1289,43 +1322,39 @@ function clampQuantity(value: number, max: number) {
   return Math.max(0, Math.min(Math.round(value), max));
 }
 
-function OverviewStat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function OverviewStat({ label, value, hint, color, compact }: { label: string; value: string; hint?: string; color?: string; compact?: boolean }) {
+  if (compact) {
+    return (
+      <div className="flex items-center gap-4 rounded-xl border border-border/70 bg-background px-4 py-3 transition-colors hover:border-primary/40">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs text-muted-foreground">{label}</p>
+          <p className={`mt-0.5 text-lg font-semibold tracking-tight ${color ?? "text-primary"}`}>{value}</p>
+        </div>
+        {hint && <p className="shrink-0 text-[10px] text-muted-foreground">{hint}</p>}
+      </div>
+    );
+  }
+
   return (
-    <div className="rounded-3xl border border-border/70 bg-background px-5 py-4">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className={SUMMARY_VALUE_CLASS}>{value}</p>
-      {hint ? <p className="mt-1 text-sm text-muted-foreground">{hint}</p> : null}
-    </div>
+    <Card className="group cursor-pointer border-border/70 shadow-sm transition-colors hover:border-primary/40">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+        <div>
+          <CardDescription>{label}</CardDescription>
+          <CardTitle className={`text-3xl ${color ?? "text-primary"}`}>{value}</CardTitle>
+        </div>
+        <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+      </CardHeader>
+      <CardContent className="flex items-center justify-between pt-0">
+        {hint ? (
+          <p className="text-xs text-muted-foreground">{hint}</p>
+        ) : (
+          <span />
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
-function TopSummaryCell({
-  icon: Icon,
-  label,
-  value,
-  mono = false,
-  highlight = false,
-}: {
-  icon: typeof User;
-  label: string;
-  value: string;
-  mono?: boolean;
-  highlight?: boolean;
-}) {
-  return (
-    <div className="rounded-2xl px-3 py-3 xl:rounded-none xl:border-r xl:border-border/60 xl:px-5 xl:py-4 last:border-r-0">
-      <div className="flex items-start gap-3">
-        <Icon className={cn("mt-0.5 h-4 w-4", highlight ? "text-warning" : "text-muted-foreground")} />
-        <div className="min-w-0">
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <p className={cn("mt-1 text-sm font-medium", mono && "font-mono text-[13px]", highlight && "text-warning")}>
-            {value}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function KeyMetric({ label, value }: { label: string; value: string }) {
   return (

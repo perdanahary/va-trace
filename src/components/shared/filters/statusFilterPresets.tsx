@@ -58,7 +58,7 @@ export function DeliveryNoteStatusFilter({ value, onValueChange }: Pick<StatusFi
 }
 
 export function PodStatusFilter({ value, onValueChange }: Pick<StatusFilterProps<string>, "value" | "onValueChange">) {
-  return <StatusFilter value={value} onValueChange={onValueChange} statuses={DELIVERY_CONFIRMATION_STATUSES} label="POD" allLabel="All POD" />;
+  return <StatusFilter value={value} onValueChange={onValueChange} statuses={DELIVERY_CONFIRMATION_STATUSES} label="Proof of Delivery (POD)" allLabel="All Proof of Delivery (POD)" />;
 }
 
 export function LogisticsFilterSection({ children }: { children: ReactNode }) {

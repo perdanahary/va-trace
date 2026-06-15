@@ -8,7 +8,7 @@
 import { useMemo } from "react";
 import type { DeliveryNoteListRow, PodVerificationQueueRow } from "@/lib/types/v2/deliveryNote";
 import type { ID } from "@/lib/types/v2/foundation";
-import type { OrderAllocationTableRow, OrderListRow } from "@/lib/types/v2/orderRequest";
+import type { OrderAllocationTableRow, OrderListRow, AllocationProgressRow } from "@/lib/types/v2/orderRequest";
 import type { ProductionJobListRow } from "@/lib/types/v2/production";
 import type { ShipmentBatchItemTableRow, ShipmentBatchListRow } from "@/lib/types/v2/shipment";
 import { useAllocations } from "@/lib/v2/allocationStore";
@@ -101,6 +101,52 @@ export function useOrderListRows(rolePrefix: string, vendorName?: string): Order
             detailPath: `${rolePrefix}/orders/${order.id}`,
           },
         })),
+    [hydrated, rolePrefix, vendorName],
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Allocation progress rows (per-allocation view for Order Progress page)
+// ---------------------------------------------------------------------------
+
+export function useAllocationProgressRows(rolePrefix: string, vendorName?: string): AllocationProgressRow[] {
+  const hydrated = useHydratedOrders();
+
+  return useMemo(
+    () =>
+      hydrated
+        .filter((entry) => !vendorName || entry.order.vendor.name === vendorName)
+        .flatMap(({ order, allocations }) =>
+          allocations.map((allocation) => ({
+            allocationId: allocation.id,
+            orderRequestId: order.id,
+            orderRequestNumber: order.orderRequestNumber,
+            clientPoNumber: order.clientPoNumber,
+            vendorName: order.vendor.name,
+            deadlineDate: order.deadlineDate,
+            deadlineState: deriveDeadlineState(order.deadlineDate),
+            salesPointName: allocation.salesPoint.name,
+            salesPointCode: allocation.salesPoint.wCode,
+            productName: allocation.product.name,
+            productCode: allocation.product.materialCode,
+            allocatedQuantity: allocation.allocatedQuantity,
+            shippedQuantity: allocation.shippedQuantity,
+            receivedQuantity: allocation.receivedQuantity,
+            outstandingQuantity: allocation.outstandingQuantity,
+            deliveryProgressLabel: `${allocation.receivedQuantity}/${allocation.allocatedQuantity}`,
+            deliveryProgressPercent:
+              allocation.allocatedQuantity > 0
+                ? Math.round((allocation.receivedQuantity / allocation.allocatedQuantity) * 100)
+                : 0,
+            allocationStatus: allocation.status,
+            podStatus: allocation.podStatus,
+            exceptionState: allocation.exceptionState,
+            hasException: allocation.exceptionState !== "NONE",
+            actionTargets: {
+              orderDetailPath: `${rolePrefix}/orders/${order.id}`,
+            },
+          })),
+        ),
     [hydrated, rolePrefix, vendorName],
   );
 }

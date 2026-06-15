@@ -42,7 +42,7 @@ export function ShipmentBatchTable({ rows, emptyMessage = "No shipment batches f
             <TableHead>Dispatched</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>DN</TableHead>
-            <TableHead>POD</TableHead>
+            <TableHead>Proof of Delivery (POD)</TableHead>
             <TableHead className="text-right" />
           </TableRow>
         </TableHeader>

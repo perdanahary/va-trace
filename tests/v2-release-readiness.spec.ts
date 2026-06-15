@@ -49,9 +49,6 @@ test.describe("V2 Release Readiness", () => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    await page.getByLabel("PIC Project Email").fill("release@example.com");
-    await page.getByLabel("PIC Project Name").fill("Release Tester");
-
     await page.getByRole("combobox", { name: "Product" }).click();
     await page.getByPlaceholder("Search product name, code, brand, or material...").fill("2026-00194983-0039");
     await page.getByRole("option").first().click();

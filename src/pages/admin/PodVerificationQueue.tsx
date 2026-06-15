@@ -72,9 +72,9 @@ export function PodVerificationQueue({ userRole = "admin" }: PodVerificationQueu
       );
       toast.success(
         decision === "VERIFY"
-          ? "POD verified. Received quantities applied."
+          ? "Proof of Delivery (POD) verified. Received quantities applied."
           : decision === "REJECT"
-            ? "POD rejected and returned to the vendor."
+            ? "Proof of Delivery (POD) rejected and returned to the vendor."
             : "Correction requested from the vendor.",
       );
       setOpenId(null);
@@ -89,18 +89,18 @@ export function PodVerificationQueue({ userRole = "admin" }: PodVerificationQueu
     <div className="flex min-h-screen bg-background">
       <Sidebar userRole={userRole} />
       <ContentArea>
-        <Header title="POD Verification" />
+        <Header title="Proof of Delivery (POD) Verification" />
 
         <main className="space-y-6 p-4 sm:p-6 lg:p-8">
           <Card className="border-border/70 shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">Pending Verification ({pendingRows.length})</CardTitle>
               <CardDescription>
-                Only verified POD updates received quantities and derived distribution status.
+                Only verified Proof of Delivery (POD) updates received quantities and derived distribution status.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <PodQueueTable rows={pendingRows} onOpen={setOpenId} emptyMessage="No POD submissions awaiting verification." />
+              <PodQueueTable rows={pendingRows} onOpen={setOpenId} emptyMessage="No Proof of Delivery (POD) submissions awaiting verification." />
             </CardContent>
           </Card>
 
@@ -110,7 +110,7 @@ export function PodVerificationQueue({ userRole = "admin" }: PodVerificationQueu
               <CardDescription>Verified, rejected, and correction-requested submissions.</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <PodQueueTable rows={historyRows} onOpen={setOpenId} openLabel="Open" emptyMessage="No reviewed POD records yet." />
+              <PodQueueTable rows={historyRows} onOpen={setOpenId} openLabel="Open" emptyMessage="No reviewed Proof of Delivery (POD) records yet." />
             </CardContent>
           </Card>
         </main>
@@ -122,7 +122,7 @@ export function PodVerificationQueue({ userRole = "admin" }: PodVerificationQueu
             <>
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
-                  POD Evidence
+                  Proof of Delivery (POD) Evidence
                   <DeliveryConfirmationStatusBadge status={selected.status} />
                 </SheetTitle>
                 <SheetDescription>

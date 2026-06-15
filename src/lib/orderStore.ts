@@ -54,8 +54,6 @@ export interface ManualOrderDraft {
   soNumber?: string;
   supplier: string;
   salesPointId: string;
-  picProjectName?: string;
-  picProjectEmail?: string;
   deadline: string;
   createdDate?: string;
   sourceType?: "manual";
@@ -518,10 +516,6 @@ export function createManualOrder(draft: ManualOrderDraft): StoredOrder {
     clientId: salesPointClient?.clientId,
     clientName: salesPointClient?.clientName,
     clientEntityName: salesPointClient?.clientEntityName,
-    picProject: {
-      name: draft.picProjectName?.trim() ?? "",
-      email: draft.picProjectEmail?.trim() ?? "",
-    },
     sourceType: draft.sourceType ?? "manual",
     note: draft.note?.trim(),
     items,

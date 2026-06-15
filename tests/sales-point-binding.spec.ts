@@ -8,5 +8,6 @@ test.describe("sales point client binding", () => {
     expect(mockSalesPoints.every((salesPoint) => salesPoint.clientId === "CUS-SAMPOERNA")).toBe(true);
     expect(mockSalesPoints.every((salesPoint) => salesPoint.clientName === "Sampoerna")).toBe(true);
     expect(mockSalesPoints.every((salesPoint) => salesPoint.clientEntityName === "PT HM Sampoerna Tbk")).toBe(true);
+    expect(mockSalesPoints.every((salesPoint) => salesPoint.companyName === "Sampoerna")).toBe(true);
   });
 });

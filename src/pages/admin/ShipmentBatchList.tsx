@@ -117,7 +117,7 @@ export function ShipmentBatchList({ userRole = "admin" }: ShipmentBatchListProps
             <CardHeader>
               <CardTitle className="text-base">Shipment Batches</CardTitle>
               <CardDescription>
-                Physical shipment events. Every shipped quantity, Delivery Note, and POD belongs to a batch.
+                Physical shipment events. Every shipped quantity, Delivery Note, and Proof of Delivery (POD) belongs to a batch.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">

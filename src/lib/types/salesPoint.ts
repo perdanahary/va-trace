@@ -4,6 +4,7 @@ export interface SalesPointMapping {
   clientId: string;
   clientName: string;
   clientEntityName: string;
+  companyName: string;
   zone: string;
   region: string;
   area: string;

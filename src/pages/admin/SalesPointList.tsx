@@ -155,12 +155,28 @@ export function SalesPointList() {
         sp.subArea.toLowerCase().includes(q) ||
         sp.wcode.toLowerCase().includes(q) ||
         sp.area.toLowerCase().includes(q) ||
+        sp.zone.toLowerCase().includes(q) ||
+        sp.region.toLowerCase().includes(q) ||
         sp.clientName.toLowerCase().includes(q) ||
         sp.clientEntityName.toLowerCase().includes(q) ||
+        sp.companyName.toLowerCase().includes(q) ||
         sp.pic1.name.toLowerCase().includes(q) ||
+        sp.pic1.email.toLowerCase().includes(q) ||
+        sp.pic1.phone.toLowerCase().includes(q) ||
         sp.pic2.name.toLowerCase().includes(q) ||
+        sp.pic2.email.toLowerCase().includes(q) ||
+        sp.pic2.phone.toLowerCase().includes(q) ||
         sp.remarks.toLowerCase().includes(q) ||
-        sp.note.toLowerCase().includes(q);
+        sp.note.toLowerCase().includes(q) ||
+        sp.shippingAddress.provinsi.toLowerCase().includes(q) ||
+        sp.shippingAddress.kotaKabupaten.toLowerCase().includes(q) ||
+        sp.shippingAddress.kecamatan.toLowerCase().includes(q) ||
+        sp.shippingAddress.alamat.toLowerCase().includes(q) ||
+        (sp.address ?? "").toLowerCase().includes(q) ||
+        (sp.deliveryCompanyName ?? "").toLowerCase().includes(q) ||
+        (sp.deliveryLocationName ?? "").toLowerCase().includes(q) ||
+        (sp.phone ?? "").toLowerCase().includes(q) ||
+        (sp.picClient ?? "").toLowerCase().includes(q);
 
       const matchesZone = selectedZone === "All Zones" || matchesFilterValue(zoneOperator, sp.zone, selectedZone);
       const matchesRegion = selectedRegion === "All Regions" || matchesFilterValue(regionOperator, sp.region, selectedRegion);
@@ -230,7 +246,7 @@ export function SalesPointList() {
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by Sales Point, Sub Area, WCode, PIC, Remarks, or Note..."
+                  placeholder="Search across all sales point fields..."
                   className="pl-9 pr-10"
                 />
                 {searchQuery ? (
@@ -269,6 +285,7 @@ export function SalesPointList() {
                     <TableHead>PIC 1</TableHead>
                     <TableHead>PIC 2</TableHead>
                     <TableHead>Client</TableHead>
+                    <TableHead>Company</TableHead>
                     <TableHead>Note</TableHead>
                     <TableHead>Remarks</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -321,6 +338,7 @@ export function SalesPointList() {
                             <p className="text-xs text-muted-foreground">{sp.clientEntityName}</p>
                           </div>
                         </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{sp.companyName || "—"}</TableCell>
                         <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate" title={sp.note}>
                           {sp.note || "—"}
                         </TableCell>

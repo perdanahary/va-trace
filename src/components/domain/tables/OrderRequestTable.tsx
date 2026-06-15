@@ -10,7 +10,6 @@ import {
   PodStatusBadge,
   ProductionStatusBadge,
 } from "@/components/domain/badges/badges";
-import { OrderMetadataSummary } from "@/components/shared/OrderMetadataSummary";
 import type { OrderListRow } from "@/lib/types/v2/orderRequest";
 
 export type OrderRequestTableColumn =
@@ -36,6 +35,7 @@ interface OrderRequestTableProps {
   renderActions?: (row: OrderListRow) => ReactNode;
   detailLabel?: string;
   emptyMessage?: string;
+  onRowClick?: (row: OrderListRow) => void;
 }
 
 const defaultColumns: OrderRequestTableColumn[] = [
@@ -59,6 +59,7 @@ export function OrderRequestTable({
   renderActions,
   detailLabel = "Open",
   emptyMessage = "No order requests found.",
+  onRowClick,
 }: OrderRequestTableProps) {
   return (
     <div className="overflow-x-auto">
@@ -82,13 +83,17 @@ export function OrderRequestTable({
             </TableRow>
           ) : (
             rows.map((row) => (
-              <TableRow key={row.id}>
+              <TableRow
+                key={row.id}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                className={onRowClick ? "cursor-pointer hover:bg-muted/50 transition-colors" : undefined}
+              >
                 {columns.map((column) => (
                   <TableCell key={column} className={getCellClassName(column)}>
-                    {renderCell(column, row)}
+                    {renderCell(column, row, onRowClick)}
                   </TableCell>
                 ))}
-                <TableCell className="text-right">
+                <TableCell className="text-right" onClick={onRowClick ? (e) => e.stopPropagation() : undefined}>
                   {renderActions ? (
                     renderActions(row)
                   ) : (
@@ -138,7 +143,7 @@ function getColumnLabel(column: OrderRequestTableColumn) {
     case "shippedQuantity":
       return "Shipped Qty";
     case "pod":
-      return "POD";
+      return "Proof of Delivery (POD)";
     case "exception":
       return "Exception";
   }
@@ -163,24 +168,27 @@ function getCellClassName(column: OrderRequestTableColumn) {
       return "whitespace-nowrap";
     case "clientPo":
     case "orderRequest":
-      return "font-mono text-xs";
+      return "font-mono text-sm";
     case "created":
     case "deadline":
-      return "text-xs text-muted-foreground";
+      return "text-sm text-muted-foreground";
     default:
       return "text-sm";
   }
 }
 
-function renderCell(column: OrderRequestTableColumn, row: OrderListRow) {
+function renderCell(column: OrderRequestTableColumn, row: OrderListRow, onRowClick?: (row: OrderListRow) => void) {
   switch (column) {
     case "orderRequest":
-      return (
+      return onRowClick ? (
+        <div>
+          <span className="font-medium">{row.orderRequestNumber}</span>
+        </div>
+      ) : (
         <div>
           <Link to={row.actionTargets.detailPath} className="font-medium text-link hover:underline">
             {row.orderRequestNumber}
           </Link>
-          {row.legacyStatusLabel ? <p className="mt-1 text-xs text-muted-foreground">{row.legacyStatusLabel}</p> : null}
         </div>
       );
     case "clientPo":
@@ -188,12 +196,7 @@ function renderCell(column: OrderRequestTableColumn, row: OrderListRow) {
     case "client":
       return row.clientName;
     case "project":
-      return (
-        <div className="space-y-1">
-          <div>{row.projectName}</div>
-          <OrderMetadataSummary tags={row.tags} referenceLink={row.referenceLink} />
-        </div>
-      );
+      return row.projectName;
     case "vendor":
       return row.vendorName;
     case "created":

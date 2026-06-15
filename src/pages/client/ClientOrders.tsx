@@ -4,7 +4,8 @@ import { Filter, Search } from "lucide-react";
 import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { OrderRequestTable } from "@/components/domain/tables/OrderRequestTable";
+import { OrderRequestTable, type OrderRequestTableColumn } from "@/components/domain/tables/OrderRequestTable";
+import { ColumnToggle } from "@/components/shared/ColumnToggle";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,6 +14,22 @@ import { useClientStore } from "@/lib/clientStore";
 import { DISTRIBUTION_STATUSES, PRODUCTION_STATUSES } from "@/lib/types/v2/status";
 import { formatStatusLabel } from "@/lib/v2/selectors/derivedStatus";
 import { useOrderListRows } from "@/lib/v2/selectors/viewModels";
+
+const clientOrderColumns: OrderRequestTableColumn[] = [
+  "clientPo",
+  "orderRequest",
+  "client",
+  "project",
+  "vendor",
+  "created",
+  "deadline",
+  "production",
+  "distribution",
+  "progress",
+  "exception",
+];
+
+const defaultHiddenColumns: OrderRequestTableColumn[] = ["client", "project", "exception"];
 
 /** P2-19 — Client order list (`/client/orders`) backed by V2 order rows. */
 export function ClientOrders() {
@@ -27,6 +44,9 @@ export function ClientOrders() {
   const [search, setSearch] = useState("");
   const [productionFilter, setProductionFilter] = useState("all");
   const [distributionFilter, setDistributionFilter] = useState("all");
+  const [visibleColumns, setVisibleColumns] = useState<OrderRequestTableColumn[]>(
+    clientOrderColumns.filter((col) => !defaultHiddenColumns.includes(col))
+  );
 
   const visibleRows = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -56,6 +76,12 @@ export function ClientOrders() {
         actionTargets: { ...row.actionTargets, detailPath: `/client/orders/${row.id}` },
       }));
   }, [currentUser, distributionFilter, linkedClient, productionFilter, rows, search]);
+
+  const handleColumnToggle = (column: OrderRequestTableColumn) => {
+    setVisibleColumns((prev) =>
+      prev.includes(column) ? prev.filter((col) => col !== column) : [...prev, column]
+    );
+  };
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -102,6 +128,11 @@ export function ClientOrders() {
                   ))}
                 </SelectContent>
               </Select>
+              <ColumnToggle
+                columns={clientOrderColumns}
+                visibleColumns={visibleColumns}
+                onToggle={handleColumnToggle}
+              />
             </div>
           </section>
 
@@ -111,7 +142,7 @@ export function ClientOrders() {
               <CardDescription>Client-visible production, distribution, and POD progress.</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <OrderRequestTable rows={visibleRows} detailLabel="Track" />
+              <OrderRequestTable rows={visibleRows} columns={visibleColumns} detailLabel="Track" />
             </CardContent>
           </Card>
         </main>

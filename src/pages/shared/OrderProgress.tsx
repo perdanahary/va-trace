@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
@@ -8,91 +8,46 @@ import { Header } from "@/components/layout/Header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AppliedFilterRow, FilterMenu } from "@/components/shared/AdvancedFilterBar";
-import { OrderRequestTable, type OrderRequestTableColumn } from "@/components/domain/tables/OrderRequestTable";
-import { useOrders } from "@/lib/orderStore";
-import { useUserStore } from "@/lib/userStore";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AppliedFilterRow, FilterMenu, matchesFilterValue } from "@/components/shared/AdvancedFilterBar";
+import { AllocationStatusBadge, ExceptionStateBadge, PodStatusBadge } from "@/components/domain/badges/badges";
+import { DeliveryProgressBar } from "@/components/domain/DeliveryProgressBar";
 import { cn } from "@/lib/utils";
-import type { OrderListRow } from "@/lib/types/v2/orderRequest";
-import { DISTRIBUTION_STATUSES, PRODUCTION_STATUSES } from "@/lib/types/v2/status";
-import { buildOrderListRowsFromStoredOrders } from "@/lib/v2/compat/orderListRows";
+import type { AllocationProgressRow } from "@/lib/types/v2/orderRequest";
+import { ALLOCATION_STATUSES } from "@/lib/types/v2/status";
 import { formatStatusLabel } from "@/lib/v2/selectors/derivedStatus";
-import { matchesFilterValue } from "@/components/shared/AdvancedFilterBar";
+import { useAllocationProgressRows } from "@/lib/v2/selectors/viewModels";
 
 interface OrderProgressProps {
   userRole: UserRole;
 }
 
-const progressColumns: OrderRequestTableColumn[] = [
-  "orderRequest",
-  "clientPo",
-  "project",
-  "vendor",
-  "salesPoints",
-  "production",
-  "distribution",
-  "readyQuantity",
-  "shippedQuantity",
-  "progress",
-  "pod",
-  "deadline",
-];
-
 export function OrderProgress({ userRole }: OrderProgressProps) {
-  const orders = useOrders();
-  const { users } = useUserStore();
-  const [productionOperator, setProductionOperator] = useState<"is" | "is not">("is");
-  const [productionFilter, setProductionFilter] = useState<string>("all");
-  const [distributionOperator, setDistributionOperator] = useState<"is" | "is not">("is");
-  const [distributionFilter, setDistributionFilter] = useState<string>("all");
+  const rolePrefix = `/${userRole}`;
+  const navigate = useNavigate();
+  const allRows = useAllocationProgressRows(rolePrefix);
+
+  const [allocationOperator, setAllocationOperator] = useState<"is" | "is not">("is");
+  const [allocationFilter, setAllocationFilter] = useState<string>("all");
   const [vendorOperator, setVendorOperator] = useState<"is" | "is not">("is");
   const [vendorFilter, setVendorFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const pageSize = 10;
-  const rolePrefix = `/${userRole}`;
 
-  const vendorCompany = useMemo(() => {
-    if (userRole !== "vendor") return null;
-    return users.find((user) => user.role === "vendor" && user.status === "Active")?.company ?? null;
-  }, [userRole, users]);
+  const vendorOptions = useMemo(() => Array.from(new Set(allRows.map((r) => r.vendorName))).sort(), [allRows]);
 
-  const rows = useMemo(() => {
-    const nextRows = buildOrderListRowsFromStoredOrders(orders, rolePrefix);
-    if (!vendorCompany) {
-      return nextRows;
-    }
-
-    const vendorSearch = vendorCompany.toLowerCase();
-    return nextRows.filter((row) => row.vendorName.toLowerCase().includes(vendorSearch));
-  }, [orders, rolePrefix, vendorCompany]);
-
-  const vendorOptions = useMemo(() => Array.from(new Set(rows.map((row) => row.vendorName))).sort(), [rows]);
   const filterGroups = useMemo(
     () => [
       {
-        id: "production",
-        label: "Production",
-        operator: productionOperator,
-        value: productionFilter === "all" ? null : productionFilter,
-        onValueChange: (value: string | null) => setProductionFilter(value ?? "all"),
-        onOperatorChange: setProductionOperator,
-        allLabel: "All production",
-        options: PRODUCTION_STATUSES.map((status) => ({
-          label: formatStatusLabel(status),
-          value: status,
-          keywords: [status],
-        })),
-      },
-      {
-        id: "distribution",
-        label: "Distribution",
-        operator: distributionOperator,
-        value: distributionFilter === "all" ? null : distributionFilter,
-        onValueChange: (value: string | null) => setDistributionFilter(value ?? "all"),
-        onOperatorChange: setDistributionOperator,
-        allLabel: "All distribution",
-        options: DISTRIBUTION_STATUSES.map((status) => ({
+        id: "allocation",
+        label: "Status",
+        operator: allocationOperator,
+        value: allocationFilter === "all" ? null : allocationFilter,
+        onValueChange: (value: string | null) => setAllocationFilter(value ?? "all"),
+        onOperatorChange: setAllocationOperator,
+        allLabel: "All statuses",
+        options: ALLOCATION_STATUSES.map((status) => ({
           label: formatStatusLabel(status),
           value: status,
           keywords: [status],
@@ -108,62 +63,52 @@ export function OrderProgress({ userRole }: OrderProgressProps) {
               onValueChange: (value: string | null) => setVendorFilter(value ?? "all"),
               onOperatorChange: setVendorOperator,
               allLabel: "All vendors",
-              options: vendorOptions.map((vendor) => ({
-                label: vendor,
-                value: vendor,
-                keywords: [vendor],
+              options: vendorOptions.map((v) => ({
+                label: v,
+                value: v,
+                keywords: [v],
               })),
             },
           ]
         : []),
     ],
-    [distributionFilter, productionFilter, userRole, vendorFilter, vendorOptions],
+    [allocationFilter, allocationOperator, userRole, vendorFilter, vendorOptions],
   );
 
   const metrics = useMemo(() => {
-    const total = rows.length;
-    const inProduction = rows.filter((row) => ["ACCEPTED", "PRINTING", "FINISHING", "QUALITY_CONTROL"].includes(row.productionStatus)).length;
-    const ready = rows.filter((row) => row.productionStatus === "READY_FOR_DISTRIBUTION").length;
-    const shipping = rows.filter((row) =>
-      ["PARTIALLY_DISTRIBUTED", "FULLY_DISTRIBUTED", "PARTIALLY_RECEIVED"].includes(row.distributionStatus),
+    const total = allRows.length;
+    const notShipped = allRows.filter((r) => r.allocationStatus === "NOT_SHIPPED").length;
+    const inTransit = allRows.filter((r) =>
+      ["PARTIALLY_SHIPPED", "FULLY_SHIPPED"].includes(r.allocationStatus),
     ).length;
-    const completed = rows.filter((row) => row.productionStatus === "COMPLETED" && row.distributionStatus === "FULLY_RECEIVED").length;
-    const podIssues = rows.reduce((totalIssues, row) => totalIssues + row.openPodIssueCount, 0);
+    const partialReceive = allRows.filter((r) => r.allocationStatus === "PARTIALLY_RECEIVED").length;
+    const fullyReceived = allRows.filter((r) => r.allocationStatus === "FULLY_RECEIVED").length;
+    const exceptions = allRows.filter((r) => r.hasException).length;
 
     return [
-      { label: "Total Orders", value: total, color: "text-foreground", production: "all", distribution: "all" },
-      { label: "In Production", value: inProduction, color: "text-processing", production: "PRINTING", distribution: "all" },
-      { label: "Ready", value: ready, color: "text-primary", production: "READY_FOR_DISTRIBUTION", distribution: "all" },
-      { label: "Shipping", value: shipping, color: "text-warning", production: "all", distribution: "PARTIALLY_DISTRIBUTED" },
-      { label: "Completed", value: completed, color: "text-success", production: "COMPLETED", distribution: "FULLY_RECEIVED" },
-      { label: "POD Issues", value: podIssues, color: "text-destructive", production: "all", distribution: "all" },
+      { label: "Total Allocations", value: total, color: "text-foreground", statusFilter: "all" },
+      { label: "Not Shipped", value: notShipped, color: "text-muted-foreground", statusFilter: "NOT_SHIPPED" },
+      { label: "In Transit", value: inTransit, color: "text-processing", statusFilter: "FULLY_SHIPPED" },
+      { label: "Partially Received", value: partialReceive, color: "text-warning", statusFilter: "PARTIALLY_RECEIVED" },
+      { label: "Fully Received", value: fullyReceived, color: "text-success", statusFilter: "FULLY_RECEIVED" },
+      { label: "Exceptions", value: exceptions, color: "text-destructive", statusFilter: "EXCEPTION" },
     ];
-  }, [rows]);
+  }, [allRows]);
 
   const filteredRows = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    return rows.filter((row) => {
-      if (productionFilter !== "all" && !matchesFilterValue(productionOperator, row.productionStatus, productionFilter)) return false;
-      if (distributionFilter !== "all" && !matchesFilterValue(distributionOperator, row.distributionStatus, distributionFilter)) return false;
+    return allRows.filter((row) => {
+      if (allocationFilter !== "all" && !matchesFilterValue(allocationOperator, row.allocationStatus, allocationFilter)) return false;
       if (vendorFilter !== "all" && !matchesFilterValue(vendorOperator, row.vendorName, vendorFilter)) return false;
       if (!query) return true;
 
-      return [
-        row.orderRequestNumber,
-        row.clientPoNumber ?? "",
-        row.clientName,
-        row.projectName,
-        row.vendorName,
-        row.legacyStatusLabel ?? "",
-        row.tags?.join(" ") ?? "",
-        row.referenceLink?.displayTitle ?? row.referenceLink?.url ?? "",
-      ]
+      return [row.orderRequestNumber, row.clientPoNumber ?? "", row.vendorName, row.salesPointName, row.productName]
         .join(" ")
         .toLowerCase()
         .includes(query);
     });
-  }, [distributionFilter, distributionOperator, productionFilter, productionOperator, rows, searchQuery, vendorFilter, vendorOperator]);
+  }, [allocationFilter, allocationOperator, allRows, searchQuery, vendorFilter, vendorOperator]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const visibleRows = useMemo(() => {
@@ -172,28 +117,24 @@ export function OrderProgress({ userRole }: OrderProgressProps) {
   }, [currentPage, filteredRows]);
 
   useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
+    if (currentPage > totalPages) setCurrentPage(totalPages);
   }, [currentPage, totalPages]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [distributionFilter, distributionOperator, productionFilter, productionOperator, searchQuery, vendorFilter, vendorOperator]);
+  }, [allocationFilter, allocationOperator, searchQuery, vendorFilter, vendorOperator]);
 
   const clearFilters = () => {
-    setProductionFilter("all");
-    setProductionOperator("is");
-    setDistributionFilter("all");
-    setDistributionOperator("is");
+    setAllocationFilter("all");
+    setAllocationOperator("is");
     setVendorFilter("all");
     setVendorOperator("is");
     setSearchQuery("");
   };
 
-  const openMetric = (metric: (typeof metrics)[number]) => {
-    setProductionFilter(metric.production);
-    setDistributionFilter(metric.distribution);
+  const openMetric = (statusFilter: string) => {
+    setAllocationFilter(statusFilter);
+    setAllocationOperator("is");
   };
 
   return (
@@ -203,17 +144,15 @@ export function OrderProgress({ userRole }: OrderProgressProps) {
         <Header title={`${userRole.toUpperCase()} - Order Progress Tracking`} />
 
         <main className="mx-auto space-y-6 p-4 sm:p-6 lg:p-8">
-          <section className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
+          <section className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
             {metrics.map((metric) => (
               <Card
                 key={metric.label}
                 className={cn(
                   "cursor-pointer transition-all hover:border-primary/50",
-                  productionFilter === metric.production && distributionFilter === metric.distribution
-                    ? "border-primary ring-1 ring-primary"
-                    : "border-border/70",
+                  allocationFilter === metric.statusFilter ? "border-primary ring-1 ring-primary" : "border-border/70",
                 )}
-                onClick={() => openMetric(metric)}
+                onClick={() => openMetric(metric.statusFilter)}
               >
                 <CardContent className="flex flex-col justify-center p-4">
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{metric.label}</p>
@@ -227,7 +166,7 @@ export function OrderProgress({ userRole }: OrderProgressProps) {
             <div className="relative w-full xl:max-w-xl">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search order, client PO, project, or vendor..."
+                placeholder="Search order, client PO, vendor, sales point, or product..."
                 className="pl-9"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
@@ -237,7 +176,7 @@ export function OrderProgress({ userRole }: OrderProgressProps) {
             <div className="flex items-center gap-2">
               <FilterMenu groups={filterGroups} />
               <div className="text-sm text-muted-foreground">
-                {filteredRows.length} visible of {rows.length} total
+                {filteredRows.length} visible of {allRows.length} total
               </div>
             </div>
           </section>
@@ -245,17 +184,78 @@ export function OrderProgress({ userRole }: OrderProgressProps) {
           <AppliedFilterRow groups={filterGroups} onClearAll={clearFilters} />
 
           <section className="rounded-md border bg-card">
-            <OrderRequestTable
-              rows={visibleRows}
-              columns={progressColumns}
-              detailLabel="Open"
-              emptyMessage="No order progress rows found."
-              renderActions={(row: OrderListRow) => (
-                <Button asChild variant="outline" size="sm">
-                  <Link to={row.actionTargets.detailPath}>Open</Link>
-                </Button>
-              )}
-            />
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order Request</TableHead>
+                  <TableHead>Client PO</TableHead>
+                  <TableHead>Vendor</TableHead>
+                  <TableHead>Sales Point</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="text-right">Allocated</TableHead>
+                  <TableHead className="text-right">Shipped</TableHead>
+                  <TableHead className="text-right">Received</TableHead>
+                  <TableHead className="text-right">Outstanding</TableHead>
+                  <TableHead>Progress</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>POD</TableHead>
+                  <TableHead>Deadline</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={13} className="h-24 text-center text-muted-foreground">
+                      No allocation progress rows found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  visibleRows.map((row) => (
+                    <TableRow
+                      key={row.allocationId}
+                      className="cursor-pointer"
+                      onClick={() => navigate(row.actionTargets.orderDetailPath)}
+                    >
+                      <TableCell className="font-mono text-xs">{row.orderRequestNumber}</TableCell>
+                      <TableCell className="font-mono text-xs">{row.clientPoNumber ?? "—"}</TableCell>
+                      <TableCell className="text-xs">{row.vendorName}</TableCell>
+                      <TableCell>
+                        <div className="text-xs">
+                          <span className="font-mono">{row.salesPointCode}</span>
+                          <span className="ml-1 text-muted-foreground">{row.salesPointName}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-xs">
+                          <span className="font-mono">{row.productCode}</span>
+                          <span className="ml-1 text-muted-foreground">{row.productName}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-xs">{row.allocatedQuantity}</TableCell>
+                      <TableCell className="text-right tabular-nums text-xs">{row.shippedQuantity}</TableCell>
+                      <TableCell className="text-right tabular-nums text-xs">{row.receivedQuantity}</TableCell>
+                      <TableCell className="text-right tabular-nums text-xs">{row.outstandingQuantity}</TableCell>
+                      <TableCell>
+                        <DeliveryProgressBar
+                          receivedQuantity={row.receivedQuantity}
+                          allocatedQuantity={row.allocatedQuantity}
+                          shippedQuantity={row.shippedQuantity}
+                          compact
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <AllocationStatusBadge status={row.allocationStatus} />
+                      </TableCell>
+                      <TableCell>
+                        <PodStatusBadge status={row.podStatus} />
+                        {row.hasException && <ExceptionStateBadge status={row.exceptionState} className="ml-1" />}
+                      </TableCell>
+                      <TableCell className="text-xs">{row.deadlineDate || "—"}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </section>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

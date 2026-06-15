@@ -16,7 +16,7 @@ export function PodQueueTable({
   rows,
   onOpen,
   openLabel = "Review",
-  emptyMessage = "No POD submissions in the queue.",
+  emptyMessage = "No Proof of Delivery (POD) submissions in the queue.",
 }: PodQueueTableProps) {
   if (rows.length === 0) {
     return <p className="px-6 py-10 text-center text-sm text-muted-foreground">{emptyMessage}</p>;
@@ -27,7 +27,7 @@ export function PodQueueTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>POD</TableHead>
+            <TableHead>Proof of Delivery (POD)</TableHead>
             <TableHead>DN Number</TableHead>
             <TableHead>Order</TableHead>
             <TableHead>Sales Point</TableHead>

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ArrowUpRight, Eye, Play } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
@@ -11,15 +12,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { OrderMetadataSummary } from "@/components/shared/OrderMetadataSummary";
-import { startProduction, useOrders, type StoredOrder } from "@/lib/orderStore";
 import { cn } from "@/lib/utils";
+import { useOrderRequests } from "@/lib/v2/orderRequestStore";
+import type { OrderRequest } from "@/lib/types/v2/orderRequest";
+import { useActor } from "@/lib/v2/useActor";
+import { buildCommand, toApiError } from "@/lib/v2/workflows";
+import { acceptProductionJob, getProductionJobsForOrder } from "@/lib/v2/productionStore";
 
 type VendorTab = "Pending" | "Production" | "Shipping" | "History";
 
 export function VendorDashboard() {
+  const actor = useActor("vendor", "vendor-dashboard");
   const [activeTab, setActiveTab] = useState<VendorTab>("Production");
-  const orders = useOrders();
+  const orders = useOrderRequests();
 
   const metrics = useMemo(() => {
     const pending = orders.filter((o) => o.productionStatus === "NEW" || o.productionStatus === "SUBMITTED").length;
@@ -100,7 +105,26 @@ export function VendorDashboard() {
   );
 }
 
-function VendorOrderTable({ orders, tab }: { orders: StoredOrder[]; tab: VendorTab }) {
+function VendorOrderTable({ orders, tab }: { orders: OrderRequest[]; tab: VendorTab }) {
+  const actor = useActor("vendor", "vendor-order-table");
+
+  const handleStartProduction = (orderId: string) => {
+    const jobs = getProductionJobsForOrder(orderId);
+    if (jobs.length === 0) {
+      toast.error("No production jobs found for this order.");
+      return;
+    }
+    try {
+      acceptProductionJob(
+        { productionJobId: jobs[0].id, expectedVersion: jobs[0].version, acceptedByUserId: actor.userId },
+        buildCommand(actor, "Start production from vendor dashboard"),
+      );
+      toast.success("Production started.");
+    } catch (error) {
+      toast.error(toApiError(error).message);
+    }
+  };
+
   if (orders.length === 0) {
     return (
       <Card className="border-border/70 shadow-sm">
@@ -141,22 +165,19 @@ function VendorOrderTable({ orders, tab }: { orders: StoredOrder[]; tab: VendorT
           </TableHeader>
           <TableBody>
             {orders.map((order) => {
-              const deadlineInfo = getDeadlineInfo(order.deadline, order.createdDate);
+              const deadlineInfo = getDeadlineInfo(order.deadlineDate, order.audit.createdAt);
               return (
                 <TableRow key={order.id}>
                   <TableCell>
                     <Link to={`/vendor/update/${order.id}`} className="font-mono text-xs text-link hover:underline">
-                      {order.id}
+                      {order.orderRequestNumber}
                     </Link>
                   </TableCell>
                   <TableCell className="text-sm font-medium">
-                    <div className="space-y-1">
-                      <div>{order.campaign ?? ""}</div>
-                      <OrderMetadataSummary tags={order.tags} referenceLink={order.referenceLink} />
-                    </div>
+                    <div>{order.project.name}</div>
                   </TableCell>
-                  <TableCell className="text-sm">{order.clientPO}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{formatCreatedDate(order.createdDate)}</TableCell>
+                  <TableCell className="text-sm">{order.clientPoNumber}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{formatCreatedDate(order.audit.createdAt)}</TableCell>
                   <TableCell
                     className={cn(
                       "text-sm",
@@ -176,14 +197,14 @@ function VendorOrderTable({ orders, tab }: { orders: StoredOrder[]; tab: VendorT
                     <StatusBadge status={order.distributionStatus} />
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-sm">
-                    <span className="font-medium text-foreground">{order.deliveryProgress.percentage}%</span>
+                    <span className="font-medium text-foreground">{order.quantitySummary.deliveryProgressPercent}%</span>
                     <span className="ml-1 text-muted-foreground">
-                      ({order.deliveryProgress.receivedQuantity}/{order.deliveryProgress.allocatedQuantity})
+                      ({order.quantitySummary.receivedQuantity}/{order.quantitySummary.allocatedQuantity})
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
                     {tab === "Pending" && (
-                      <Button size="sm" onClick={() => startProduction(order.id)}>
+                      <Button size="sm" onClick={() => handleStartProduction(order.id)}>
                         <Play className="mr-1 h-3.5 w-3.5" />
                         Start Production
                       </Button>
@@ -212,7 +233,7 @@ function VendorOrderTable({ orders, tab }: { orders: StoredOrder[]; tab: VendorT
   );
 }
 
-function getOrdersForTab(tab: VendorTab, orders: StoredOrder[]) {
+function getOrdersForTab(tab: VendorTab, orders: OrderRequest[]) {
   switch (tab) {
     case "Pending":
       return orders.filter((order) => order.productionStatus === "NEW" || order.productionStatus === "SUBMITTED");

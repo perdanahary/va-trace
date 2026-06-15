@@ -27,10 +27,14 @@
     "jam": {
       "type": "remote",
       "url": "https://mcp.jam.dev/mcp"
+    },
+    "playwright": {
+      "type": "local",
+      "command": ["npx", "-y", "@playwright/mcp"],
+      "enabled": true
     }
   },
   "plugin": [
-    "opencode-notificator",
     "@tarquinen/opencode-dcp@latest"
   ]
 }

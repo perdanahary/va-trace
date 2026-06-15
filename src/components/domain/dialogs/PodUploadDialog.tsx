@@ -76,7 +76,7 @@ export function PodUploadDialog({ open, onOpenChange, batch, actor, onSubmitted 
         },
         actor,
       );
-      toast.success("POD submitted for verification.");
+      toast.success("Proof of Delivery (POD) submitted for verification.");
       setClaims({});
       setReceiverName("");
       onOpenChange(false);
@@ -182,7 +182,7 @@ export function PodUploadDialog({ open, onOpenChange, batch, actor, onSubmitted 
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={!batch || !receiverName || items.length === 0 || submitting}>
-            Submit POD
+            Submit Proof of Delivery (POD)
           </Button>
         </DialogFooter>
       </DialogContent>

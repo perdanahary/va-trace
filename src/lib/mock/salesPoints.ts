@@ -5,9 +5,10 @@ const boundClient = {
   clientId: "CUS-SAMPOERNA",
   clientName: "Sampoerna",
   clientEntityName: "PT HM Sampoerna Tbk",
+  companyName: "Sampoerna",
 } as const;
 
-const baseSalesPoints: Omit<SalesPointMapping, "clientId" | "clientName" | "clientEntityName" | "pic1" | "pic2" | "remarks" | "note" | "shippingAddress" | "subArea">[] = [
+const baseSalesPoints: Omit<SalesPointMapping, "clientId" | "clientName" | "clientEntityName" | "companyName" | "pic1" | "pic2" | "remarks" | "note" | "shippingAddress" | "subArea">[] = [
   {
     "zone": "Jakarta",
     "region": "Jakarta Inner",
@@ -943,5 +944,6 @@ export function getSalesPointClientBinding(salesPointId: string) {
     clientId: salesPoint.clientId,
     clientName: salesPoint.clientName,
     clientEntityName: salesPoint.clientEntityName,
+    companyName: salesPoint.companyName,
   };
 }

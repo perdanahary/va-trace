@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Download, Eye, Play, Search } from "lucide-react";
+import { toast } from "sonner";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
@@ -10,13 +11,14 @@ import { OrderRequestTable, type OrderRequestTableColumn } from "@/components/do
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { startProduction, useOrders } from "@/lib/orderStore";
-import { useUserStore } from "@/lib/userStore";
 import type { OrderListRow } from "@/lib/types/v2/orderRequest";
 import { DISTRIBUTION_STATUSES, PRODUCTION_STATUSES } from "@/lib/types/v2/status";
-import { buildOrderListRowsFromStoredOrders } from "@/lib/v2/compat/orderListRows";
 import { formatStatusLabel } from "@/lib/v2/selectors/derivedStatus";
 import { matchesFilterValue } from "@/components/shared/AdvancedFilterBar";
+import { useOrderListRows } from "@/lib/v2/selectors/viewModels";
+import { useActor } from "@/lib/v2/useActor";
+import { buildCommand, toApiError } from "@/lib/v2/workflows";
+import { acceptProductionJob, getProductionJobsForOrder } from "@/lib/v2/productionStore";
 
 const vendorOrderColumns: OrderRequestTableColumn[] = [
   "clientPo",
@@ -32,33 +34,17 @@ const vendorOrderColumns: OrderRequestTableColumn[] = [
 ];
 
 export function VendorOrders() {
-  const orders = useOrders();
-  const { users } = useUserStore();
-  const location = useLocation();
-  const vendorCompany = useMemo(() => users.find((user) => user.role === "vendor" && user.status === "Active")?.company ?? null, [users]);
-  const rows = useMemo(() => {
-    const nextRows = buildOrderListRowsFromStoredOrders(orders, "/vendor");
-    if (!vendorCompany) {
-      return nextRows;
-    }
-
-    const vendorSearch = vendorCompany.toLowerCase();
-    return nextRows.filter((row) => row.vendorName.toLowerCase().includes(vendorSearch));
-  }, [orders, vendorCompany]);
+  const actor = useActor("vendor", "vendor-orders");
+  const rows = useOrderListRows("/vendor");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [productionOperator, setProductionOperator] = useState<"is" | "is not">("is");
   const [selectedProductionStatus, setSelectedProductionStatus] = useState("all");
   const [distributionOperator, setDistributionOperator] = useState<"is" | "is not">("is");
   const [selectedDistributionStatus, setSelectedDistributionStatus] = useState("all");
-  const [legacyOperator, setLegacyOperator] = useState<"is" | "is not">("is");
-  const [legacyStatusFilter, setLegacyStatusFilter] = useState<string | null>(null);
+
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
-  const legacyStatusOptions = useMemo(
-    () => Array.from(new Set(rows.map((row) => row.legacyStatusLabel).filter((status): status is string => Boolean(status)))).sort(),
-    [rows],
-  );
 
   const filterGroups = useMemo(
     () => [
@@ -90,22 +76,8 @@ export function VendorOrders() {
           keywords: [status],
         })),
       },
-      {
-        id: "legacy-status",
-        label: "Legacy Status",
-        operator: legacyOperator,
-        value: legacyStatusFilter,
-        onValueChange: setLegacyStatusFilter,
-        onOperatorChange: setLegacyOperator,
-        allLabel: "All legacy statuses",
-        options: legacyStatusOptions.map((status) => ({
-          label: status,
-          value: status,
-          keywords: [status],
-        })),
-      },
     ],
-    [legacyStatusFilter, legacyStatusOptions, selectedDistributionStatus, selectedProductionStatus],
+    [selectedDistributionStatus, selectedProductionStatus],
   );
 
   const filteredRows = useMemo(() => {
@@ -131,11 +103,10 @@ export function VendorOrders() {
         selectedProductionStatus === "all" || matchesFilterValue(productionOperator, row.productionStatus, selectedProductionStatus);
       const matchesDistribution =
         selectedDistributionStatus === "all" || matchesFilterValue(distributionOperator, row.distributionStatus, selectedDistributionStatus);
-      const matchesLegacyStatus = !legacyStatusFilter || matchesFilterValue(legacyOperator, row.legacyStatusLabel ?? "", legacyStatusFilter);
 
-      return matchesSearch && matchesProduction && matchesDistribution && matchesLegacyStatus;
+      return matchesSearch && matchesProduction && matchesDistribution;
     });
-  }, [distributionOperator, legacyOperator, legacyStatusFilter, productionOperator, rows, searchTerm, selectedDistributionStatus, selectedProductionStatus]);
+  }, [distributionOperator, productionOperator, rows, searchTerm, selectedDistributionStatus, selectedProductionStatus]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const visibleRows = useMemo(() => {
@@ -151,23 +122,13 @@ export function VendorOrders() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [distributionOperator, legacyOperator, legacyStatusFilter, productionOperator, searchTerm, selectedDistributionStatus, selectedProductionStatus]);
-
-  useEffect(() => {
-    const state = location.state as { initialStatus?: string } | null;
-    if (state?.initialStatus && state.initialStatus !== "All Statuses") {
-      setLegacyStatusFilter(state.initialStatus);
-      window.history.replaceState({}, document.title);
-    }
-  }, [location.state]);
+  }, [distributionOperator, productionOperator, searchTerm, selectedDistributionStatus, selectedProductionStatus]);
 
   const clearFilters = () => {
     setSelectedProductionStatus("all");
     setProductionOperator("is");
     setSelectedDistributionStatus("all");
     setDistributionOperator("is");
-    setLegacyStatusFilter(null);
-    setLegacyOperator("is");
     setSearchTerm("");
   };
 
@@ -231,11 +192,29 @@ export function VendorOrders() {
 }
 
 function VendorOrderActions({ row }: { row: OrderListRow }) {
+  const actor = useActor("vendor", "vendor-order-action");
   const isNotStarted = row.productionStatus === "NEW" || row.productionStatus === "SUBMITTED";
+
+  const handleStartProduction = () => {
+    const jobs = getProductionJobsForOrder(row.id);
+    if (jobs.length === 0) {
+      toast.error("No production jobs found for this order.");
+      return;
+    }
+    try {
+      acceptProductionJob(
+        { productionJobId: jobs[0].id, expectedVersion: jobs[0].version, acceptedByUserId: actor.userId },
+        buildCommand(actor, "Start production from vendor orders"),
+      );
+      toast.success("Production started.");
+    } catch (error) {
+      toast.error(toApiError(error).message);
+    }
+  };
 
   if (isNotStarted) {
     return (
-      <Button size="sm" onClick={() => startProduction(row.id)}>
+      <Button size="sm" onClick={handleStartProduction}>
         <Play className="mr-1 h-3.5 w-3.5" />
         Start Production
       </Button>

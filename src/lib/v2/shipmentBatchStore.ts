@@ -267,6 +267,7 @@ export function createShipmentBatch(
           salesPointName: master.name,
           clientId: master.clientId,
           clientName: master.clientName,
+          companyName: master.companyName,
           zone: master.geography.zone,
           region: master.geography.region,
           area: master.geography.area,

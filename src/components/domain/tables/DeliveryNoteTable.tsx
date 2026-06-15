@@ -32,7 +32,7 @@ export function DeliveryNoteTable({ rows, emptyMessage = "No delivery notes foun
             <TableHead>Generated</TableHead>
             <TableHead>Printed</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>POD</TableHead>
+            <TableHead>Proof of Delivery (POD)</TableHead>
             <TableHead className="text-right" />
           </TableRow>
         </TableHeader>

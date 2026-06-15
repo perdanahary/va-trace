@@ -90,10 +90,6 @@ export interface Order {
   clientId?: string;
   clientName?: string;
   clientEntityName?: string;
-  picProject?: {
-    name: string;
-    email: string;
-  };
   items: OrderLine[];
   productionJobs: ProductionJob[];
   allocations: SalesPointAllocation[];

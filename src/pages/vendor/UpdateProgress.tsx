@@ -17,7 +17,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { OrderMetadataSummary } from "@/components/shared/OrderMetadataSummary";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -318,10 +317,7 @@ export function VendorUpdateProgress({ userRole = "vendor" }: VendorUpdateProgre
                       <StackRow label="Project">
                         <p>{order.campaign ?? ""}</p>
                       </StackRow>
-                      <StackRow label="PIC Project" value={order.picProject ? `${order.picProject.name} (${order.picProject.email})` : "—"} />
-                      <StackRow label="Tags">
-                        <OrderMetadataSummary tags={order.tags} className="pt-1" />
-                      </StackRow>
+
                       <StackRow label="Link">
                         {order.referenceLink ? (
                           <a

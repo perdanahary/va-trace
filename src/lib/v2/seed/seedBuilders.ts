@@ -16,6 +16,7 @@
  */
 
 import { mockSalesPoints } from "@/lib/mock/salesPoints";
+import { salesPointSeeds, type SalesPointSeed } from "@/lib/salesPointSeed";
 import { getOrdersSnapshot, type StoredOrder } from "@/lib/orderStore";
 import { getSupplierSnapshot } from "@/lib/supplierStore";
 import type { SalesPointMapping } from "@/lib/types/salesPoint";
@@ -119,6 +120,7 @@ export function buildSalesPointSeed(mapping: SalesPointMapping): SalesPoint {
     name: mapping.salesPoint,
     clientId: mapping.clientId,
     clientName: mapping.clientName,
+    companyName: mapping.companyName,
     status: "ACTIVE",
     entityType: "DISTRIBUTION_POINT",
     geography: {
@@ -183,6 +185,7 @@ function destinationSnapshot(salesPoint: SalesPoint): ShipmentDestinationSnapsho
     salesPointName: salesPoint.name,
     clientId: salesPoint.clientId,
     clientName: salesPoint.clientName,
+    companyName: salesPoint.companyName,
     zone: salesPoint.geography.zone,
     region: salesPoint.geography.region,
     area: salesPoint.geography.area,
@@ -211,6 +214,7 @@ function fallbackSalesPoint(salesPointId: string): SalesPoint {
     name: salesPointId,
     clientId: "client_unknown",
     clientName: "Unknown Client",
+    companyName: "Unknown",
     status: "NEEDS_REVIEW",
     geography: { zone: "", region: "", area: "", subArea: "" },
     address: { line1: "", country: "Indonesia", fullAddress: "" },
@@ -646,9 +650,9 @@ export function buildV2SeedData(): V2SeedData {
       project,
       vendor,
       requester: {
-        userId: legacyOrder.picProject?.email || `user_${slug(legacyOrder.picProject?.name ?? "unknown")}`,
-        name: legacyOrder.picProject?.name ?? "",
-        email: legacyOrder.picProject?.email ?? "",
+        userId: `user_${slug(legacyOrder.clientName ?? "unknown")}`,
+        name: "",
+        email: "",
         role: "CLIENT",
         organizationName: legacyOrder.clientEntityName,
       },

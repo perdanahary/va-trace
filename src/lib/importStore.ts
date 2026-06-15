@@ -61,6 +61,7 @@ export interface ImportRowMatch {
   clientId: string | null;
   clientName: string | null;
   clientEntityName: string | null;
+  companyName: string | null;
   brandName: string | null;
   categoryName: string | null;
   issues: string[];
@@ -681,6 +682,7 @@ function resolveRowMatch(raw: ImportRowRaw, quantity: number): ImportRowMatch {
     clientId: clientBinding?.clientId ?? null,
     clientName: clientBinding?.clientName ?? null,
     clientEntityName: clientBinding?.clientEntityName ?? null,
+    companyName: clientBinding?.companyName ?? null,
     brandName: product?.brand ?? (raw.brand || null),
     categoryName: product?.productType ?? (raw.category || null),
     issues,
@@ -887,6 +889,7 @@ function buildInitialBatches(): ImportBatch[] {
             clientId: "CLNT-001",
             clientName: "Sampoerna",
             clientEntityName: "PT HM Sampoerna Tbk",
+            companyName: "Sampoerna",
             brandName: "Sunscreen",
             categoryName: "POSM",
             issues: [],
@@ -941,6 +944,7 @@ function buildInitialBatches(): ImportBatch[] {
             clientId: "CLNT-001",
             clientName: "Sampoerna",
             clientEntityName: "PT HM Sampoerna Tbk",
+            companyName: "Sampoerna",
             brandName: "A Mild",
             categoryName: "POSM",
             issues: [],
@@ -1000,6 +1004,7 @@ function buildInitialBatches(): ImportBatch[] {
             clientId: "CLNT-001",
             clientName: "Sampoerna",
             clientEntityName: "PT HM Sampoerna Tbk",
+            companyName: "Sampoerna",
             brandName: "Dji Sam Soe",
             categoryName: "Display",
             issues: ["Item code not found in product master", "Review vendor-ready substitute"],
@@ -1059,6 +1064,7 @@ function buildInitialBatches(): ImportBatch[] {
             clientId: "CLNT-001",
             clientName: "Sampoerna",
             clientEntityName: "PT HM Sampoerna Tbk",
+            companyName: "Sampoerna",
             brandName: "Marlboro",
             categoryName: "POSM",
             issues: [],
@@ -1118,6 +1124,7 @@ function buildInitialBatches(): ImportBatch[] {
             clientId: "CLNT-001",
             clientName: "Sampoerna",
             clientEntityName: "PT HM Sampoerna Tbk",
+            companyName: "Sampoerna",
             brandName: "Sampoerna Kretek",
             categoryName: "POSM",
             issues: [],
@@ -1386,10 +1393,6 @@ export function createOrdersFromDispatchableRows(batch: ImportBatch, dispatchabl
       clientId: clientBinding?.clientId ?? undefined,
       clientName: clientBinding?.clientName ?? undefined,
       clientEntityName: clientBinding?.clientEntityName ?? undefined,
-      picProject: {
-        name: "",
-        email: "",
-      },
       sourceType: "bulk_po_import" as const,
       importBatchId: batch.id,
       importRowIds: rows.map((row) => row.id),

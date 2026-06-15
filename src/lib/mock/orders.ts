@@ -1,4 +1,3 @@
-import { getSalesPointPicByWcode } from "@/lib/mock/salesPoints";
 import { normalizeOrder } from "@/lib/orderDomain";
 import type { StoredDeliveryNoteRecord, StoredPackagingLabel } from "@/lib/types/logistics";
 import type { Order } from "@/lib/types/order";
@@ -40,10 +39,6 @@ const mockOrderSeeds: MockOrderSeed[] = [
     clientId: "CUS-SAMPOERNA",
     clientName: "Sampoerna",
     clientEntityName: "PT HM Sampoerna Tbk",
-    picProject: {
-      name: "Chandra Sadikin",
-      email: "Chandra.Sadikin@sampoerna.com",
-    },
     items: [
       { id: "item-1", productCode: "2026-00194983-0039", poLineNumber: "1", name: "TPOSM - Sunscreen Without Velcro - 0.5x1 m - Vinyl FF Frontlight 10 Oz - DPP12 20K", quantity: 50, deliveredQuantity: 50, status: "Ready to Ship", labelGenerated: false },
       { id: "item-2", productCode: "2026-00194983-0040", poLineNumber: "2", name: "TPOSM - Sunscreen Without Velcro - 0.7x2 m - Vinyl FF Frontlight 10 Oz - DPP12 20K", quantity: 50, deliveredQuantity: 0, status: "In Production", labelGenerated: false },
@@ -71,10 +66,6 @@ const mockOrderSeeds: MockOrderSeed[] = [
     clientId: "CUS-SAMPOERNA",
     clientName: "Sampoerna",
     clientEntityName: "PT HM Sampoerna Tbk",
-    picProject: {
-      name: "Chandra Sadikin",
-      email: "Chandra.Sadikin@sampoerna.com",
-    },
     items: [
       { id: "item-1", productCode: "2026-00194876-0033", poLineNumber: "2", name: "Photopaper_GT SRC - Snap Frame (V) - 80x40 cm - Photopaper - PPOSM VEEV 0.4 x 0.8 m V", quantity: 29, deliveredQuantity: 29, status: "Ready to Ship", labelGenerated: false },
       { id: "item-2", productCode: "2026-00194876-0034", poLineNumber: "3", name: "Photopaper_GT SRC - Snap Frame (H) - 40x80 cm - Photopaper - PPOSM VEEV 0.8 x 0.4 m H", quantity: 29, deliveredQuantity: 29, status: "Ready to Ship", labelGenerated: false },
@@ -96,10 +87,6 @@ const mockOrderSeeds: MockOrderSeed[] = [
     clientId: "CUS-SAMPOERNA",
     clientName: "Sampoerna",
     clientEntityName: "PT HM Sampoerna Tbk",
-    picProject: {
-      name: "Reno Saputra",
-      email: "Reno.Saputra@panamas.com",
-    },
     items: [
       { id: "item-1", productCode: "2026-00194983-0046", poLineNumber: "1", name: "TPOSM - Sticker - 40x40 cm - Sticker Chromo - DPP12 20K", quantity: 100, deliveredQuantity: 100, status: "Ready to Ship", labelGenerated: false },
       { id: "item-2", productCode: "2026-00194983-0050", poLineNumber: "2", name: "GT SRC - Backwall SRC Elevate (H) - 27.7x97.7 cm - Duratrans - DPP12 20K", quantity: 100, deliveredQuantity: 100, status: "Ready to Ship", labelGenerated: false },
@@ -121,10 +108,6 @@ const mockOrderSeeds: MockOrderSeed[] = [
     clientId: "CUS-SAMPOERNA",
     clientName: "Sampoerna",
     clientEntityName: "PT HM Sampoerna Tbk",
-    picProject: {
-      name: "Joko Santoso",
-      email: "Joko.Santoso@sampoerna.com",
-    },
     items: [
       { id: "item-1", productCode: "2026-00194983-0052", poLineNumber: "1", name: "GT SRC - Snap Frame (V) - 80x40 cm - Photopaper - DPP12 20K", quantity: 200, deliveredQuantity: 0, status: "New", labelGenerated: false },
       { id: "item-2", productCode: "2026-00194983-0053", poLineNumber: "2", name: "GT SRC - Snap Frame (H) - 40x80 cm - Photopaper - DPP12 20K", quantity: 200, deliveredQuantity: 0, status: "New", labelGenerated: false },
@@ -145,10 +128,6 @@ const mockOrderSeeds: MockOrderSeed[] = [
     clientId: "CUS-SAMPOERNA",
     clientName: "Sampoerna",
     clientEntityName: "PT HM Sampoerna Tbk",
-    picProject: {
-      name: "Chandra Sadikin",
-      email: "Chandra.Sadikin@sampoerna.com",
-    },
     items: [
       { id: "item-1", productCode: "2026-00194983-0043", poLineNumber: "1", name: "TPOSM - Sunscreen Without Velcro - 1x2 m - Vinyl FF Frontlight 10 Oz - DPP12 20K", quantity: 120, deliveredQuantity: 120, status: "Completed", labelGenerated: false },
       { id: "item-2", productCode: "2026-00194983-0044", poLineNumber: "2", name: "TPOSM - Sunscreen Without Velcro - 1x3 m - Vinyl FF Frontlight 10 Oz - DPP12 20K", quantity: 120, deliveredQuantity: 120, status: "Completed", labelGenerated: false },
@@ -170,10 +149,6 @@ const mockOrderSeeds: MockOrderSeed[] = [
     clientId: "CUS-SAMPOERNA",
     clientName: "Sampoerna",
     clientEntityName: "PT HM Sampoerna Tbk",
-    picProject: {
-      name: "Haris Afzal",
-      email: "haris.afzal@panamas.com",
-    },
     items: [
       { id: "item-fs-01", productCode: "2026-00195039-0002", poLineNumber: "1", name: "TPOSM - Sunscreen Without Velcro - 0.7x2 m - Vinyl FF Frontlight 10 Oz - DSE12 25K", quantity: 80, deliveredQuantity: 0, status: "New", labelGenerated: false },
       { id: "item-fs-02", productCode: "2026-00195039-0014", poLineNumber: "2", name: "GT Stand Alone - Tin Plate (H) - 100x200 cm - Sticker Blockout - DSE12 25K", quantity: 32, deliveredQuantity: 0, status: "New", labelGenerated: false },
@@ -194,10 +169,6 @@ const mockOrderSeeds: MockOrderSeed[] = [
     clientId: "CUS-SAMPOERNA",
     clientName: "Sampoerna",
     clientEntityName: "PT HM Sampoerna Tbk",
-    picProject: {
-      name: "Chandra Sadikin",
-      email: "Chandra.Sadikin@sampoerna.com",
-    },
     items: [
       { id: "item-fs-03", productCode: "2026-00194983-0040", poLineNumber: "2", name: "TPOSM - Sunscreen Without Velcro - 0.7x2 m - Vinyl FF Frontlight 10 Oz - DPP12 20K", quantity: 180, deliveredQuantity: 0, status: "In Production", labelGenerated: false },
       { id: "item-fs-04", productCode: "2026-00194983-0041", poLineNumber: "3", name: "TPOSM - Sunscreen Without Velcro - 0.7x3 m - Vinyl FF Frontlight 10 Oz - DPP12 20K", quantity: 1200, deliveredQuantity: 200, status: "In Production", labelGenerated: false },
@@ -218,10 +189,6 @@ const mockOrderSeeds: MockOrderSeed[] = [
     clientId: "CUS-SAMPOERNA",
     clientName: "Sampoerna",
     clientEntityName: "PT HM Sampoerna Tbk",
-    picProject: {
-      name: "Chandra Sadikin",
-      email: "Chandra.Sadikin@sampoerna.com",
-    },
     items: [
       { id: "item-fs-05", productCode: "2026-00194988-0020", poLineNumber: "1", name: "GT Stand Alone - TTD Big (H) - 25.5x72.5 cm - Art Carton - MFM20", quantity: 43, deliveredQuantity: 43, status: "Ready to Ship", labelGenerated: false },
       { id: "item-fs-06", productCode: "2026-00194988-0022", poLineNumber: "3", name: "GT Stand Alone - TTD Fit (H) - 15x40 cm - Art Carton - MFM20", quantity: 463, deliveredQuantity: 0, status: "Ready to Ship", labelGenerated: false },
@@ -242,10 +209,6 @@ const mockOrderSeeds: MockOrderSeed[] = [
     clientId: "CUS-SAMPOERNA",
     clientName: "Sampoerna",
     clientEntityName: "PT HM Sampoerna Tbk",
-    picProject: {
-      name: "Joko Santoso",
-      email: "Joko.Santoso@sampoerna.com",
-    },
     items: [
       { id: "item-fs-07", productCode: "2026-00194984-0003", poLineNumber: "3", name: "TPOSM - Sunscreen Without Velcro - 0.7x3 m - Vinyl FF Frontlight 10 Oz - SPS12 15K", quantity: 600, deliveredQuantity: 300, status: "On Delivery", labelGenerated: false },
       { id: "item-fs-08", productCode: "2026-00194984-0004", poLineNumber: "4", name: "TPOSM - Sunscreen Without Velcro - 0.7x4 m - Vinyl FF Frontlight 10 Oz - SPS12 15K", quantity: 300, deliveredQuantity: 0, status: "On Delivery", labelGenerated: false },
@@ -266,10 +229,6 @@ const mockOrderSeeds: MockOrderSeed[] = [
     clientId: "CUS-SAMPOERNA",
     clientName: "Sampoerna",
     clientEntityName: "PT HM Sampoerna Tbk",
-    picProject: {
-      name: "Chandra Sadikin",
-      email: "Chandra.Sadikin@sampoerna.com",
-    },
     items: [
       { id: "item-fs-09", productCode: "2026-00194983-0060", poLineNumber: "1", name: "GT Stand Alone - Tin Plate (H) - 100x200 cm - Sticker Blockout - DPP12 20K", quantity: 337, deliveredQuantity: 337, status: "Delivered", labelGenerated: false },
       { id: "item-fs-10", productCode: "2026-00194983-0063", poLineNumber: "2", name: "GT Stand Alone - TTD Fit (H) - 15x40 cm - Art Carton - DPP12 20K", quantity: 1205, deliveredQuantity: 1205, status: "Delivered", labelGenerated: false },
@@ -290,10 +249,6 @@ const mockOrderSeeds: MockOrderSeed[] = [
     clientId: "CUS-SAMPOERNA",
     clientName: "Sampoerna",
     clientEntityName: "PT HM Sampoerna Tbk",
-    picProject: {
-      name: "Chandra Sadikin",
-      email: "Chandra.Sadikin@sampoerna.com",
-    },
     items: [
       { id: "item-fs-11", productCode: "2026-00194983-0052", poLineNumber: "1", name: "GT SRC - Snap Frame (V) - 80x40 cm - Photopaper - DPP12 20K", quantity: 150, deliveredQuantity: 0, status: "New", labelGenerated: false },
       { id: "item-fs-12", productCode: "2026-00194983-0053", poLineNumber: "2", name: "GT SRC - Snap Frame (H) - 40x80 cm - Photopaper - DPP12 20K", quantity: 150, deliveredQuantity: 0, status: "New", labelGenerated: false },
@@ -314,10 +269,6 @@ const mockOrderSeeds: MockOrderSeed[] = [
     clientId: "CUS-SAMPOERNA",
     clientName: "Sampoerna",
     clientEntityName: "PT HM Sampoerna Tbk",
-    picProject: {
-      name: "Chandra Sadikin",
-      email: "Chandra.Sadikin@sampoerna.com",
-    },
     items: [
       { id: "item-fs-13", productCode: "2026-00194983-0046", poLineNumber: "8", name: "TPOSM - Sticker - 40x40 cm - Sticker Chromo - DPP12 20K", quantity: 6900, deliveredQuantity: 6900, status: "Overdue", labelGenerated: false },
       { id: "item-fs-14", productCode: "2026-00194983-0049", poLineNumber: "9", name: "GT SRC - Shop Sign Pole (V) - 200x100 cm - Sticker Blockout - DPP12 20K", quantity: 72, deliveredQuantity: 0, status: "Overdue", labelGenerated: false },
@@ -338,10 +289,6 @@ const mockOrderSeeds: MockOrderSeed[] = [
     clientId: "CUS-SAMPOERNA",
     clientName: "Sampoerna",
     clientEntityName: "PT HM Sampoerna Tbk",
-    picProject: {
-      name: "Chandra Sadikin",
-      email: "Chandra.Sadikin@sampoerna.com",
-    },
     items: [
       { id: "item-fs-15", productCode: "2026-00194984-0023", poLineNumber: "1", name: "GT Stand Alone - TTD Big (H) - 25.5x72.5 cm - Art Carton - SPS12 15K", quantity: 51, deliveredQuantity: 0, status: "In Production", labelGenerated: false },
       { id: "item-fs-16", productCode: "2026-00194984-0005", poLineNumber: "5", name: "TPOSM - Sunscreen Without Velcro - 1x2 m - Vinyl FF Frontlight 10 Oz - SPS12 15K", quantity: 40, deliveredQuantity: 0, status: "In Production", labelGenerated: false },
@@ -362,10 +309,6 @@ const mockOrderSeeds: MockOrderSeed[] = [
     clientId: "CUS-SAMPOERNA",
     clientName: "Sampoerna",
     clientEntityName: "PT HM Sampoerna Tbk",
-    picProject: {
-      name: "Haris Afzal",
-      email: "haris.afzal@panamas.com",
-    },
     items: [
       { id: "item-fs-17", productCode: "2026-00195039-0015", poLineNumber: "13", name: "GT Stand Alone - TTD Big (H) - 25.5x72.5 cm - Art Carton - DSE12 25K", quantity: 52, deliveredQuantity: 52, status: "Delivered", labelGenerated: false },
       { id: "item-fs-18", productCode: "2026-00195039-0020", poLineNumber: "18", name: "WS Mitra Sampoerna - Header Backwall (H) - 48x97.5 cm - Photopaper - DSE12 25K", quantity: 16, deliveredQuantity: 0, status: "On Delivery", labelGenerated: false },
@@ -381,16 +324,7 @@ const mockOrderSeeds: MockOrderSeed[] = [
 
 
 
-export const mockOrders: Order[] = mockOrderSeeds.map((order) => {
-  const pic = getSalesPointPicByWcode(order.salesPointId);
-  return normalizeOrder({
-    ...order,
-    picProject: {
-      name: pic.name || (order.picProject?.name ?? ""),
-      email: pic.email || (order.picProject?.email ?? ""),
-    },
-  });
-});
+export const mockOrders: Order[] = mockOrderSeeds.map((order) => normalizeOrder(order));
 
 export function generateSoNumber(): string {
   const date = new Date();

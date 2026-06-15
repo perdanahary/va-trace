@@ -70,7 +70,7 @@ const navItems: Record<UserRole, NavEntry[]> = {
       label: "Orders",
       items: [
         { icon: ShoppingCart, label: "All Orders", path: "/admin/orders" },
-        { icon: Package, label: "Order Tracking", path: "/admin/progress" },
+        { icon: Package, label: "Order Progress", path: "/admin/progress" },
         { icon: PlusCircle, label: "Create OR", path: "/admin/create" },
         { icon: Package, label: "Imports", path: "/admin/imports" },
       ],
@@ -82,7 +82,7 @@ const navItems: Record<UserRole, NavEntry[]> = {
         { icon: Truck, label: "Shipment Batches", path: "/admin/shipments" },
         { icon: FileText, label: "Delivery Notes", path: "/admin/delivery-notes" },
         { icon: Tags, label: "Shipping Labels", path: "/admin/labels" },
-        { icon: ClipboardCheck, label: "POD Verification", path: "/admin/pod" },
+        { icon: ClipboardCheck, label: "Proof of Delivery (POD) Verification", path: "/admin/pod" },
         { icon: AlertTriangle, label: "Exceptions", path: "/admin/exceptions" },
       ],
     },
@@ -100,7 +100,7 @@ const navItems: Record<UserRole, NavEntry[]> = {
       label: "Orders",
       items: [
         { icon: ShoppingCart, label: "All Orders", path: "/operator/orders" },
-        { icon: Package, label: "Order Tracking", path: "/operator/progress" },
+        { icon: Package, label: "Order Progress", path: "/operator/progress" },
         { icon: PlusCircle, label: "Create OR", path: "/operator/create" },
       ],
     },
@@ -120,7 +120,7 @@ const navItems: Record<UserRole, NavEntry[]> = {
       label: "Orders",
       items: [
         { icon: ShoppingCart, label: "All Orders", path: "/analyst/orders" },
-        { icon: Package, label: "Order Tracking", path: "/analyst/progress" },
+        { icon: Package, label: "Order Progress", path: "/analyst/progress" },
       ],
     },
     { icon: Mail, label: "Inbox", path: "/analyst/inbox" },
@@ -132,7 +132,7 @@ const navItems: Record<UserRole, NavEntry[]> = {
       label: "Orders",
       items: [
         { icon: ShoppingCart, label: "My Orders", path: "/client/orders" },
-        { icon: Package, label: "Order Tracking", path: "/client/progress" },
+        { icon: Package, label: "Order Progress", path: "/client/progress" },
         { icon: PlusCircle, label: "Create OR", path: "/client/create" },
         { icon: Package, label: "Imports", path: "/client/imports" },
       ],
@@ -145,7 +145,7 @@ const navItems: Record<UserRole, NavEntry[]> = {
       label: "Orders",
       items: [
         { icon: ShoppingCart, label: "My Orders", path: "/vendor/orders" },
-        { icon: Package, label: "Order Tracking", path: "/vendor/progress" },
+        { icon: Package, label: "Order Progress", path: "/vendor/progress" },
         { icon: Factory, label: "Production", path: "/vendor/production" },
       ],
     },
@@ -154,7 +154,7 @@ const navItems: Record<UserRole, NavEntry[]> = {
       items: [
         { icon: Truck, label: "Shipment Batches", path: "/vendor/shipments" },
         { icon: FileText, label: "Delivery Notes", path: "/vendor/delivery-notes" },
-        { icon: ClipboardCheck, label: "POD Uploads", path: "/vendor/pod" },
+        { icon: ClipboardCheck, label: "Proof of Delivery (POD) Uploads", path: "/vendor/pod" },
       ],
     },
     { icon: Mail, label: "Inbox", path: "/vendor/inbox" },

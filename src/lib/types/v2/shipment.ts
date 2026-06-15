@@ -44,6 +44,7 @@ export interface ShipmentDestinationSnapshot {
   salesPointName: string;
   clientId: ID;
   clientName: string;
+  companyName: string;
   zone: string;
   region: string;
   area: string;

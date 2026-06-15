@@ -30,7 +30,7 @@ export function DemoSessionSelector() {
 
     const confirmed = window.confirm(
       nextMode === "fresh"
-        ? "Start a fresh demo run? This clears orders, imports, shipments, labels, PODs, and exceptions while keeping demo master data."
+        ? "Start a fresh demo run? This clears orders, imports, shipments, labels, Proofs of Delivery (PODs), and exceptions while keeping demo master data."
         : "Restore the snapshot demo data? This replaces the current browser session with the seeded mock/demo state.",
     );
 

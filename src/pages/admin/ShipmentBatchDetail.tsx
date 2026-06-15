@@ -191,7 +191,7 @@ export function ShipmentBatchDetail({ userRole = "admin" }: ShipmentBatchDetailP
                   Mark Dispatched
                 </Button>
               ) : null}
-              {canUploadPod ? <Button onClick={() => setPodOpen(true)}>Upload POD</Button> : null}
+              {canUploadPod ? <Button onClick={() => setPodOpen(true)}>Upload Proof of Delivery (POD)</Button> : null}
               {canClose ? (
                 <Button
                   variant="outline"
@@ -213,7 +213,7 @@ export function ShipmentBatchDetail({ userRole = "admin" }: ShipmentBatchDetailP
               <TabsTrigger value="items">Items ({batch.items.length})</TabsTrigger>
               <TabsTrigger value="delivery-note">Delivery Note</TabsTrigger>
               <TabsTrigger value="labels">Labels ({batchLabels.length})</TabsTrigger>
-              <TabsTrigger value="pod">POD ({batchConfirmations.length})</TabsTrigger>
+              <TabsTrigger value="pod">Proof of Delivery (POD) ({batchConfirmations.length})</TabsTrigger>
               <TabsTrigger value="audit">Audit</TabsTrigger>
             </TabsList>
 
@@ -231,7 +231,7 @@ export function ShipmentBatchDetail({ userRole = "admin" }: ShipmentBatchDetailP
                           <TableHead className="text-right">Shipped</TableHead>
                           <TableHead className="text-right">Received</TableHead>
                           <TableHead className="text-right">Variance</TableHead>
-                          <TableHead>POD</TableHead>
+                          <TableHead>Proof of Delivery (POD)</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -334,7 +334,7 @@ export function ShipmentBatchDetail({ userRole = "admin" }: ShipmentBatchDetailP
                 <CardContent className="p-0">
                   {batchConfirmations.length === 0 ? (
                     <p className="px-6 py-10 text-center text-sm text-muted-foreground">
-                      No POD submissions for this batch yet.
+                      No Proof of Delivery (POD) submissions for this batch yet.
                     </p>
                   ) : (
                     <Table>

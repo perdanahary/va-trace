@@ -10,32 +10,28 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { OrderMetadataSummary } from "@/components/shared/OrderMetadataSummary";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { useOrders } from "@/lib/orderStore";
+import { useOrderRequests } from "@/lib/v2/orderRequestStore";
 import { useCurrentUser } from "@/lib/authStore";
 import { useClientStore } from "@/lib/clientStore";
 
 
-function orderStatusToMetricBucket(status: string): "waiting" | "production" | "delivery" | "completed" {
-  const base = status.startsWith("Partial ") ? status.replace("Partial ", "") : status;
-  switch (base) {
-    case "In Production":
-      return "production";
-    case "Ready to Ship":
-    case "On Delivery":
-      return "delivery";
-    case "Delivered":
-    case "Completed":
-      return "completed";
-    default:
-      return "waiting";
+function orderStatusToMetricBucket(productionStatus: string, distributionStatus: string): "waiting" | "production" | "delivery" | "completed" {
+  if (productionStatus === "COMPLETED" && distributionStatus === "FULLY_RECEIVED") {
+    return "completed";
   }
+  if (["PARTIALLY_DISTRIBUTED", "FULLY_DISTRIBUTED", "PARTIALLY_RECEIVED", "DISPATCHED", "IN_TRANSIT"].includes(distributionStatus)) {
+    return "delivery";
+  }
+  if (["ACCEPTED", "PRINTING", "FINISHING", "QUALITY_CONTROL", "READY_FOR_DISTRIBUTION", "COMPLETED"].includes(productionStatus)) {
+    return "production";
+  }
+  return "waiting";
 }
 
 export function ClientDashboard() {
-  const orders = useOrders();
+  const orders = useOrderRequests();
   const { currentUser } = useCurrentUser();
   const { clients } = useClientStore();
 
@@ -45,14 +41,14 @@ export function ClientDashboard() {
   );
 
   const clientOrders = useMemo(
-    () => (linkedClient ? orders.filter((o) => o.clientId === linkedClient.id) : []),
+    () => (linkedClient ? orders.filter((o) => o.client.id === linkedClient.id) : []),
     [orders, linkedClient],
   );
 
   const metrics = useMemo(() => {
     const counts = { waiting: 0, production: 0, delivery: 0, completed: 0 };
     for (const order of clientOrders) {
-      const bucket = orderStatusToMetricBucket(order.status);
+      const bucket = orderStatusToMetricBucket(order.productionStatus, order.distributionStatus);
       counts[bucket]++;
     }
     return [
@@ -67,9 +63,9 @@ export function ClientDashboard() {
     () =>
       Object.entries(
         clientOrders.reduce<Record<string, { wt: number; pr: number; dl: number; cp: number }>>((acc, o) => {
-          const po = o.clientPO || o.id;
+          const po = o.clientPoNumber || o.id;
           if (!acc[po]) acc[po] = { wt: 0, pr: 0, dl: 0, cp: 0 };
-          const bucket = orderStatusToMetricBucket(o.status);
+          const bucket = orderStatusToMetricBucket(o.productionStatus, o.distributionStatus);
           if (bucket === "waiting") acc[po].wt++;
           else if (bucket === "production") acc[po].pr++;
           else if (bucket === "delivery") acc[po].dl++;
@@ -206,10 +202,10 @@ export function ClientDashboard() {
                     {["Jakarta", "North Sumatera", "South Sumatera", "West Java"].map((zone) => (
                       <TableRow key={zone}>
                         <TableCell className="text-sm font-medium">{zone}</TableCell>
-                        <TableCell className="text-center text-sm">{clientOrders.filter(o => orderStatusToMetricBucket(o.status) === "waiting").length}</TableCell>
-                        <TableCell className="text-center text-sm">{clientOrders.filter(o => orderStatusToMetricBucket(o.status) === "production").length}</TableCell>
-                        <TableCell className="text-center text-sm">{clientOrders.filter(o => orderStatusToMetricBucket(o.status) === "delivery").length}</TableCell>
-                        <TableCell className="text-center text-sm">{clientOrders.filter(o => orderStatusToMetricBucket(o.status) === "completed").length}</TableCell>
+                        <TableCell className="text-center text-sm">{clientOrders.filter(o => orderStatusToMetricBucket(o.productionStatus, o.distributionStatus) === "waiting").length}</TableCell>
+                        <TableCell className="text-center text-sm">{clientOrders.filter(o => orderStatusToMetricBucket(o.productionStatus, o.distributionStatus) === "production").length}</TableCell>
+                        <TableCell className="text-center text-sm">{clientOrders.filter(o => orderStatusToMetricBucket(o.productionStatus, o.distributionStatus) === "delivery").length}</TableCell>
+                        <TableCell className="text-center text-sm">{clientOrders.filter(o => orderStatusToMetricBucket(o.productionStatus, o.distributionStatus) === "completed").length}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -237,17 +233,14 @@ export function ClientDashboard() {
                   <TableBody>
                     {clientOrders.slice(0, 5).map((order) => (
                       <TableRow key={order.id}>
-                        <TableCell className="font-mono text-xs font-medium">{order.id}</TableCell>
+                        <TableCell className="font-mono text-xs font-medium">{order.orderRequestNumber}</TableCell>
                         <TableCell className="text-sm">
-                          <div className="space-y-1">
-                            <div>{order.campaign ?? ""}</div>
-                            <OrderMetadataSummary tags={order.tags} referenceLink={order.referenceLink} />
-                          </div>
+                          <div>{order.project.name}</div>
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
-                          <StatusBadge status={order.status} />
+                          <StatusBadge status={order.productionStatus} />
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{order.deadline}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{order.deadlineDate}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

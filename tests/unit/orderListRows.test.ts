@@ -58,10 +58,6 @@ function makeOrder(): StoredOrder {
     salesPointId: "WH001",
     clientName: "PT HM Sampoerna Tbk",
     clientEntityName: "PT HM Sampoerna Tbk",
-    picProject: {
-      name: "Project Owner",
-      email: "owner@example.com",
-    },
     items: [
       {
         id: "line-1",

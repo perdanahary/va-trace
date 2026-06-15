@@ -7,8 +7,6 @@ test.describe("Create order form", () => {
     await page.goto(`${baseUrl}/admin/create`);
 
     await expect(page.getByText("SO Number *", { exact: true })).toBeVisible();
-    await expect(page.getByText("PIC Project Name *", { exact: true })).toBeVisible();
-    await expect(page.getByText("PIC Project Email *", { exact: true })).toBeVisible();
     await expect(page.getByText("Delivery Note Alignment")).toBeVisible();
     await expect(page.getByText("Delivery Note Snapshot")).toBeVisible();
     await expect(page.getByRole("button", { name: "Add Item" })).toBeVisible();

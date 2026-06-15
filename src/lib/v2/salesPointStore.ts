@@ -120,6 +120,7 @@ export function createSalesPoint(dto: CreateSalesPointDto, command: CommandMetad
         name: dto.name,
         clientId: dto.clientId,
         clientName: "",
+        companyName: dto.companyName ?? "",
         status: dto.status ?? "DRAFT",
         entityType: dto.entityType,
         geography: dto.geography,
@@ -162,6 +163,7 @@ export function updateSalesPoint(
         wCode: dto.wCode ?? salesPoint.wCode,
         name: dto.name ?? salesPoint.name,
         clientId: dto.clientId ?? salesPoint.clientId,
+        companyName: dto.companyName ?? salesPoint.companyName,
         status: dto.status ?? salesPoint.status,
         entityType: dto.entityType === null ? undefined : dto.entityType ?? salesPoint.entityType,
         geography: { ...salesPoint.geography, ...dto.geography },
@@ -217,6 +219,92 @@ export function addSalesPointContact(
         sourceEntityType: "SALES_POINT",
         sourceEntityId: salesPoint.id,
         newValue: { contactAdded: contact.name, role: contact.role },
+      });
+
+      store.upsert(hydrated);
+      return hydrated;
+    },
+  });
+}
+
+export function updateSalesPointContact(
+  salesPointId: ID,
+  contactId: ID,
+  dto: Partial<Pick<SalesPointContact, "name" | "role" | "phone" | "email" | "isPrimary" | "notes">>,
+  command: CommandMetadata,
+): MutationResponse<SalesPoint> {
+  return runCommand({
+    command,
+    execute: (context) => {
+      const salesPoint = getSalesPointById(salesPointId);
+      if (!salesPoint) throw notFoundError("SALES_POINT", salesPointId);
+
+      let contacts = salesPoint.contacts.map((c) => {
+        if (c.id !== contactId) return c;
+        return {
+          ...c,
+          name: dto.name ?? c.name,
+          role: dto.role ?? c.role,
+          phone: dto.phone === null ? undefined : dto.phone ?? c.phone,
+          email: dto.email === null ? undefined : dto.email ?? c.email,
+          isPrimary: dto.isPrimary ?? c.isPrimary,
+          notes: dto.notes === null ? undefined : dto.notes ?? c.notes,
+          audit: { ...c.audit, updatedAt: nowIso(), updatedBy: command.actorUserId },
+        };
+      });
+
+      if (dto.isPrimary) {
+        contacts = contacts.map((c) => (c.id === contactId ? c : { ...c, isPrimary: false }));
+      }
+
+      const next: SalesPoint = {
+        ...salesPoint,
+        contacts,
+        audit: { ...salesPoint.audit, updatedAt: nowIso(), updatedBy: command.actorUserId },
+        version: salesPoint.version + 1,
+      };
+      const hydrated = { ...next, dataQuality: deriveSalesPointDataQuality(next) };
+
+      context.audit({
+        eventType: "UPDATED",
+        sourceEntityType: "SALES_POINT",
+        sourceEntityId: salesPoint.id,
+        newValue: { contactUpdated: contactId },
+      });
+
+      store.upsert(hydrated);
+      return hydrated;
+    },
+  });
+}
+
+export function removeSalesPointContact(
+  salesPointId: ID,
+  contactId: ID,
+  command: CommandMetadata,
+): MutationResponse<SalesPoint> {
+  return runCommand({
+    command,
+    execute: (context) => {
+      const salesPoint = getSalesPointById(salesPointId);
+      if (!salesPoint) throw notFoundError("SALES_POINT", salesPointId);
+
+      const contact = salesPoint.contacts.find((c) => c.id === contactId);
+      const contacts = salesPoint.contacts.filter((c) => c.id !== contactId);
+
+      const next: SalesPoint = {
+        ...salesPoint,
+        contacts,
+        audit: { ...salesPoint.audit, updatedAt: nowIso(), updatedBy: command.actorUserId },
+        version: salesPoint.version + 1,
+      };
+      const hydrated = { ...next, dataQuality: deriveSalesPointDataQuality(next) };
+
+      context.audit({
+        eventType: "UPDATED",
+        sourceEntityType: "SALES_POINT",
+        sourceEntityId: salesPoint.id,
+        newValue: { contactRemoved: contact?.name ?? contactId },
       });
 
       store.upsert(hydrated);

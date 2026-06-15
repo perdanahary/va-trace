@@ -37,7 +37,6 @@ export interface StoredDeliveryNoteRecord {
   poNumber: string;
   soNumber: string;
   projectName: string;
-  picProject?: string;
   senderProfile: {
     name: string;
     addressLines: string[];
