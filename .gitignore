@@ -16,3 +16,8 @@ dist/
 *.log
 my-session.json
 .vercel
+
+# E2E visual tour artifacts
+/e2e-tour-screenshots/
+/e2e-tour-data.json
+/e2e-tour.html
