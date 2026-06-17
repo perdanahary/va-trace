@@ -1,11 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
-import {
-  AlertTriangle,
-  ArrowUpRight,
-  MoreHorizontal,
-} from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
@@ -13,16 +9,7 @@ import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { ProductionStatusBadge, DistributionStatusBadge } from "@/components/domain/badges/badges";
-import { cn } from "@/lib/utils";
+import { OrderRequestTable } from "@/components/domain/tables/OrderRequestTable";
 import { useHydratedOrders, useOrderListRows } from "@/lib/v2/selectors/viewModels";
 
 interface AdminDashboardProps {
@@ -121,121 +108,16 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
               </Button>
             </CardHeader>
             <CardContent className="p-0">
-              {rows.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16">
-                  <div className="mx-auto max-w-sm space-y-2 text-center">
-                    <p className="text-sm font-medium">No orders yet</p>
-                    <p className="text-sm text-muted-foreground">
-                      Import purchase orders or add them manually to get started.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Order ID</TableHead>
-                      <TableHead>Project</TableHead>
-                      <TableHead>Production Status</TableHead>
-                      <TableHead>Distribution Status</TableHead>
-                      <TableHead>Delivery Progress</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Deadline</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.slice(0, 5).map((row) => {
-                    const deadlineInfo = getDeadlineInfo(row.deadlineDate, row.createdAt);
-                    return (
-                      <TableRow
-                        key={row.id}
-                        className="cursor-pointer"
-                        onClick={() => navigate(`/${userRole}/orders/${row.id}`)}
-                      >
-                        <TableCell className="font-mono text-xs font-medium">{row.orderRequestNumber}</TableCell>
-                        <TableCell className="max-w-[260px] text-sm">
-                          <div className="truncate">{row.projectName}</div>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <ProductionStatusBadge status={row.productionStatus} />
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <DistributionStatusBadge status={row.distributionStatus} />
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-sm">
-                          <span className="font-medium text-foreground">{row.deliveryProgressPercent}%</span>
-                          <span className="ml-1 text-muted-foreground">
-                            ({row.deliveryProgressLabel})
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{formatCreatedDate(row.createdAt)}</TableCell>
-                        <TableCell className={cn("text-sm", deadlineInfo.isOverdue ? "font-semibold text-destructive" : deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3 ? "font-semibold text-warning" : "text-muted-foreground")}>
-                          <span className="inline-flex items-center gap-1">
-                            {!deadlineInfo.isOverdue && deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3 && (
-                              <AlertTriangle className="h-3.5 w-3.5 text-warning" />
-                            )}
-                            {deadlineInfo.label}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">{row.orderedQuantity}</TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-              )}
+              <OrderRequestTable
+                rows={rows.slice(0, 5)}
+                columns={["orderRequest", "project", "production", "distribution", "progress", "deadline", "created"]}
+                emptyMessage="No orders yet — import purchase orders or add them manually to get started."
+                onRowClick={(row) => navigate(row.actionTargets.detailPath)}
+              />
             </CardContent>
           </Card>
         </main>
       </ContentArea>
     </div>
   );
-}
-
-function getDeadlineInfo(deadline: string, createdDate?: string) {
-  const now = new Date();
-  const normalizeDate = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
-  const parsedDate = new Date(deadline);
-  if (!Number.isNaN(parsedDate.getTime()) && deadline.includes(parsedDate.getFullYear().toString())) {
-    const diffMs = normalizeDate(parsedDate).getTime() - normalizeDate(now).getTime();
-    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-    if (diffDays > 0) {
-      return { label: `${diffDays} day${diffDays !== 1 ? "s" : ""} left`, isOverdue: false, daysLeft: diffDays };
-    }
-    if (diffDays === 0) {
-      return { label: "Due today", isOverdue: false, daysLeft: 0 };
-    }
-    const overdue = Math.abs(diffDays);
-    return { label: `${overdue} day${overdue !== 1 ? "s" : ""} overdue`, isOverdue: true, daysLeft: null };
-  }
-
-  if (deadline === "Overdue" && createdDate) {
-    const parsedCreated = new Date(createdDate);
-    if (!Number.isNaN(parsedCreated.getTime())) {
-      const daysSince = Math.floor((normalizeDate(now).getTime() - normalizeDate(parsedCreated).getTime()) / (1000 * 60 * 60 * 24));
-      return { label: `${daysSince} days overdue`, isOverdue: true, daysLeft: null };
-    }
-  }
-  if (deadline === "Overdue") {
-    return { label: "Overdue", isOverdue: true, daysLeft: null };
-  }
-  const daysLeftMatch = deadline.match(/(\d+)/);
-  const daysLeft = daysLeftMatch ? Number(daysLeftMatch[1]) : null;
-  return { label: deadline, isOverdue: false, daysLeft };
-}
-
-function formatCreatedDate(date: string) {
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) {
-    return date;
-  }
-  return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
