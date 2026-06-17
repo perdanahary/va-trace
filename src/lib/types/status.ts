@@ -11,10 +11,7 @@ export type ProductionStatus =
   | "NEW"
   | "SUBMITTED"
   | "ACCEPTED"
-  | "PRINTING"
-  | "FINISHING"
-  | "QUALITY_CONTROL"
-  | "READY_FOR_DISTRIBUTION"
+  | "IN_PROGRESS"
   | "COMPLETED"
   | "CANCELLED";
 
@@ -22,10 +19,7 @@ export const PRODUCTION_STATUSES = [
   "NEW",
   "SUBMITTED",
   "ACCEPTED",
-  "PRINTING",
-  "FINISHING",
-  "QUALITY_CONTROL",
-  "READY_FOR_DISTRIBUTION",
+  "IN_PROGRESS",
   "COMPLETED",
   "CANCELLED",
 ] as const satisfies readonly ProductionStatus[];
