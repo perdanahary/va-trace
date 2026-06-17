@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   AllocationStatusBadge,
@@ -11,8 +10,6 @@ import type { OrderAllocationTableRow } from "@/lib/types/v2/orderRequest";
 
 interface SalesPointAllocationTableProps {
   rows: OrderAllocationTableRow[];
-  selectedIds?: Set<string>;
-  onToggleSelect?: (allocationId: string) => void;
   onAddToBatch?: (allocationId: string) => void;
   onApprove?: (allocationId: string) => void;
   emptyMessage?: string;
@@ -23,8 +20,6 @@ interface SalesPointAllocationTableProps {
 /** P2-07 — Sales Point allocation table bound to `OrderAllocationTableRow`. */
 export function SalesPointAllocationTable({
   rows,
-  selectedIds,
-  onToggleSelect,
   onAddToBatch,
   onApprove,
   emptyMessage = "No allocations on this order yet.",
@@ -38,17 +33,7 @@ export function SalesPointAllocationTable({
 
   const renderRow = (row: OrderAllocationTableRow) => (
     <TableRow key={row.allocationId}>
-      <TableCell className="w-10">
-        {onToggleSelect ? (
-          <Checkbox
-            checked={selectedIds?.has(row.allocationId) ?? false}
-            disabled={!row.canAddToBatch}
-            onCheckedChange={() => onToggleSelect(row.allocationId)}
-            aria-label={`Select allocation for ${row.salesPointName}`}
-          />
-        ) : null}
-      </TableCell>
-      <TableCell className="font-mono text-xs">{row.salesPointCode}</TableCell>
+      <TableCell className="whitespace-nowrap font-mono text-xs">{row.salesPointCode}</TableCell>
       <TableCell className="min-w-0">
         <p className="truncate font-medium">{row.salesPointName}</p>
         <p className="truncate text-xs text-muted-foreground">
@@ -94,7 +79,6 @@ export function SalesPointAllocationTable({
   const header = (
     <TableHeader>
       <TableRow>
-        <TableHead className="w-10" />
         <TableHead>WCode</TableHead>
         <TableHead>Sales Point</TableHead>
         <TableHead>Product Code</TableHead>
