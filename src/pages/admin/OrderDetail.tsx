@@ -279,7 +279,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
   const renderWorkflowActions = (size: "default" | "sm" = "sm") => (
     <>
       {canAmend ? (
-        <Button size={size} onClick={() => navigate(`/${userRole}/orders/${hydrated!.id}/amend`)}>
+        <Button size={size} onClick={() => navigate(`/${userRole}/orders/${hydrated!.order.id}/amend`)}>
           <Pencil className="h-4 w-4" />
           Amend Order
         </Button>

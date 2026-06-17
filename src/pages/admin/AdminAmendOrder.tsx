@@ -24,8 +24,8 @@ import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { mockProducts } from "@/lib/productMaster";
 import { cn } from "@/lib/utils";
 import { useActor } from "@/lib/v2/useActor";
-import { toApiError } from "@/lib/v2/workflows";
 import { amendOrderRequest, useOrderRequests } from "@/lib/v2/orderRequestStore";
+import { buildCommand, toApiError } from "@/lib/v2/workflows";
 import type { OrderItem } from "@/lib/types/v2/orderRequest";
 
 interface AdminAmendOrderProps {
@@ -52,7 +52,7 @@ export function AdminAmendOrder({ userRole = "admin" }: AdminAmendOrderProps) {
   const [draftItems, setDraftItems] = useState<DraftItem[]>(
     order?.items.map((item) => ({
       id: item.id,
-      productCode: item.productId,
+      productCode: item.product.id,
       quantity: item.orderedQuantity,
       description: item.description,
     })) ?? [],
@@ -148,7 +148,7 @@ export function AdminAmendOrder({ userRole = "admin" }: AdminAmendOrderProps) {
           itemChanges,
           amendmentReason,
         },
-        actor,
+        buildCommand(actor),
       );
 
       toast.success("Order amended successfully.");
