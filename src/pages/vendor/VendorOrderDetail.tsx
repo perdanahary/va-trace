@@ -1545,95 +1545,71 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                 </Select>
               </div>
 
-              {openJob.status !== "SUBMITTED" ? (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="produced-qty" className={cn(isProducedActive && "font-semibold text-primary")}>
-                        Produced {isProducedActive && "•"}
-                      </Label>
+              {openJob.status !== "SUBMITTED" && (isProducedActive || isQcActive || isReadyActive || isCompletedActive) ? (
+                <div className="space-y-4">
+                  {isProducedActive && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="produced-qty">Produced</Label>
+                      <Input
+                        id="produced-qty"
+                        type="number"
+                        min={0}
+                        value={producedQty}
+                        onChange={(event) => handleProducedQtyChange(Math.max(0, Number(event.target.value) || 0))}
+                      />
+                      <span className="text-[10px] text-muted-foreground block leading-normal">
+                        Finished printing & finishing (awaiting QC).
+                      </span>
                     </div>
-                    <Input
-                      id="produced-qty"
-                      type="number"
-                      min={0}
-                      value={producedQty}
-                      onChange={(event) => handleProducedQtyChange(Math.max(0, Number(event.target.value) || 0))}
-                      className={cn(
-                        "transition-all duration-200",
-                        isProducedActive && "border-primary ring-1 ring-primary bg-primary/5"
-                      )}
-                    />
-                    <span className="text-[10px] text-muted-foreground block leading-normal">
-                      Finished printing & finishing (awaiting QC).
-                    </span>
-                  </div>
+                  )}
 
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="qc-qty" className={cn(isQcActive && "font-semibold text-primary")}>
-                        QC passed {isQcActive && "•"}
-                      </Label>
+                  {isQcActive && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="qc-qty">QC passed</Label>
+                      <Input
+                        id="qc-qty"
+                        type="number"
+                        min={0}
+                        value={qcQty}
+                        onChange={(event) => handleQcQtyChange(Math.max(0, Number(event.target.value) || 0))}
+                      />
+                      <span className="text-[10px] text-muted-foreground block leading-normal">
+                        Passed quality inspection (must be ≤ Produced).
+                      </span>
                     </div>
-                    <Input
-                      id="qc-qty"
-                      type="number"
-                      min={0}
-                      value={qcQty}
-                      onChange={(event) => handleQcQtyChange(Math.max(0, Number(event.target.value) || 0))}
-                      className={cn(
-                        "transition-all duration-200",
-                        isQcActive && "border-primary ring-1 ring-primary bg-primary/5"
-                      )}
-                    />
-                    <span className="text-[10px] text-muted-foreground block leading-normal">
-                      Passed quality inspection (must be ≤ Produced).
-                    </span>
-                  </div>
+                  )}
 
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="ready-qty" className={cn(isReadyActive && "font-semibold text-primary")}>
-                        Ready {isReadyActive && "•"}
-                      </Label>
+                  {isReadyActive && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ready-qty">Ready</Label>
+                      <Input
+                        id="ready-qty"
+                        type="number"
+                        min={0}
+                        value={readyQty}
+                        onChange={(event) => handleReadyQtyChange(Math.max(0, Number(event.target.value) || 0))}
+                      />
+                      <span className="text-[10px] text-muted-foreground block leading-normal">
+                        Packaged & ready to ship (must be ≤ QC passed).
+                      </span>
                     </div>
-                    <Input
-                      id="ready-qty"
-                      type="number"
-                      min={0}
-                      value={readyQty}
-                      onChange={(event) => handleReadyQtyChange(Math.max(0, Number(event.target.value) || 0))}
-                      className={cn(
-                        "transition-all duration-200",
-                        isReadyActive && "border-primary ring-1 ring-primary bg-primary/5"
-                      )}
-                    />
-                    <span className="text-[10px] text-muted-foreground block leading-normal">
-                      Packaged & ready to ship (must be ≤ QC passed).
-                    </span>
-                  </div>
+                  )}
 
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="completed-qty" className={cn(isCompletedActive && "font-semibold text-primary")}>
-                        Completed {isCompletedActive && "•"}
-                      </Label>
+                  {isCompletedActive && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="completed-qty">Completed</Label>
+                      <Input
+                        id="completed-qty"
+                        type="number"
+                        min={0}
+                        value={completedQty}
+                        onChange={(event) => handleCompletedQtyChange(Math.max(0, Number(event.target.value) || 0))}
+                      />
+                      <span className="text-[10px] text-muted-foreground block leading-normal">
+                        Total units fully finalized (must be ≤ Ready).
+                      </span>
                     </div>
-                    <Input
-                      id="completed-qty"
-                      type="number"
-                      min={0}
-                      value={completedQty}
-                      onChange={(event) => handleCompletedQtyChange(Math.max(0, Number(event.target.value) || 0))}
-                      className={cn(
-                        "transition-all duration-200",
-                        isCompletedActive && "border-primary ring-1 ring-primary bg-primary/5"
-                      )}
-                    />
-                    <span className="text-[10px] text-muted-foreground block leading-normal">
-                      Total units fully finalized (must be ≤ Ready).
-                    </span>
-                  </div>
+                  )}
                 </div>
               ) : null}
             </div>
