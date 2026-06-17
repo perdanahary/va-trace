@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { AlertCircle, Building2, CheckCircle2, Clock, Package, Truck, ChevronRight } from "lucide-react";
+import { AlertCircle, Building2, CheckCircle2, Clock, Package, Truck } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -7,15 +7,13 @@ import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { DashboardMetricCard } from "@/components/shared/DashboardMetricCard";
 import { useOrderRequests } from "@/lib/v2/orderRequestStore";
 import { useCurrentUser } from "@/lib/authStore";
 import { useClientStore } from "@/lib/clientStore";
-
 
 function orderStatusToMetricBucket(productionStatus: string, distributionStatus: string): "waiting" | "production" | "delivery" | "completed" {
   if (productionStatus === "COMPLETED" && distributionStatus === "FULLY_RECEIVED") {
@@ -52,10 +50,10 @@ export function ClientDashboard() {
       counts[bucket]++;
     }
     return [
-      { label: "Waiting", value: String(counts.waiting).padStart(2, "0"), icon: Clock, tone: "warning" as const },
-      { label: "In production", value: String(counts.production).padStart(2, "0"), icon: Package, tone: "processing" as const },
-      { label: "Delivery", value: String(counts.delivery).padStart(2, "0"), icon: Truck, tone: "processing" as const },
-      { label: "Completed", value: String(counts.completed).padStart(2, "0"), icon: CheckCircle2, tone: "success" as const },
+      { label: "Waiting", value: String(counts.waiting), icon: Clock, iconTone: "warning" as const },
+      { label: "In production", value: String(counts.production), icon: Package, iconTone: "processing" as const },
+      { label: "Delivery", value: String(counts.delivery), icon: Truck, iconTone: "processing" as const },
+      { label: "Completed", value: String(counts.completed), icon: CheckCircle2, iconTone: "success" as const },
     ];
   }, [clientOrders]);
 
@@ -128,19 +126,13 @@ export function ClientDashboard() {
 
           <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
             {metrics.map((metric) => (
-              <Card key={metric.label} className="border-border/70 shadow-sm">
-                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                  <div>
-                    <CardDescription className="uppercase tracking-[0.24em]">{metric.label}</CardDescription>
-                    <CardTitle className={cn("text-3xl", metric.tone === "warning" && "text-warning", metric.tone === "processing" && "text-processing", metric.tone === "success" && "text-success")}>
-                      {metric.value}
-                    </CardTitle>
-                  </div>
-                  <div className={cn("rounded-md p-2", metric.tone === "warning" && "bg-warning/10", metric.tone === "processing" && "bg-processing/10", metric.tone === "success" && "bg-success/10")}>
-                    <metric.icon className={cn("h-4 w-4", metric.tone === "warning" && "text-warning", metric.tone === "processing" && "text-processing", metric.tone === "success" && "text-success")} />
-                  </div>
-                </CardHeader>
-              </Card>
+              <DashboardMetricCard
+                key={metric.label}
+                label={metric.label}
+                value={metric.value}
+                icon={metric.icon}
+                iconTone={metric.iconTone}
+              />
             ))}
           </section>
 

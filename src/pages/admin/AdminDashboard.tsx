@@ -6,9 +6,9 @@ import { ArrowUpRight } from "lucide-react";
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DashboardMetricCard } from "@/components/shared/DashboardMetricCard";
 import { OrderRequestTable, type SortableColumn, type SortDirection } from "@/components/domain/tables/OrderRequestTable";
 import { useHydratedOrders, useOrderListRows } from "@/lib/v2/selectors/viewModels";
 
@@ -45,31 +45,50 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
     const normalize = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const today = normalize(now);
 
-    const activeOrders = hydratedOrders.filter((entry) => entry.order.productionStatus !== "COMPLETED").length;
+    let activeOrders = 0;
+    let inProduction = 0;
+    let inDistribution = 0;
+    let atRisk = 0;
+    let exceptions = 0;
+    let completed = 0;
+    let thisMonth = 0;
 
-    const atRisk = hydratedOrders.filter((entry) => {
+    for (const entry of hydratedOrders) {
       const { order } = entry;
-      if (order.productionStatus === "COMPLETED" && order.distributionStatus === "FULLY_RECEIVED") return false;
-      const parsed = new Date(order.deadlineDate);
-      if (Number.isNaN(parsed.getTime())) return false;
-      const diff = Math.round((normalize(parsed).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      return diff >= 0 && diff <= 3;
-    }).length;
+      const ps = order.productionStatus;
+      const ds = order.distributionStatus;
 
-    const completed = hydratedOrders.filter(
-      (entry) => entry.order.productionStatus === "COMPLETED" && entry.order.distributionStatus === "FULLY_RECEIVED",
-    ).length;
+      if (ps !== "COMPLETED") activeOrders++;
 
-    const thisMonth = hydratedOrders.filter((entry) => {
-      const created = new Date(entry.order.audit.createdAt);
-      return !Number.isNaN(created.getTime()) && created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
-    }).length;
+      if (ps === "ACCEPTED" || ps === "IN_PROGRESS") inProduction++;
+      if (ds === "PARTIALLY_DISTRIBUTED" || ds === "FULLY_DISTRIBUTED" || ds === "PARTIALLY_RECEIVED") inDistribution++;
+
+      if (!(ps === "COMPLETED" && ds === "FULLY_RECEIVED")) {
+        const parsed = new Date(order.deadlineDate);
+        if (!Number.isNaN(parsed.getTime())) {
+          const diff = Math.round((normalize(parsed).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          if (diff >= 0 && diff <= 3) atRisk++;
+        }
+      }
+
+      if (order.exceptionSummary.hasException) exceptions++;
+
+      if (ps === "COMPLETED" && ds === "FULLY_RECEIVED") completed++;
+
+      const created = new Date(order.audit.createdAt);
+      if (!Number.isNaN(created.getTime()) && created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear()) {
+        thisMonth++;
+      }
+    }
 
     return [
-      { label: "Active Orders", value: String(activeOrders), change: "Ongoing orders", color: "text-primary" },
-      { label: "At Risk", value: String(atRisk), change: "Deadline ≤ 3 days", color: "text-destructive" },
-      { label: "Completed", value: String(completed), change: "Completed orders", color: "text-success" },
-      { label: "Work Volume This Month", value: String(thisMonth), change: "Orders this month", color: "text-primary" },
+      { label: "Active Orders", value: String(activeOrders), sublabel: "Ongoing orders", color: "text-primary" },
+      { label: "In Production", value: String(inProduction), sublabel: "Accepted / in progress", color: "text-processing" },
+      { label: "In Distribution", value: String(inDistribution), sublabel: "Being shipped / received", color: "text-processing" },
+      { label: "At Risk", value: String(atRisk), sublabel: "Deadline ≤ 3 days", color: "text-destructive" },
+      { label: "Exceptions", value: String(exceptions), sublabel: "Orders with issues", color: "text-warning" },
+      { label: "Completed", value: String(completed), sublabel: "Fully delivered & received", color: "text-success" },
+      { label: "This Month", value: String(thisMonth), sublabel: "Orders created this month", color: "text-primary" },
     ];
   }, [hydratedOrders]);
 
@@ -84,6 +103,8 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
     }
   };
 
+  const goToOrders = () => navigate("/admin/orders");
+
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar userRole={userRole} />
@@ -93,25 +114,15 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
         <main className="space-y-8 p-4 sm:p-6 lg:p-8">
           <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {metrics.map((metric, index) => (
-                <Card
-                  key={metric.label}
-                  className="group cursor-pointer border-border/70 shadow-sm transition-colors hover:border-primary/40"
-                  onClick={() => navigate("/admin/orders")}
-                >
-                  <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                    <div>
-                      <CardDescription>{metric.label}</CardDescription>
-                      <CardTitle className={`text-3xl ${metric.color}`}>{metric.value}</CardTitle>
-                    </div>
-                    <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
-                  </CardHeader>
-                  <CardContent className="flex items-center justify-between pt-0">
-                    <p className="text-xs text-muted-foreground">{metric.change}</p>
-                    <Badge variant="outline" className="rounded-full text-[10px] uppercase tracking-[0.24em]">
-                      #{String(index + 1).padStart(2, "0")}
-                    </Badge>
-                  </CardContent>
-                </Card>
+              <DashboardMetricCard
+                key={metric.label}
+                label={metric.label}
+                value={metric.value}
+                sublabel={metric.sublabel}
+                color={metric.color}
+                index={index}
+                onClick={goToOrders}
+              />
             ))}
           </section>
 
@@ -121,7 +132,7 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
                 <CardTitle className="text-base">Recent Orders</CardTitle>
                 <CardDescription>Latest procurement activity across the workspace</CardDescription>
               </div>
-              <Button variant="ghost" size="sm" className="group" onClick={() => navigate("/admin/orders")}>
+              <Button variant="ghost" size="sm" className="group" onClick={goToOrders}>
                 View all
                 <ArrowUpRight className="ml-1 h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </Button>
