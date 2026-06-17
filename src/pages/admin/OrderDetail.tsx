@@ -371,7 +371,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="flex flex-col items-center p-5">
-                        <div className="w-full max-w-2xl">
+                        <div className="w-full">
                           {isProductionPhase ? (
                             <ProductionPipelineStepper productionStatus={hydrated.productionStatus} className="w-full justify-center" />
                           ) : (
@@ -379,6 +379,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                               receivedQuantity={viewModel.order.quantitySummary.receivedQuantity}
                               allocatedQuantity={viewModel.order.quantitySummary.allocatedQuantity}
                               shippedQuantity={viewModel.order.quantitySummary.shippedQuantity}
+                              className="w-full"
                             />
                           )}
                         </div>
