@@ -103,6 +103,11 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
     }
   };
 
+  const recentOrders = useMemo(
+    () => [...rows].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5),
+    [rows]
+  );
+
   const goToOrders = () => navigate("/admin/orders");
 
   return (
@@ -139,12 +144,10 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
             </CardHeader>
             <CardContent className="p-0">
               <OrderRequestTable
-                rows={sortedRows.slice(0, 5)}
+                rows={recentOrders}
                 columns={["orderRequest", "project", "production", "distribution", "progress", "created", "deadline", "orderedQuantity"]}
                 emptyMessage="No orders yet — import purchase orders or add them manually to get started."
                 onRowClick={(row) => navigate(row.actionTargets.detailPath)}
-                sort={sortState}
-                onSortChange={(col) => setSortState((prev) => ({ column: col, direction: prev.column === col && prev.direction === "desc" ? "asc" : "desc" }))}
               />
             </CardContent>
           </Card>
