@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  AlertTriangle,
   ArrowRight,
   ArrowUpRight,
   CheckCircle2,
@@ -13,7 +12,6 @@ import {
   MoreHorizontal,
   Package,
   Printer,
-  Send,
   ShieldAlert,
   XCircle,
 } from "lucide-react";
@@ -49,16 +47,17 @@ import {
 import { DeliveryProgressBar } from "@/components/domain/DeliveryProgressBar";
 import { ProductionPipelineStepper } from "@/components/domain/ProductionPipelineStepper";
 import { CreateBatchDialog } from "@/components/domain/dialogs/CreateBatchDialog";
+import { ComplaintReplacementDialog } from "@/components/domain/dialogs/ComplaintReplacementDialog";
 import { SalesPointAllocationTable } from "@/components/domain/tables/SalesPointAllocationTable";
 import { buildAllocationRows, useHydratedOrder } from "@/lib/v2/selectors/viewModels";
 import { useActor } from "@/lib/v2/useActor";
 import { useAuditEvents } from "@/lib/v2/auditEventStore";
 import { approveAllocation } from "@/lib/v2/allocationStore";
 import { buildCommand, toApiError } from "@/lib/v2/workflows";
-import { openException, useOperationalExceptions, resolveException } from "@/lib/v2/exceptionStore";
+import { useOperationalExceptions, resolveException } from "@/lib/v2/exceptionStore";
 import { getSalesPointById } from "@/lib/v2/salesPointStore";
 import { resolveVendorDeliveryAddress, type VendorDeliveryAddress } from "@/lib/v2/selectors/deliveryAddress";
-import type { CreateOperationalExceptionDto, OperationalException } from "@/lib/types/v2/exception";
+import type { OperationalException } from "@/lib/types/v2/exception";
 import type { HydratedOrder } from "@/lib/v2/projections";
 import type { OrderAllocationTableRow } from "@/lib/types/v2/orderRequest";
 import type { ExceptionState } from "@/lib/types/v2/status";
@@ -84,15 +83,6 @@ interface VendorOrderDetailProps {
   userRole?: UserRole;
 }
 
-interface ComplaintDraftItem {
-  id: string;
-  productName: string;
-  poLineNumber?: string;
-  orderedQty: number;
-  systemDeliveredQty: number;
-  actualReceivedQty: number;
-}
-
 interface LegacyComplaintAdapter {
   complaint?: {
     id: string;
@@ -101,7 +91,6 @@ interface LegacyComplaintAdapter {
     items: Array<{ systemDeliveredQty: number; actualReceivedQty: number; deltaQty: number }>;
     history: Array<{ id: string; action: string; actor: string; timestamp: string; note?: string }>;
   };
-  complaintItems: ComplaintDraftItem[];
 }
 
 interface AdminOrderWorkbenchViewModel {
@@ -181,7 +170,6 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
   const canCreateBatch =
     totalReadyQty > 0 &&
     allocationRows.some((row) => row.canAddToBatch);
-  const canRaiseComplaint = true;
 
   const visibleTabs = useMemo(() => {
     if (!isProductionPhase) return ORDER_DETAIL_TABS;
@@ -219,14 +207,12 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
   const isCompletedActive = targetStatus === "COMPLETED";
 
   const [preselectedAllocationIds, setPreselectedAllocationIds] = useState<string[]>([]);
-  const [isComplaintDialogOpen, setIsComplaintDialogOpen] = useState(false);
+  const [isReplacementBatchDialogOpen, setIsReplacementBatchDialogOpen] = useState(false);
   const [isDocumentsExpanded, setIsDocumentsExpanded] = useState(true);
   const [isExceptionsExpanded, setIsExceptionsExpanded] = useState(true);
   const [isNotesExpanded, setIsNotesExpanded] = useState(true);
   const [isShippingExpanded, setIsShippingExpanded] = useState(true);
-  const [complaintRemarks, setComplaintRemarks] = useState("");
   const [vendorNote, setVendorNote] = useState("");
-  const [complaintDraftItems, setComplaintDraftItems] = useState<ComplaintDraftItem[]>(legacyComplaint.complaintItems);
 
   if (!hydrated || !viewModel) {
     return (
@@ -257,7 +243,6 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
 
   const backPath = `/${userRole}/orders`;
   const complaint = legacyComplaint.complaint;
-  const complaintLocked = complaint?.status === "pending";
   const deadlineDate = new Date(viewModel.order.deadlineDate);
   const deadlineDateLabel = formatDateLabel(viewModel.order.deadlineDate);
   const deadlineDaysLeft = Number.isNaN(deadlineDate.getTime())
@@ -425,53 +410,6 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
     setIsBatchDialogOpen(true);
   };
 
-  const openComplaintDialog = () => {
-    setComplaintDraftItems(legacyComplaint.complaintItems.map((item) => ({ ...item })));
-    setComplaintRemarks(complaint?.remarks ?? "");
-    setIsComplaintDialogOpen(true);
-  };
-
-  const submitComplaint = () => {
-    const affectedRefs = hydrated.allocations
-      .filter((allocation) =>
-        complaintDraftItems.some((item) => item.id === allocation.orderItemId)
-      )
-      .map((allocation) => ({
-        entityType: "SALES_POINT_ALLOCATION" as const,
-        entityId: allocation.id,
-      }));
-
-    openException(
-      {
-        type: "QUANTITY_VARIANCE",
-        severity: "HIGH",
-        ownerRole: "VENDOR",
-        sourceEntityType: "ORDER_REQUEST",
-        sourceEntityId: hydrated.order.id,
-        affectedEntityRefs: affectedRefs,
-        title: `Quantity variance on order ${hydrated.order.orderRequestNumber}`,
-        description: complaintRemarks.trim() || "Vendor flagged a quantity discrepancy on this order.",
-        dueAt: undefined,
-      } satisfies CreateOperationalExceptionDto,
-      buildCommand(actor, "Raise quantity variance from vendor order detail"),
-    );
-
-    toast.success("Quantity variance reported.");
-    setIsComplaintDialogOpen(false);
-  };
-
-  const adjustComplaintItem = (index: number, delta: number) => {
-    setComplaintDraftItems((current) =>
-      current.map((item, itemIndex) =>
-        itemIndex === index
-          ? {
-              ...item,
-              actualReceivedQty: clampQuantity(item.actualReceivedQty + delta, item.orderedQty),
-            }
-          : item,
-      ),
-    );
-  };
 
   // -------------------------------------------------------------------------
   // Workflow actions
@@ -579,12 +517,10 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
-            {canRaiseComplaint ? (
-              <DropdownMenuItem onSelect={openComplaintDialog}>
-                <AlertTriangle className="mr-2 h-4 w-4" />
-                {complaint ? "Review Complaint" : "Raise Complaint"}
-              </DropdownMenuItem>
-            ) : null}
+            <DropdownMenuItem onSelect={() => setIsReplacementBatchDialogOpen(true)}>
+              <Package className="mr-2 h-4 w-4" />
+              Replacement Batch
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => setActiveTab("compliance")}>
               <ShieldAlert className="mr-2 h-4 w-4" />
               Open Compliance
@@ -1097,10 +1033,10 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                           <p className="text-sm text-muted-foreground">No active exceptions on this order.</p>
                         )}
 
-                        {canRaiseComplaint ? (
-                          <Button onClick={openComplaintDialog} variant={complaint ? "outline" : "default"} className="rounded-xl">
-                            <AlertTriangle className="h-4 w-4" />
-                            {complaint ? "Review Complaint" : "Raise Complaint"}
+                        {hydrated.order.exceptionSummary.hasException ? (
+                          <Button onClick={() => setIsReplacementBatchDialogOpen(true)} variant="default" className="rounded-xl">
+                            <Package className="h-4 w-4" />
+                            Replacement Batch
                           </Button>
                         ) : null}
                       </CardContent>
@@ -1390,123 +1326,12 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
         </main>
       </ContentArea>
 
-      {/* Complaint Dialog */}
-      <Dialog open={isComplaintDialogOpen} onOpenChange={setIsComplaintDialogOpen}>
-        <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{complaint ? "Complaint Review" : "Report Quantity Variance"}</DialogTitle>
-            <DialogDescription>
-              {complaint
-                ? "Review the submitted actual received quantities and vendor response."
-                : "Record the actual received quantity for each item before sending the revision request."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
-              <div className="grid gap-3 md:grid-cols-2">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Order</p>
-                  <p className="mt-1 text-sm font-medium">{viewModel.order.orderRequestNumber}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                    Complaint Status
-                  </p>
-                  <div className="mt-2">
-                    <StatusChip status={complaint?.status ?? "pending"} />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {complaintDraftItems.map((item, index) => (
-                <div key={item.id} className="rounded-xl border border-border/60 p-4">
-                  <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">{item.productName}</p>
-                      <p className="text-xs text-muted-foreground">PO Line {item.poLineNumber ?? "—"}</p>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <OverviewStat label="Ordered" value={`${item.orderedQty} pcs`} />
-                      <OverviewStat label="System Delivered" value={`${item.systemDeliveredQty} pcs`} />
-                      <OverviewStat
-                        label="Delta"
-                        value={`${Math.max(item.systemDeliveredQty - item.actualReceivedQty, 0)} pcs`}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 md:grid-cols-[160px_minmax(0,1fr)] md:items-center">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                      Actual Received Qty
-                    </p>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={item.orderedQty}
-                      value={item.actualReceivedQty}
-                      disabled={complaintLocked}
-                      onChange={(event) => {
-                        const nextValue = Number(event.target.value) || 0;
-                        setComplaintDraftItems((current) =>
-                          current.map((currentItem, currentIndex) =>
-                            currentIndex === index
-                              ? {
-                                  ...currentItem,
-                                  actualReceivedQty: clampQuantity(nextValue, currentItem.orderedQty),
-                                }
-                              : currentItem,
-                          ),
-                        );
-                      }}
-                    />
-                  </div>
-                  {!complaintLocked ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => adjustComplaintItem(index, -5)}>
-                        -5
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => adjustComplaintItem(index, -1)}>
-                        -1
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => adjustComplaintItem(index, 1)}>
-                        +1
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => adjustComplaintItem(index, 5)}>
-                        +5
-                      </Button>
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Variance Description</p>
-              <Textarea
-                value={complaintRemarks}
-                disabled={complaintLocked}
-                onChange={(event) => setComplaintRemarks(event.target.value)}
-                placeholder="Explain the discrepancy and expected correction."
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setIsComplaintDialogOpen(false)}>
-              Close
-            </Button>
-            {!complaintLocked ? (
-              <Button onClick={submitComplaint}>
-                <Send className="h-4 w-4" />
-                Report Variance
-              </Button>
-            ) : null}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ComplaintReplacementDialog
+        open={isReplacementBatchDialogOpen}
+        onOpenChange={setIsReplacementBatchDialogOpen}
+        order={hydrated}
+        actor={actor}
+      />
 
       <CreateBatchDialog
         open={isBatchDialogOpen}
@@ -1663,20 +1488,7 @@ function useLegacyComplaintAdapter(orderId: string | undefined): LegacyComplaint
     const legacy = legacyOrder as any;
     const complaint = legacy?.complaint as Record<string, unknown> | undefined;
 
-    return {
-      complaint,
-      complaintItems: (legacyOrder?.items ?? []).map((item: { id: string; name: string; poLineNumber: string; quantity: number; deliveredQuantity?: number }) => ({
-        id: item.id,
-        productName: item.name,
-        poLineNumber: item.poLineNumber,
-        orderedQty: item.quantity,
-        systemDeliveredQty: item.deliveredQuantity ?? item.quantity,
-        actualReceivedQty:
-          (complaint?.items as Array<Record<string, unknown>> | undefined)?.find((entry: Record<string, unknown>) => entry.lineId === item.id)?.actualReceivedQty ??
-          item.deliveredQuantity ??
-          item.quantity,
-      })) ?? [],
-    } as LegacyComplaintAdapter;
+    return { complaint } as LegacyComplaintAdapter;
   }, [orderId, orders]);
 }
 
@@ -1854,13 +1666,7 @@ function buildFocusCard(
   };
 }
 
-function clampQuantity(value: number, max: number) {
-  if (!Number.isFinite(value)) {
-    return 0;
-  }
 
-  return Math.max(0, Math.min(Math.round(value), max));
-}
 
 // ---------------------------------------------------------------------------
 // Helper components
@@ -1948,27 +1754,7 @@ function DocumentStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function StatusChip({ status }: { status: "pending" | "approved" | "rejected" }) {
-  const config =
-    status === "approved"
-      ? { icon: CheckCircle2, label: "Approved", className: "border-success/30 bg-success/10 text-success" }
-      : status === "rejected"
-        ? { icon: XCircle, label: "Rejected", className: "border-destructive/30 bg-destructive/10 text-destructive" }
-        : { icon: ClipboardList, label: "Pending", className: "border-warning/30 bg-warning/10 text-warning" };
-  const Icon = config.icon;
 
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.24em]",
-        config.className,
-      )}
-    >
-      <Icon className="h-3.5 w-3.5" />
-      {config.label}
-    </span>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Utilities

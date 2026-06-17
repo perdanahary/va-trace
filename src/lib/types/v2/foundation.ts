@@ -95,7 +95,8 @@ export type EntityType =
   | "INTEGRATION_SYNC_RECORD"
   | "INSTALLATION_JOB"
   | "INVOICE"
-  | "RECONCILIATION_RUN";
+  | "RECONCILIATION_RUN"
+  | "NOTIFICATION";
 
 // ---------------------------------------------------------------------------
 // Command and mutation envelope

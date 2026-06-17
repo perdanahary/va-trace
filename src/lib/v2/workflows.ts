@@ -8,7 +8,8 @@
  * events and enforce `expectedVersion`.
  */
 
-import type { CommandMetadata, ID, UserRole } from "@/lib/types/v2/foundation";
+import type { CommandMetadata, ID, UserRole, MutationResponse } from "@/lib/types/v2/foundation";
+import type { CreateOperationalExceptionDto, OperationalException } from "@/lib/types/v2/exception";
 import type {
   CreateDeliveryConfirmationItemDto,
   DeliveryConfirmation,
@@ -66,6 +67,7 @@ import {
 import { getDeliveryConfirmations } from "@/lib/v2/podStore";
 import { getOperationalExceptions } from "@/lib/v2/exceptionStore";
 import { hydrateAllocation } from "@/lib/v2/projections";
+import { addNotification } from "@/lib/v2/notificationStore";
 
 // ---------------------------------------------------------------------------
 // Actor context
@@ -621,4 +623,29 @@ export function hasOpenBlockingExceptions(entityId: ID): boolean {
 
 export function getExceptionsSnapshot() {
   return getOperationalExceptions();
+}
+
+// ---------------------------------------------------------------------------
+// Complaint / Exception notification workflow
+// ---------------------------------------------------------------------------
+
+export function raiseComplaint(
+  dto: CreateOperationalExceptionDto,
+  commandDescription: string,
+  actor: { userId: ID; userRole: UserRole },
+): MutationResponse<OperationalException> {
+  const command = buildCommand(actor, commandDescription);
+  const result = openException(dto, command);
+
+  addNotification({
+    exceptionId: result.data.id,
+    orderId: dto.sourceEntityType === "ORDER_REQUEST" ? dto.sourceEntityId : undefined,
+    relatedEntityType: dto.sourceEntityType,
+    relatedEntityId: dto.sourceEntityId,
+    title: dto.title,
+    description: dto.description,
+    severity: dto.severity,
+  });
+
+  return result;
 }

@@ -54,8 +54,7 @@ import { buildAllocationRows, useHydratedOrder } from "@/lib/v2/selectors/viewMo
 import { useActor } from "@/lib/v2/useActor";
 import { useAuditEvents } from "@/lib/v2/auditEventStore";
 import { approveAllocation } from "@/lib/v2/allocationStore";
-import { buildCommand, toApiError } from "@/lib/v2/workflows";
-import { openException } from "@/lib/v2/exceptionStore";
+import { buildCommand, raiseComplaint, toApiError } from "@/lib/v2/workflows";
 import type { CreateOperationalExceptionDto } from "@/lib/types/v2/exception";
 import type { HydratedOrder } from "@/lib/v2/projections";
 import type { OrderAllocationTableRow } from "@/lib/types/v2/orderRequest";
@@ -229,7 +228,16 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
   };
 
   const openComplaintDialog = () => {
-    setComplaintDraftItems(legacyComplaint.complaintItems.map((item) => ({ ...item })));
+    const shippedItemIds = new Set(
+      (hydrated?.order.items ?? [])
+        .filter((item) => item.shippedQuantity > 0)
+        .map((item) => item.id),
+    );
+    setComplaintDraftItems(
+      legacyComplaint.complaintItems
+        .filter((item) => shippedItemIds.has(item.id))
+        .map((item) => ({ ...item })),
+    );
     setComplaintRemarks(complaint?.remarks ?? "");
     setIsComplaintDialogOpen(true);
   };
@@ -244,7 +252,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
         entityId: allocation.id,
       }));
 
-    openException(
+    raiseComplaint(
       {
         type: "QUANTITY_VARIANCE",
         severity: "HIGH",
@@ -256,7 +264,8 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
         description: complaintRemarks.trim() || "Admin flagged a quantity discrepancy on this order.",
         dueAt: undefined,
       } satisfies CreateOperationalExceptionDto,
-      buildCommand(actor, "Raise quantity variance from admin order detail"),
+      "Raise quantity variance from admin order detail",
+      actor,
     );
 
     toast.success("Quantity variance reported. Vendor has been notified.");
