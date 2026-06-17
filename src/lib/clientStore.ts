@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
 import type { AppUser } from "@/lib/userStore";
 
@@ -48,39 +48,75 @@ const initialClients: Client[] = [
   },
 ];
 
-function readClients(): Client[] {
+const SCHEMA_VERSION = 1;
+const CLIENTS_CHANGE_EVENT = "va-trace-clients:change";
+
+let clients: Client[] = initClients();
+
+function initClients(): Client[] {
   if (typeof window === "undefined") {
     return initialClients;
   }
 
   try {
     const stored = window.localStorage.getItem(CLIENT_STORAGE_KEY);
-
     if (!stored) {
       return initialClients;
     }
 
-    const parsed = JSON.parse(stored) as Client[];
-    return Array.isArray(parsed) ? parsed : initialClients;
+    const parsed = JSON.parse(stored);
+    if (parsed && typeof parsed === "object" && parsed.version === SCHEMA_VERSION && Array.isArray(parsed.data)) {
+      return parsed.data as Client[];
+    }
+    return initialClients;
   } catch {
     return initialClients;
   }
 }
 
-function persistClients(clients: Client[]) {
-  window.localStorage.setItem(CLIENT_STORAGE_KEY, JSON.stringify(clients));
+function getClients(): Client[] {
+  return clients;
 }
 
-function syncUsersWithClients(clients: Client[]) {
+function setClientsAndPersist(nextClients: Client[]) {
+  clients = nextClients;
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(
+        CLIENT_STORAGE_KEY,
+        JSON.stringify({
+          version: SCHEMA_VERSION,
+          data: clients,
+        })
+      );
+    } catch (error) {
+      console.warn("localStorage write failed:", error);
+    }
+    syncUsersWithClients(clients);
+    window.dispatchEvent(new Event(CLIENTS_CHANGE_EVENT));
+  }
+}
+
+function syncUsersWithClients(clientsList: Client[]) {
   try {
     const storedUsers = window.localStorage.getItem(USER_STORAGE_KEY);
     if (!storedUsers) return;
 
-    const parsedUsers = JSON.parse(storedUsers) as AppUser[];
-    if (!Array.isArray(parsedUsers)) return;
+    const parsed = JSON.parse(storedUsers);
+    let userArray: AppUser[] = [];
+    let isVersioned = false;
 
-    const syncedUsers = parsedUsers.map((user) => {
-      const linkedClient = clients.find((client) => client.linkedUserId === user.id);
+    if (parsed && typeof parsed === "object" && parsed.version === 1 && Array.isArray(parsed.data)) {
+      userArray = parsed.data as AppUser[];
+      isVersioned = true;
+    } else if (Array.isArray(parsed)) {
+      userArray = parsed as AppUser[];
+    } else {
+      return;
+    }
+
+    const syncedUsers = userArray.map((user) => {
+      const linkedClient = clientsList.find((client) => client.linkedUserId === user.id);
 
       if (!linkedClient || user.role !== "client") {
         return user;
@@ -92,16 +128,46 @@ function syncUsersWithClients(clients: Client[]) {
       };
     });
 
-    window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(syncedUsers));
+    const payload = isVersioned ? { version: 1, data: syncedUsers } : syncedUsers;
+    window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(payload));
     window.dispatchEvent(new CustomEvent(USERS_UPDATED_EVENT));
   } catch {
-    // Ignore malformed local storage and keep the client directory usable.
+    // Ignore malformed local storage
   }
 }
 
-function writeClients(clients: Client[]) {
-  persistClients(clients);
-  syncUsersWithClients(clients);
+function subscribe(listener: () => void) {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+
+  const handleStoreEvent = () => listener();
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === CLIENT_STORAGE_KEY) {
+      try {
+        const stored = event.newValue;
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && typeof parsed === "object" && parsed.version === SCHEMA_VERSION && Array.isArray(parsed.data)) {
+            clients = parsed.data as Client[];
+          }
+        } else {
+          clients = initialClients;
+        }
+        listener();
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  window.addEventListener(CLIENTS_CHANGE_EVENT, handleStoreEvent);
+  window.addEventListener("storage", handleStorage);
+
+  return () => {
+    window.removeEventListener(CLIENTS_CHANGE_EVENT, handleStoreEvent);
+    window.removeEventListener("storage", handleStorage);
+  };
 }
 
 function generateClientId(entityName: string) {
@@ -111,19 +177,15 @@ function generateClientId(entityName: string) {
 }
 
 export function getClientSnapshot() {
-  return readClients();
+  return getClients();
 }
 
 export function useClientStore() {
-  const [clients, setClients] = useState<Client[]>(() => readClients());
-
-  useEffect(() => {
-    writeClients(clients);
-  }, [clients]);
+  const currentClients = useSyncExternalStore(subscribe, getClients, () => initialClients);
 
   const addClient = (client: Omit<Client, "id">) => {
-    setClients((prev) => [
-      ...prev,
+    setClientsAndPersist([
+      ...getClients(),
       {
         ...client,
         id: generateClientId(client.entityName),
@@ -132,8 +194,8 @@ export function useClientStore() {
   };
 
   const updateClient = (id: string, updates: Partial<Client>) => {
-    setClients((prev) =>
-      prev.map((client) =>
+    setClientsAndPersist(
+      getClients().map((client) =>
         client.id === id
           ? {
               ...client,
@@ -144,21 +206,21 @@ export function useClientStore() {
               },
             }
           : client,
-      ),
+      )
     );
   };
 
   const deleteClient = (id: string) => {
-    setClients((prev) => prev.filter((client) => client.id !== id));
+    setClientsAndPersist(getClients().filter((client) => client.id !== id));
   };
 
   return useMemo(
     () => ({
-      clients,
+      clients: currentClients,
       addClient,
       updateClient,
       deleteClient,
     }),
-    [clients],
+    [currentClients],
   );
 }

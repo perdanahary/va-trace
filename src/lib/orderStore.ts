@@ -74,8 +74,31 @@ export interface PodUploadInput {
   remarks?: string;
 }
 
+const STORAGE_KEY = "va-trace-orders";
+const SCHEMA_VERSION = 1;
 const STORE_EVENT = "va-trace-orders:change";
-let orders: StoredOrder[] = normalizeOrders(mockOrders) as StoredOrder[];
+
+let orders: StoredOrder[] = initOrders();
+
+function initOrders(): StoredOrder[] {
+  const seeds = normalizeOrders(mockOrders) as StoredOrder[];
+  if (typeof window === "undefined") {
+    return seeds;
+  }
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (!stored) {
+      return seeds;
+    }
+    const parsed = JSON.parse(stored);
+    if (parsed && typeof parsed === "object" && parsed.version === SCHEMA_VERSION && Array.isArray(parsed.data)) {
+      return normalizeOrders(parsed.data) as StoredOrder[];
+    }
+    return seeds;
+  } catch {
+    return seeds;
+  }
+}
 
 function getOrders(): StoredOrder[] {
   return orders;
@@ -84,6 +107,17 @@ function getOrders(): StoredOrder[] {
 function setOrders(nextOrders: StoredOrder[]) {
   orders = normalizeOrders(nextOrders) as StoredOrder[];
   if (typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          version: SCHEMA_VERSION,
+          data: orders,
+        })
+      );
+    } catch (error) {
+      console.warn("localStorage write failed:", error);
+    }
     window.dispatchEvent(new Event(STORE_EVENT));
   }
 }
@@ -94,9 +128,31 @@ function subscribe(listener: () => void) {
   }
 
   const handleStoreEvent = () => listener();
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === STORAGE_KEY) {
+      try {
+        const stored = event.newValue;
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && typeof parsed === "object" && parsed.version === SCHEMA_VERSION && Array.isArray(parsed.data)) {
+            orders = normalizeOrders(parsed.data) as StoredOrder[];
+          }
+        } else {
+          orders = normalizeOrders(mockOrders) as StoredOrder[];
+        }
+        listener();
+      } catch {
+        // ignore
+      }
+    }
+  };
+
   window.addEventListener(STORE_EVENT, handleStoreEvent);
+  window.addEventListener("storage", handleStorage);
+
   return () => {
     window.removeEventListener(STORE_EVENT, handleStoreEvent);
+    window.removeEventListener("storage", handleStorage);
   };
 }
 

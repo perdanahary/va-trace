@@ -380,7 +380,8 @@ export function useProductionRows(vendorName?: string): ProductionJobListRow[] {
             ),
             updatedAt: job.audit.updatedAt,
           } satisfies ProductionJobListRow;
-        }),
+        })
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [jobs, orders, exceptions, vendorName],
   );
 }

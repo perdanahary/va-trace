@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
 export interface VendorPIC {
   name: string;
@@ -82,31 +82,96 @@ const initialSuppliers: Supplier[] = [
   },
 ];
 
-function readSuppliers(): Supplier[] {
+const SCHEMA_VERSION = 1;
+const SUPPLIERS_CHANGE_EVENT = "va-trace-suppliers:change";
+
+let suppliers: Supplier[] = initSuppliers();
+
+function initSuppliers(): Supplier[] {
   if (typeof window === "undefined") {
     return initialSuppliers;
   }
 
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
-
     if (!stored) {
       return initialSuppliers;
     }
 
-    const parsed = JSON.parse(stored) as Supplier[];
-
-    if (!Array.isArray(parsed)) {
-      return initialSuppliers;
+    const parsed = JSON.parse(stored);
+    if (parsed && typeof parsed === "object" && parsed.version === SCHEMA_VERSION && Array.isArray(parsed.data)) {
+      return (parsed.data as Supplier[]).map((supplier) => ({
+        ...supplier,
+        status: normalizeSupplierStatus(String(supplier.status ?? "inactive")),
+      }));
     }
-
-    return parsed.map((supplier) => ({
-      ...supplier,
-      status: normalizeSupplierStatus(String(supplier.status ?? "inactive")),
-    }));
+    return initialSuppliers;
   } catch {
     return initialSuppliers;
   }
+}
+
+function getSuppliers(): Supplier[] {
+  return suppliers;
+}
+
+function setSuppliersAndPersist(nextSuppliers: Supplier[]) {
+  suppliers = nextSuppliers.map((supplier) => ({
+    ...supplier,
+    status: normalizeSupplierStatus(supplier.status),
+  }));
+
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          version: SCHEMA_VERSION,
+          data: suppliers,
+        })
+      );
+    } catch (error) {
+      console.warn("localStorage write failed:", error);
+    }
+    window.dispatchEvent(new Event(SUPPLIERS_CHANGE_EVENT));
+  }
+}
+
+function subscribe(listener: () => void) {
+  if (typeof window === "undefined") {
+    return () => undefined;
+  }
+
+  const handleStoreEvent = () => listener();
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === STORAGE_KEY) {
+      try {
+        const stored = event.newValue;
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && typeof parsed === "object" && parsed.version === SCHEMA_VERSION && Array.isArray(parsed.data)) {
+            suppliers = (parsed.data as Supplier[]).map((supplier) => ({
+              ...supplier,
+              status: normalizeSupplierStatus(String(supplier.status ?? "inactive")),
+            }));
+          }
+        } else {
+          suppliers = initialSuppliers;
+        }
+        listener();
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  window.addEventListener(SUPPLIERS_CHANGE_EVENT, handleStoreEvent);
+  window.addEventListener("storage", handleStorage);
+
+  return () => {
+    window.removeEventListener(SUPPLIERS_CHANGE_EVENT, handleStoreEvent);
+    window.removeEventListener("storage", handleStorage);
+  };
 }
 
 function generateSupplierId(name: string) {
@@ -116,19 +181,15 @@ function generateSupplierId(name: string) {
 }
 
 export function getSupplierSnapshot() {
-  return readSuppliers();
+  return getSuppliers();
 }
 
 export function findSupplierByName(name: string) {
-  return readSuppliers().find((supplier) => supplier.name === name);
+  return getSuppliers().find((supplier) => supplier.name === name);
 }
 
 export function useSupplierStore() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>(() => readSuppliers());
-
-  useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(suppliers));
-  }, [suppliers]);
+  const currentSuppliers = useSyncExternalStore(subscribe, getSuppliers, () => initialSuppliers);
 
   const addSupplier = (supplier: Omit<Supplier, "id">) => {
     const newSupplier: Supplier = {
@@ -137,12 +198,12 @@ export function useSupplierStore() {
       id: generateSupplierId(supplier.name),
     };
 
-    setSuppliers((prev) => [...prev, newSupplier]);
+    setSuppliersAndPersist([...getSuppliers(), newSupplier]);
   };
 
   const updateSupplier = (id: string, updates: Partial<Supplier>) => {
-    setSuppliers((prev) =>
-      prev.map((supplier) =>
+    setSuppliersAndPersist(
+      getSuppliers().map((supplier) =>
         supplier.id === id
           ? {
               ...supplier,
@@ -150,21 +211,21 @@ export function useSupplierStore() {
               status: updates.status ? normalizeSupplierStatus(updates.status) : supplier.status,
             }
           : supplier,
-      ),
+      )
     );
   };
 
   const deleteSupplier = (id: string) => {
-    setSuppliers((prev) => prev.filter((supplier) => supplier.id !== id));
+    setSuppliersAndPersist(getSuppliers().filter((supplier) => supplier.id !== id));
   };
 
   return useMemo(
     () => ({
-      suppliers,
+      suppliers: currentSuppliers,
       addSupplier,
       updateSupplier,
       deleteSupplier,
     }),
-    [suppliers],
+    [currentSuppliers],
   );
 }

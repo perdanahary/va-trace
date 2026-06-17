@@ -62,7 +62,26 @@ import type { CreateOperationalExceptionDto, OperationalException } from "@/lib/
 import type { HydratedOrder } from "@/lib/v2/projections";
 import type { OrderAllocationTableRow } from "@/lib/types/v2/orderRequest";
 import type { ExceptionState } from "@/lib/types/v2/status";
-import { acceptProductionJob } from "@/lib/v2/productionStore";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { formatStatusLabel } from "@/lib/v2/selectors/derivedStatus";
+import type { ProductionStatus } from "@/lib/types/v2/status";
+import { acceptProductionJob, updateProductionProgress, getProductionJobById } from "@/lib/v2/productionStore";
+
+const UPDATABLE_STATUSES: ProductionStatus[] = [
+  "ACCEPTED",
+  "PRINTING",
+  "FINISHING",
+  "QUALITY_CONTROL",
+  "READY_FOR_DISTRIBUTION",
+  "COMPLETED",
+];
 
 interface VendorOrderDetailProps {
   userRole?: UserRole;
@@ -186,6 +205,17 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
   }, [isProductionPhase, activeTab]);
 
   const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
+  const [openJobId, setOpenJobId] = useState<string | null>(null);
+  const [targetStatus, setTargetStatus] = useState<ProductionStatus>("PRINTING");
+  const [producedQty, setProducedQty] = useState(0);
+  const [qcQty, setQcQty] = useState(0);
+  const [readyQty, setReadyQty] = useState(0);
+  const [completedQty, setCompletedQty] = useState(0);
+
+  const openJob = useMemo(() => {
+    return openJobId && hydrated ? hydrated.productionJobs.find((j) => j.id === openJobId) : undefined;
+  }, [openJobId, hydrated]);
+
   const [preselectedAllocationIds, setPreselectedAllocationIds] = useState<string[]>([]);
   const [isComplaintDialogOpen, setIsComplaintDialogOpen] = useState(false);
   const [isDocumentsExpanded, setIsDocumentsExpanded] = useState(true);
@@ -238,6 +268,46 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
   // Handlers
   // -------------------------------------------------------------------------
 
+  const handleOpenUpdateDialog = (jobId: string) => {
+    const job = hydrated?.productionJobs.find((j) => j.id === jobId);
+    if (!job) return;
+    setOpenJobId(jobId);
+    setTargetStatus(job.status === "SUBMITTED" || job.status === "NEW" ? "ACCEPTED" : job.status);
+    setProducedQty(job.producedQuantity);
+    setQcQty(job.qcPassedQuantity);
+    setReadyQty(job.readyQuantity);
+    setCompletedQty(job.completedQuantity);
+  };
+
+  const handleUpdateProductionProgress = () => {
+    if (!openJob) return;
+    try {
+      if (openJob.status === "SUBMITTED" && targetStatus === "ACCEPTED") {
+        acceptProductionJob(
+          { productionJobId: openJob.id, expectedVersion: openJob.version, acceptedByUserId: actor.userId },
+          buildCommand(actor, "Confirm order from vendor order detail"),
+        );
+      } else {
+        updateProductionProgress(
+          {
+            productionJobId: openJob.id,
+            expectedVersion: openJob.version,
+            status: targetStatus,
+            producedQuantity: producedQty,
+            qcPassedQuantity: qcQty,
+            readyQuantity: readyQty,
+            completedQuantity: completedQty,
+          },
+          buildCommand(actor, "Update production progress from vendor order detail"),
+        );
+      }
+      toast.success(`Production job ${openJob.jobNumber} updated.`);
+      setOpenJobId(null);
+    } catch (error) {
+      toast.error(toApiError(error).message);
+    }
+  };
+
   const handleConfirmOrder = () => {
     if (!order) return;
     const jobs = hydrated?.productionJobs ?? [];
@@ -245,15 +315,23 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
       toast.error("No production job is assigned yet. Please contact your admin.");
       return;
     }
-    const job = jobs[0];
+    // Accept all SUBMITTED jobs — an order may have multiple production jobs (one per line item)
+    const submittedJobs = jobs.filter((j) => j.status === "SUBMITTED");
+    if (submittedJobs.length === 0) {
+      toast.error("No jobs are pending confirmation.");
+      return;
+    }
     try {
-      acceptProductionJob(
-        { productionJobId: job.id, expectedVersion: job.version, acceptedByUserId: actor.userId },
-        buildCommand(actor, "Confirm order from vendor order detail"),
-      );
+      for (const job of submittedJobs) {
+        acceptProductionJob(
+          { productionJobId: job.id, expectedVersion: job.version, acceptedByUserId: actor.userId },
+          buildCommand(actor, "Confirm order from vendor order detail"),
+        );
+      }
       toast.success("Order confirmed. Production can now begin.");
     } catch (error) {
-      toast.error("Failed to confirm order. Please try again.");
+      console.error("Failed to confirm order:", error);
+      toast.error(toApiError(error).message || "Failed to confirm order. Please try again.");
     }
   };
 
@@ -590,12 +668,13 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                               <TableHead className="text-right">Ordered</TableHead>
                               <TableHead className="text-right">Ready</TableHead>
                               <TableHead>Status</TableHead>
+                              <TableHead className="text-right" />
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {recentJobs.length === 0 ? (
                               <TableRow>
-                                <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+                                <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
                                   No production jobs have been generated yet.
                                 </TableCell>
                               </TableRow>
@@ -612,6 +691,18 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                                     <TableCell className="text-right text-sm tabular-nums">{job.readyQuantity}</TableCell>
                                     <TableCell>
                                       <ProductionStatusBadge status={job.status} />
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {job.status !== "COMPLETED" && job.status !== "CANCELLED" ? (
+                                        <Button
+                                          variant="ghost"
+                                          size="xs"
+                                          className="h-7 px-2 font-semibold text-link hover:bg-link/10"
+                                          onClick={() => handleOpenUpdateDialog(job.id)}
+                                        >
+                                          Update
+                                        </Button>
+                                      ) : null}
                                     </TableCell>
                                   </TableRow>
                                 );
@@ -671,12 +762,13 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                               <TableHead className="text-right">Ordered</TableHead>
                               <TableHead className="text-right">Ready</TableHead>
                               <TableHead>Status</TableHead>
+                              <TableHead className="text-right" />
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {hydrated.productionJobs.length === 0 ? (
                               <TableRow>
-                                <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+                                <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
                                   No production jobs have been generated yet.
                                 </TableCell>
                               </TableRow>
@@ -693,6 +785,18 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                                     <TableCell className="text-right text-sm tabular-nums">{job.readyQuantity}</TableCell>
                                     <TableCell>
                                       <ProductionStatusBadge status={job.status} />
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {job.status !== "COMPLETED" && job.status !== "CANCELLED" ? (
+                                        <Button
+                                          variant="ghost"
+                                          size="xs"
+                                          className="h-7 px-2 font-semibold text-link hover:bg-link/10"
+                                          onClick={() => handleOpenUpdateDialog(job.id)}
+                                        >
+                                          Update
+                                        </Button>
+                                      ) : null}
                                     </TableCell>
                                   </TableRow>
                                 );
@@ -1348,6 +1452,91 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
         actor={actor}
         preselectedAllocationIds={preselectedAllocationIds}
       />
+
+      <Dialog open={Boolean(openJob)} onOpenChange={(open) => !open && setOpenJobId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Production</DialogTitle>
+            <DialogDescription>
+              {openJob ? `${openJob.jobNumber} · ordered ${openJob.orderedQuantity}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          {openJob ? (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>Status</Label>
+                <Select value={targetStatus} onValueChange={(value) => setTargetStatus(value as ProductionStatus)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(openJob.status === "SUBMITTED" ? (["ACCEPTED"] as ProductionStatus[]) : UPDATABLE_STATUSES).map(
+                      (status) => (
+                        <SelectItem key={status} value={status}>
+                          {formatStatusLabel(status)}
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {openJob.status !== "SUBMITTED" ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="produced-qty">Produced</Label>
+                    <Input
+                      id="produced-qty"
+                      type="number"
+                      min={0}
+                      value={producedQty}
+                      onChange={(event) => setProducedQty(Math.max(0, Number(event.target.value) || 0))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="qc-qty">QC passed</Label>
+                    <Input
+                      id="qc-qty"
+                      type="number"
+                      min={0}
+                      value={qcQty}
+                      onChange={(event) => setQcQty(Math.max(0, Number(event.target.value) || 0))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ready-qty">Ready</Label>
+                    <Input
+                      id="ready-qty"
+                      type="number"
+                      min={0}
+                      value={readyQty}
+                      onChange={(event) => setReadyQty(Math.max(0, Number(event.target.value) || 0))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="completed-qty">Completed</Label>
+                    <Input
+                      id="completed-qty"
+                      type="number"
+                      min={0}
+                      value={completedQty}
+                      onChange={(event) => setCompletedQty(Math.max(0, Number(event.target.value) || 0))}
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenJobId(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateProductionProgress}>Save update</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

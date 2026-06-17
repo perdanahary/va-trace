@@ -39,6 +39,8 @@ function getSeedProjects() {
   return dedupeProjects(mockOrders.map((order) => order.campaign ?? ""));
 }
 
+const SCHEMA_VERSION = 1;
+
 function readStoredProjects(): string[] {
   if (typeof window === "undefined") {
     return getSeedProjects();
@@ -58,8 +60,15 @@ function readStoredProjects(): string[] {
       return cachedProjects;
     }
 
-    const parsed = JSON.parse(stored) as unknown;
-    const storedProjects = Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : [];
+    const parsed = JSON.parse(stored);
+    let storedProjects: string[] = [];
+
+    if (parsed && typeof parsed === "object" && parsed.version === SCHEMA_VERSION && Array.isArray(parsed.data)) {
+      storedProjects = parsed.data.filter((value: unknown): value is string => typeof value === "string");
+    } else if (Array.isArray(parsed)) {
+      storedProjects = parsed.filter((value: unknown): value is string => typeof value === "string");
+    }
+
     const mergedProjects = dedupeProjects([...storedProjects, ...seeds]);
 
     cachedProjects = mergedProjects;
@@ -75,11 +84,19 @@ function writeStoredProjects(nextProjects: string[]) {
     return;
   }
 
-  const serialized = JSON.stringify(dedupeProjects(nextProjects));
-  cachedProjects = JSON.parse(serialized) as string[];
-  cachedStorageValue = serialized;
-  window.localStorage.setItem(STORAGE_KEY, serialized);
-  window.dispatchEvent(new Event(STORE_EVENT));
+  try {
+    const deduped = dedupeProjects(nextProjects);
+    const serialized = JSON.stringify({
+      version: SCHEMA_VERSION,
+      data: deduped,
+    });
+    cachedProjects = deduped;
+    cachedStorageValue = serialized;
+    window.localStorage.setItem(STORAGE_KEY, serialized);
+    window.dispatchEvent(new Event(STORE_EVENT));
+  } catch (error) {
+    console.warn("localStorage write failed:", error);
+  }
 }
 
 function subscribe(listener: () => void) {
@@ -110,22 +127,6 @@ export function getProjectSnapshot() {
 
 export function useProjectStore() {
   const projects = useSyncExternalStore(subscribe, readStoredProjects, getSeedProjects);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const mergedProjects = dedupeProjects(projects);
-    const serialized = JSON.stringify(mergedProjects);
-    if (serialized === cachedStorageValue) {
-      return;
-    }
-
-    cachedProjects = mergedProjects;
-    cachedStorageValue = serialized;
-    window.localStorage.setItem(STORAGE_KEY, serialized);
-  }, [projects]);
 
   const addProject = (projectName: string) => {
     const normalizedProject = normalizeProjectName(projectName);

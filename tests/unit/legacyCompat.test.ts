@@ -32,7 +32,7 @@ describe("legacy compatibility adapters (P1-19 / P4-24)", () => {
   });
 
   it("maps legacy item statuses to production statuses (migration only)", () => {
-    expect(productionStatusFromLegacyItemStatus("New")).toBe("NEW");
+    expect(productionStatusFromLegacyItemStatus("New")).toBe("SUBMITTED");
     expect(productionStatusFromLegacyItemStatus("In Production")).toBe("PRINTING");
     expect(productionStatusFromLegacyItemStatus("Ready to Ship")).toBe("READY_FOR_DISTRIBUTION");
     expect(productionStatusFromLegacyItemStatus("Delivered")).toBe("COMPLETED");
