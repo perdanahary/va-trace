@@ -632,7 +632,7 @@ export function getExceptionsSnapshot() {
 export function raiseComplaint(
   dto: CreateOperationalExceptionDto,
   commandDescription: string,
-  actor: { userId: ID; userRole: UserRole },
+  actor: Actor,
 ): MutationResponse<OperationalException> {
   const command = buildCommand(actor, commandDescription);
   const result = openException(dto, command);
