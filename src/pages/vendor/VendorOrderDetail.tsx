@@ -13,7 +13,6 @@ import {
   Package,
   Printer,
   ShieldAlert,
-  XCircle,
 } from "lucide-react";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
@@ -22,18 +21,16 @@ import { Header } from "@/components/layout/Header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import { useOrders } from "@/lib/orderStore";
 import {
   DeliveryConfirmationStatusBadge,
@@ -61,23 +58,7 @@ import type { OperationalException } from "@/lib/types/v2/exception";
 import type { HydratedOrder } from "@/lib/v2/projections";
 import type { OrderAllocationTableRow } from "@/lib/types/v2/orderRequest";
 import type { ExceptionState } from "@/lib/types/v2/status";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { formatStatusLabel } from "@/lib/v2/selectors/derivedStatus";
-import type { ProductionStatus } from "@/lib/types/v2/status";
-import { acceptProductionJob, updateProductionProgress, getProductionJobById } from "@/lib/v2/productionStore";
-
-const UPDATABLE_STATUSES: ProductionStatus[] = [
-  "ACCEPTED",
-  "IN_PROGRESS",
-  "COMPLETED",
-];
+import { acceptProductionJob } from "@/lib/v2/productionStore";
 
 interface VendorOrderDetailProps {
   userRole?: UserRole;
@@ -191,20 +172,6 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
   }, [isProductionPhase, activeTab]);
 
   const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
-  const [isJobsPickerOpen, setIsJobsPickerOpen] = useState(false);
-  const [openJobId, setOpenJobId] = useState<string | null>(null);
-  const [targetStatus, setTargetStatus] = useState<ProductionStatus>("IN_PROGRESS");
-  const [producedQty, setProducedQty] = useState(0);
-  const [qcQty, setQcQty] = useState(0);
-  const [readyQty, setReadyQty] = useState(0);
-  const [completedQty, setCompletedQty] = useState(0);
-
-  const openJob = useMemo(() => {
-    return openJobId && hydrated ? hydrated.productionJobs.find((j) => j.id === openJobId) : undefined;
-  }, [openJobId, hydrated]);
-
-  const isInProgressActive = targetStatus === "IN_PROGRESS";
-  const isCompletedActive = targetStatus === "COMPLETED";
 
   const [preselectedAllocationIds, setPreselectedAllocationIds] = useState<string[]>([]);
   const [isReplacementBatchDialogOpen, setIsReplacementBatchDialogOpen] = useState(false);
@@ -254,90 +221,6 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
   // -------------------------------------------------------------------------
   // Handlers
   // -------------------------------------------------------------------------
-
-  const handleProducedQtyChange = (val: number) => {
-    setProducedQty(val);
-    if (qcQty > val) setQcQty(val);
-    if (readyQty > val) setReadyQty(val);
-    if (completedQty > val) setCompletedQty(val);
-  };
-
-  const handleQcQtyChange = (val: number) => {
-    setQcQty(val);
-    if (producedQty < val) setProducedQty(val);
-    if (readyQty > val) setReadyQty(val);
-    if (completedQty > val) setCompletedQty(val);
-  };
-
-  const handleReadyQtyChange = (val: number) => {
-    setReadyQty(val);
-    if (qcQty < val) setQcQty(val);
-    if (producedQty < val) setProducedQty(val);
-    if (completedQty > val) setCompletedQty(val);
-  };
-
-  const handleCompletedQtyChange = (val: number) => {
-    setCompletedQty(val);
-    if (readyQty < val) setReadyQty(val);
-    if (qcQty < val) setQcQty(val);
-    if (producedQty < val) setProducedQty(val);
-  };
-
-  const handleStatusChange = (status: ProductionStatus) => {
-    setTargetStatus(status);
-    if (!openJob) return;
-    const qty = openJob.orderedQuantity;
-    if (status === "COMPLETED") {
-      setProducedQty(qty);
-      setQcQty(qty);
-      setReadyQty(qty);
-      setCompletedQty(qty);
-    } else if (status === "IN_PROGRESS") {
-      if (producedQty === 0) {
-        setProducedQty(qty);
-      }
-    }
-  };
-
-  const handleOpenUpdateDialog = (jobId: string) => {
-    const job = hydrated?.productionJobs.find((j) => j.id === jobId);
-    if (!job) return;
-    setOpenJobId(jobId);
-    setTargetStatus(job.status === "SUBMITTED" || job.status === "NEW" ? "ACCEPTED" : job.status);
-    setProducedQty(job.producedQuantity);
-    setQcQty(job.qcPassedQuantity);
-    setReadyQty(job.readyQuantity);
-    setCompletedQty(job.completedQuantity);
-  };
-
-  const handleUpdateProductionProgress = () => {
-    if (!openJob) return;
-    try {
-      if (openJob.status === "SUBMITTED" && targetStatus === "ACCEPTED") {
-        acceptProductionJob(
-          { productionJobId: openJob.id, expectedVersion: openJob.version, acceptedByUserId: actor.userId },
-          buildCommand(actor, "Confirm order from vendor order detail"),
-        );
-      } else {
-        updateProductionProgress(
-          {
-            productionJobId: openJob.id,
-            expectedVersion: openJob.version,
-            status: targetStatus,
-            producedQuantity: producedQty,
-            qcPassedQuantity: qcQty,
-            readyQuantity: readyQty,
-            completedQuantity: completedQty,
-          },
-          buildCommand(actor, "Update production progress from vendor order detail"),
-        );
-      }
-      toast.success(`Production job ${openJob.jobNumber} updated.`);
-      setOpenJobId(null);
-    } catch (error) {
-      toast.error(toApiError(error).message);
-    }
-  };
 
   const handleConfirmOrder = () => {
     if (!order) return;
@@ -449,16 +332,17 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
 
       return (
         <>
-          <Button
-            size={size}
-            onClick={() =>
-              singleActiveJob
-                ? handleOpenUpdateDialog(singleActiveJob.id)
-                : setIsJobsPickerOpen(true)
-            }
-          >
-            <Factory className="mr-2 h-4 w-4" />
-            Update Production
+          <Button size={size} asChild>
+            <Link
+              to={
+                singleActiveJob
+                  ? `/${userRole}/orders/${hydrated?.order.id}/production/${singleActiveJob.id}`
+                  : `/${userRole}/orders/${hydrated?.order.id}/production`
+              }
+            >
+              <Factory className="mr-2 h-4 w-4" />
+              Update Production
+            </Link>
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -657,10 +541,12 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                                             <Button
                                               variant="ghost"
                                               size="xs"
+                                              asChild
                                               className="h-7 px-2 font-semibold text-link hover:bg-link/10"
-                                              onClick={() => handleOpenUpdateDialog(job.id)}
                                             >
-                                              Update
+                                              <Link to={`/${userRole}/orders/${hydrated.order.id}/production/${job.id}`}>
+                                                Update
+                                              </Link>
                                             </Button>
                                           ) : null}
                                         </TableCell>
@@ -790,10 +676,12 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                                         <Button
                                           variant="ghost"
                                           size="xs"
+                                          asChild
                                           className="h-7 px-2 font-semibold text-link hover:bg-link/10"
-                                          onClick={() => handleOpenUpdateDialog(job.id)}
                                         >
-                                          Update
+                                          <Link to={`/${userRole}/orders/${hydrated.order.id}/production/${job.id}`}>
+                                            Update
+                                          </Link>
                                         </Button>
                                       ) : null}
                                     </TableCell>
@@ -1340,138 +1228,6 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
         actor={actor}
         preselectedAllocationIds={preselectedAllocationIds}
       />
-
-      <Dialog open={isJobsPickerOpen} onOpenChange={setIsJobsPickerOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Production Jobs</DialogTitle>
-            <DialogDescription>
-              Select a job to update its production progress.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="overflow-auto -mx-6 px-6">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Job</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead className="text-right">Ordered</TableHead>
-                  <TableHead className="text-right">Ready</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {hydrated.productionJobs
-                  .filter((j) => j.status !== "COMPLETED" && j.status !== "CANCELLED")
-                  .map((job) => {
-                    const item = hydrated.order.items.find((entry) => entry.id === job.orderItemId);
-                    return (
-                      <TableRow key={job.id}>
-                        <TableCell className="font-mono text-xs">{job.jobNumber}</TableCell>
-                        <TableCell className="text-sm">{item?.description ?? job.orderItemId}</TableCell>
-                        <TableCell className="text-right text-sm tabular-nums">{job.orderedQuantity}</TableCell>
-                        <TableCell className="text-right text-sm tabular-nums">{job.readyQuantity}</TableCell>
-                        <TableCell>
-                          <ProductionStatusBadge status={job.status} />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="xs"
-                            className="h-7 px-2 font-semibold text-link hover:bg-link/10"
-                            onClick={() => {
-                              setIsJobsPickerOpen(false);
-                              handleOpenUpdateDialog(job.id);
-                            }}
-                          >
-                            Update
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-              </TableBody>
-            </Table>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={Boolean(openJob)} onOpenChange={(open) => !open && setOpenJobId(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Update Production</DialogTitle>
-            <DialogDescription>
-              {openJob ? `${openJob.jobNumber} · ordered ${openJob.orderedQuantity}` : ""}
-            </DialogDescription>
-          </DialogHeader>
-
-          {openJob ? (
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label>Status</Label>
-                <Select value={targetStatus} onValueChange={(value) => handleStatusChange(value as ProductionStatus)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(openJob.status === "SUBMITTED" ? (["ACCEPTED"] as ProductionStatus[]) : UPDATABLE_STATUSES).map(
-                      (status) => (
-                        <SelectItem key={status} value={status}>
-                          {formatStatusLabel(status)}
-                        </SelectItem>
-                      ),
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {openJob.status !== "SUBMITTED" && (isInProgressActive || isCompletedActive) ? (
-                <div className="space-y-4">
-                  {isInProgressActive && (
-                    <div className="space-y-1.5">
-                      <Label htmlFor="produced-qty">Produced</Label>
-                      <Input
-                        id="produced-qty"
-                        type="number"
-                        min={0}
-                        value={producedQty}
-                        onChange={(event) => handleProducedQtyChange(Math.max(0, Number(event.target.value) || 0))}
-                      />
-                      <span className="text-[10px] text-muted-foreground block leading-normal">
-                        Units produced so far.
-                      </span>
-                    </div>
-                  )}
-
-                  {isCompletedActive && (
-                    <div className="space-y-1.5">
-                      <Label htmlFor="completed-qty">Completed</Label>
-                      <Input
-                        id="completed-qty"
-                        type="number"
-                        min={0}
-                        value={completedQty}
-                        onChange={(event) => handleCompletedQtyChange(Math.max(0, Number(event.target.value) || 0))}
-                      />
-                      <span className="text-[10px] text-muted-foreground block leading-normal">
-                        Total units fully finalized.
-                      </span>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenJobId(null)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateProductionProgress}>Save update</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

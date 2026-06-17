@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { ArrowUpRight } from "lucide-react";
@@ -9,7 +9,7 @@ import { Header } from "@/components/layout/Header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { OrderRequestTable } from "@/components/domain/tables/OrderRequestTable";
+import { OrderRequestTable, type SortableColumn, type SortDirection } from "@/components/domain/tables/OrderRequestTable";
 import { useHydratedOrders, useOrderListRows } from "@/lib/v2/selectors/viewModels";
 
 interface AdminDashboardProps {
@@ -20,6 +20,25 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
   const navigate = useNavigate();
   const hydratedOrders = useHydratedOrders();
   const rows = useOrderListRows(`/${userRole}`);
+  const [sortState, setSortState] = useState<{ column: SortableColumn; direction: SortDirection }>({ column: "created", direction: "desc" });
+
+  const sortedRows = useMemo(() => {
+    const sorted = [...rows];
+    sorted.sort((a, b) => {
+      const dir = sortState.direction === "asc" ? 1 : -1;
+      switch (sortState.column) {
+        case "created":
+          return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * dir;
+        case "deadline":
+          return (new Date(a.deadlineDate).getTime() - new Date(b.deadlineDate).getTime()) * dir;
+        case "orderRequest":
+          return a.orderRequestNumber.localeCompare(b.orderRequestNumber) * dir;
+        default:
+          return 0;
+      }
+    });
+    return sorted;
+  }, [rows, sortState]);
 
   const metrics = useMemo(() => {
     const now = new Date();
@@ -109,10 +128,12 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
             </CardHeader>
             <CardContent className="p-0">
               <OrderRequestTable
-                rows={rows.slice(0, 5)}
-                columns={["orderRequest", "project", "production", "distribution", "progress", "deadline", "created"]}
+                rows={sortedRows.slice(0, 5)}
+                columns={["orderRequest", "project", "production", "distribution", "progress", "created", "deadline", "orderedQuantity"]}
                 emptyMessage="No orders yet — import purchase orders or add them manually to get started."
                 onRowClick={(row) => navigate(row.actionTargets.detailPath)}
+                sort={sortState}
+                onSortChange={(col) => setSortState((prev) => ({ column: col, direction: prev.column === col && prev.direction === "desc" ? "asc" : "desc" }))}
               />
             </CardContent>
           </Card>

@@ -38,6 +38,7 @@ export const ROUTES = {
     dashboard: "/vendor",
     orders: "/vendor/orders",
     orderWorkbench: (id: string) => `/vendor/orders/${id}`,
+    productionJobUpdate: (orderId: string, jobId: string) => `/vendor/orders/${orderId}/production/${jobId}`,
     production: "/vendor/production",
     shipments: "/vendor/shipments",
     shipmentDetail: (id: string) => `/vendor/shipments/${id}`,
