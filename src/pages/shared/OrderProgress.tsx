@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AppliedFilterRow, FilterMenu, matchesFilterValue } from "@/components/shared/AdvancedFilterBar";
 import { AllocationStatusBadge, ExceptionStateBadge, PodStatusBadge } from "@/components/domain/badges/badges";
 import { DeliveryProgressBar } from "@/components/domain/DeliveryProgressBar";
+import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AllocationProgressRow } from "@/lib/types/v2/orderRequest";
 import { ALLOCATION_STATUSES } from "@/lib/types/v2/status";

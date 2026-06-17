@@ -46,7 +46,7 @@ import {
   ProductionStatusBadge,
   ShipmentBatchStatusBadge,
 } from "@/components/domain/badges/badges";
-import { DeliveryProgressBar } from "@/components/domain/DeliveryProgressBar";
+import { DeliveryProgressStepper } from "@/components/domain/DeliveryProgressStepper";
 import { ProductionPipelineStepper } from "@/components/domain/ProductionPipelineStepper";
 import { CreateBatchDialog } from "@/components/domain/dialogs/CreateBatchDialog";
 import { SalesPointAllocationTable } from "@/components/domain/tables/SalesPointAllocationTable";
@@ -397,10 +397,11 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                               className="w-full justify-center"
                             />
                           ) : (
-                            <DeliveryProgressBar
+                            <DeliveryProgressStepper
                               receivedQuantity={viewModel.order.quantitySummary.receivedQuantity}
                               allocatedQuantity={viewModel.order.quantitySummary.allocatedQuantity}
                               shippedQuantity={viewModel.order.quantitySummary.shippedQuantity}
+                              className="w-full justify-center"
                             />
                           )}
                         </div>
