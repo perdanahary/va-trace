@@ -99,6 +99,8 @@ export interface OrderDocumentSummary {
   uploadedPodCount: number;
   verifiedPodCount: number;
   missingPodCount: number;
+  shippingLabelCount: number;
+  printedShippingLabelCount: number;
 }
 
 export interface OrderExceptionSummary {

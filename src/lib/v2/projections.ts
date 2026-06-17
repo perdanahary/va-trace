@@ -24,6 +24,7 @@ import type {
   ShipmentBatch,
   ShipmentBatchItem,
   ShipmentBatchQuantitySummary,
+  ShippingLabel,
 } from "@/lib/types/v2/shipment";
 import type { DistributionStatus, PodStatus, ProductionStatus } from "@/lib/types/v2/status";
 import type { OperationalException } from "@/lib/types/v2/exception";
@@ -44,6 +45,7 @@ export interface OrderProjectionSources {
   deliveryNotes: DeliveryNote[];
   deliveryConfirmations: DeliveryConfirmation[];
   exceptions: OperationalException[];
+  shippingLabels: ShippingLabel[];
 }
 
 // ---------------------------------------------------------------------------
@@ -225,6 +227,7 @@ export function buildOrderDocumentSummary(
   batches: ShipmentBatch[],
   deliveryNotes: DeliveryNote[],
   confirmations: DeliveryConfirmation[],
+  shippingLabels: ShippingLabel[],
 ): OrderDocumentSummary {
   const activeNotes = deliveryNotes.filter((note) => note.isActive);
   const dispatchedBatchIds = new Set(
@@ -233,6 +236,11 @@ export function buildOrderDocumentSummary(
       .map((batch) => batch.id),
   );
   const batchIdsWithPod = new Set(confirmations.map((confirmation) => confirmation.shipmentBatchId));
+
+  const batchIds = new Set(batches.map((batch) => batch.id));
+  const orderLabels = shippingLabels.filter((label) => batchIds.has(label.shipmentBatchId));
+  const shippingLabelCount = orderLabels.length;
+  const printedShippingLabelCount = orderLabels.filter((label) => label.printCount > 0).length;
 
   return {
     shipmentBatchCount: batches.filter((batch) => !["CANCELLED", "VOIDED"].includes(batch.status)).length,
@@ -243,6 +251,8 @@ export function buildOrderDocumentSummary(
     ).length,
     verifiedPodCount: confirmations.filter((confirmation) => ["VERIFIED", "CLOSED"].includes(confirmation.status)).length,
     missingPodCount: [...dispatchedBatchIds].filter((batchId) => !batchIdsWithPod.has(batchId)).length,
+    shippingLabelCount,
+    printedShippingLabelCount,
   };
 }
 
@@ -345,7 +355,7 @@ export function hydrateOrder(order: OrderRequest, sources: OrderProjectionSource
     legacyStatusLabel: legacyStatusLabel(productionStatus, distributionStatus),
     allocationIds: allocations.map((allocation) => allocation.id),
     quantitySummary: buildOrderQuantitySummary({ ...order, items }, allocations, orderJobs, orderConfirmations),
-    documentSummary: buildOrderDocumentSummary(orderBatches, orderNotes, orderConfirmations),
+    documentSummary: buildOrderDocumentSummary(orderBatches, orderNotes, orderConfirmations, sources.shippingLabels),
     exceptionSummary: buildOrderExceptionSummary(order.id, sources.exceptions),
   };
 

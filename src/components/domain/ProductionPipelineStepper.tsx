@@ -39,29 +39,29 @@ export function ProductionPipelineStepper({
   const activeIndex = resolveActiveStep(productionStatus);
 
   return (
-    <div className={cn("flex items-center gap-0", className)}>
+    <div className={cn("flex items-start gap-0", className)}>
       {STEPS.map((step, index) => {
         const isCompleted = index < activeIndex;
         const isActive = index === activeIndex;
         const isFuture = index > activeIndex;
 
         return (
-          <div key={step.key} className="flex items-center">
+          <div key={step.key} className="flex items-start">
             <div className="flex flex-col items-center gap-1.5">
               <div
                 className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-full border-2 transition-colors",
+                  "flex h-10 w-10 items-center justify-center rounded-full border-2 bg-background transition-colors",
                   isCompleted && "border-success bg-success/10 text-success",
                   isActive && "border-processing bg-processing/10 text-processing",
-                  isFuture && "border-muted bg-muted/30 text-muted-foreground",
+                  isFuture && "border-muted bg-muted/10 text-muted-foreground",
                 )}
               >
                 {isCompleted ? (
-                  <CheckCircle2 className="h-4 w-4" />
+                  <CheckCircle2 className="h-5 w-5" />
                 ) : isActive ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  <Circle className="h-4 w-4" />
+                  <Circle className="h-5 w-5" />
                 )}
               </div>
               <span
@@ -76,7 +76,7 @@ export function ProductionPipelineStepper({
             {index < STEPS.length - 1 ? (
               <div
                 className={cn(
-                  "mx-1 h-0.5 w-8 sm:w-12",
+                  "mx-1 mt-[19px] h-0.5 w-8 sm:w-12",
                   index < activeIndex ? "bg-success" : "bg-muted",
                 )}
               />

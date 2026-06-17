@@ -20,6 +20,7 @@ import { useProductionJobs } from "@/lib/v2/productionStore";
 import { useShipmentBatches } from "@/lib/v2/shipmentBatchStore";
 import { hydrateOrder, hydrateShipmentBatch, type HydratedOrder } from "@/lib/v2/projections";
 import { deriveDeadlineState, podStatusFromConfirmation } from "@/lib/v2/selectors/derivedStatus";
+import { useLabelState } from "@/lib/v2/labelStore";
 
 // ---------------------------------------------------------------------------
 // Hydrated aggregates
@@ -33,6 +34,7 @@ export function useHydratedOrders(): HydratedOrder[] {
   const deliveryNotes = useDeliveryNotes();
   const deliveryConfirmations = useDeliveryConfirmations();
   const exceptions = useOperationalExceptions();
+  const labelState = useLabelState();
 
   return useMemo(
     () =>
@@ -44,9 +46,10 @@ export function useHydratedOrders(): HydratedOrder[] {
           deliveryNotes,
           deliveryConfirmations,
           exceptions,
+          shippingLabels: labelState.labels,
         }),
       ),
-    [orders, allocations, productionJobs, shipmentBatches, deliveryNotes, deliveryConfirmations, exceptions],
+    [orders, allocations, productionJobs, shipmentBatches, deliveryNotes, deliveryConfirmations, exceptions, labelState.labels],
   );
 }
 

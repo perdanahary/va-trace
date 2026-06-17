@@ -70,11 +70,15 @@ export function getProductionJobsForOrder(orderRequestId: ID): ProductionJob[] {
   return store.getAll().filter((job) => job.orderRequestId === orderRequestId);
 }
 
-/** Ready quantity still unreserved for one order item (HI-13 readiness pool). */
+/** Ready quantity still unreserved for one order item (HI-13 readiness pool). Only eligible when status is READY_FOR_DISTRIBUTION or COMPLETED. */
 export function getUnreservedReadyQuantity(orderItemId: ID): Quantity {
   return store
     .getAll()
-    .filter((job) => job.orderItemId === orderItemId && job.status !== "CANCELLED")
+    .filter(
+      (job) =>
+        job.orderItemId === orderItemId &&
+        (job.status === "READY_FOR_DISTRIBUTION" || job.status === "COMPLETED"),
+    )
     .reduce((total, job) => total + unreservedReadyQuantity(job.readyQuantity, job.reservedForShipmentQuantity), 0);
 }
 

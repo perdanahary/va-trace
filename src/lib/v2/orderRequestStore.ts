@@ -170,6 +170,8 @@ export function createOrderRequestDraft(
           uploadedPodCount: 0,
           verifiedPodCount: 0,
           missingPodCount: 0,
+          shippingLabelCount: 0,
+          printedShippingLabelCount: 0,
         },
         exceptionSummary: { hasException: false, exceptionCount: 0 },
         audit: { createdAt: now, createdBy: command.actorUserId, updatedAt: now, updatedBy: command.actorUserId },
