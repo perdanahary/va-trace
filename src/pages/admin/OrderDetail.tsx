@@ -10,7 +10,7 @@ import {
   ChevronUp,
   ClipboardList,
   FileText,
-
+  Pencil,
   MoreHorizontal,
   Package,
   Printer,
@@ -140,7 +140,11 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
     [hydrated],
   );
   const isProductionPhase = hydrated
-    ? hydrated.productionStatus !== "COMPLETED" && hydrated.productionStatus !== "CANCELLED"
+    ? hydrated.productionStatus === "IN_PROGRESS" || hydrated.productionStatus === "EXCEPTION"
+    : false;
+  const canAmend = hydrated
+    ? (hydrated.productionStatus === "NEW" || hydrated.productionStatus === "SUBMITTED" || hydrated.productionStatus === "ACCEPTED") &&
+      (userRole === "admin" || userRole === "operator")
     : false;
 
   const canCreateBatch =
@@ -275,7 +279,12 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
 
   const renderWorkflowActions = (size: "default" | "sm" = "sm") => (
     <>
-      {isProductionPhase ? (
+      {canAmend ? (
+        <Button size={size} onClick={() => navigate(`/${userRole}/orders/${hydrated!.id}/amend`)}>
+          <Pencil className="h-4 w-4" />
+          Amend Order
+        </Button>
+      ) : isProductionPhase ? (
         <span className="inline-flex items-center gap-1.5 rounded-full border border-processing/30 bg-processing/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-processing">
           Production Ongoing (Order Locked)
         </span>
@@ -1270,7 +1279,20 @@ function buildFocusCard(
   exceptionState: ExceptionState,
 ) {
   const totalReadyQty = hydrated.productionJobs.reduce((sum, job) => sum + job.readyQuantity, 0);
-  const inProductionPhase = hydrated.productionStatus !== "COMPLETED" && hydrated.productionStatus !== "CANCELLED";
+  const isPreProduction =
+    hydrated.productionStatus === "NEW" ||
+    hydrated.productionStatus === "SUBMITTED" ||
+    hydrated.productionStatus === "ACCEPTED";
+  const inProductionPhase = hydrated.productionStatus === "IN_PROGRESS" || hydrated.productionStatus === "EXCEPTION";
+
+  if (isPreProduction) {
+    return {
+      eyebrow: "Order Request Created",
+      title: "Waiting for production start",
+      description:
+        "This order has been created and is waiting to enter production. Use 'Amend Order' to modify details before production begins.",
+    };
+  }
 
   if (inProductionPhase) {
     return {

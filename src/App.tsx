@@ -15,6 +15,7 @@ import { SalesPointList } from './pages/admin/SalesPointList';
 import { ClientDetail } from './pages/admin/ClientDetail';
 import { ClientList } from './pages/admin/ClientList';
 import { AdminCreateOrder } from './pages/admin/AdminCreateOrder';
+import { AdminAmendOrder } from './pages/admin/AdminAmendOrder';
 import { ClientDashboard } from './pages/client/ClientDashboard';
 import { ClientOrders } from './pages/client/ClientOrders';
 import { CreateOrder } from './pages/client/CreateOrder';
@@ -96,6 +97,7 @@ function App() {
                 <Route path="/admin/progress" element={<OrderProgress userRole="admin" />} />
                 <Route path="/admin/orders" element={<AllOrders />} />
                 <Route path="/admin/orders/:id" element={<OrderDetail />} />
+                <Route path="/admin/orders/:id/amend" element={<AdminAmendOrder />} />
                 <Route path="/admin/orders/:id/delivery-note" element={<DeliveryNotePrint userRole="admin" />} />
                 <Route path="/admin/orders/:id/packaging-labels" element={<PackagingLabelsPrint userRole="admin" />} />
                 <Route path="/admin/imports" element={<ImportDispatchWorkspace userRole="admin" />} />
@@ -138,6 +140,7 @@ function App() {
                 <Route path="/operator/progress" element={<OrderProgress userRole="operator" />} />
                 <Route path="/operator/orders" element={<AllOrders userRole="operator" />} />
                 <Route path="/operator/orders/:id" element={<OrderDetail userRole="operator" />} />
+                <Route path="/operator/orders/:id/amend" element={<AdminAmendOrder userRole="operator" />} />
                 <Route path="/operator/orders/:id/packaging-labels" element={<PackagingLabelsPrint userRole="operator" />} />
                 <Route path="/operator/imports" element={<ImportDispatchWorkspace userRole="operator" />} />
                 <Route path="/operator/inbox" element={<InboxPage userRole="operator" />} />

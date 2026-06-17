@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search } from "lucide-react";
+import { useCurrentUser } from "@/lib/authStore";
 
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
@@ -23,9 +23,12 @@ interface OrderProgressProps {
 }
 
 export function OrderProgress({ userRole }: OrderProgressProps) {
+  const { currentUser } = useCurrentUser();
   const rolePrefix = `/${userRole}`;
   const navigate = useNavigate();
-  const allRows = useAllocationProgressRows(rolePrefix);
+
+  const vendorContext = userRole === "vendor" ? currentUser?.supplierId : undefined;
+  const allRows = useAllocationProgressRows(rolePrefix, vendorContext);
 
   const [allocationOperator, setAllocationOperator] = useState<"is" | "is not">("is");
   const [allocationFilter, setAllocationFilter] = useState<string>("all");

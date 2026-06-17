@@ -11,6 +11,7 @@ export const ROUTES = {
     dashboard: "/admin",
     orders: "/admin/orders",
     orderDetail: (id: string) => `/admin/orders/${id}`,
+    orderAmend: (id: string) => `/admin/orders/${id}/amend`,
     create: "/admin/create",
     imports: "/admin/imports",
     production: "/admin/production",

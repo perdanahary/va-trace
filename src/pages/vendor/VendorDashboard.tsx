@@ -27,7 +27,7 @@ type SortDirection = "asc" | "desc";
 export function VendorDashboard() {
   const actor = useActor("vendor", "vendor-dashboard");
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<VendorTab>("Production");
+  const [activeTab, setActiveTab] = useState<VendorTab>("Pending");
   const [sortState, setSortState] = useState<{ column: SortColumn; direction: SortDirection }>({ column: "created", direction: "desc" });
   const orders = useOrderRequests();
   const rows = useOrderListRows("/vendor");
@@ -292,13 +292,13 @@ function VendorOrderTable({ orders, tab, sort, onSortChange }: { orders: OrderLi
 function getOrdersForTab(tab: VendorTab, orders: OrderListRow[]) {
   switch (tab) {
     case "Pending":
-      return orders.filter((order) => order.productionStatus === "NEW" || order.productionStatus === "SUBMITTED");
+      return orders.filter((order) => order.productionStatus === "SUBMITTED");
     case "Production":
       return orders.filter((order) => ["ACCEPTED", "IN_PROGRESS"].includes(order.productionStatus));
     case "Shipping":
       return orders.filter((order) =>
-        order.productionStatus === "COMPLETED" &&
-        order.distributionStatus !== "FULLY_RECEIVED"
+        order.productionStatus === "COMPLETED" ||
+        (order.distributionStatus != null && order.distributionStatus !== "NOT_STARTED" && order.distributionStatus !== "FULLY_RECEIVED")
       );
     case "History":
       return orders.filter((order) => order.distributionStatus === "FULLY_RECEIVED");
