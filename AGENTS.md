@@ -377,6 +377,58 @@ src/pages/{role}/MyPage.tsx         # route-level page
 
 ## 11. Git & Commits
 
-- CI runs `npm run build` (tsc + vite build) and Playwright tests
-- No Husky or pre-commit hooks detected
-- Standard commit messages matching repo style
+### Branch Naming Convention
+```
+<type>/<task-id>-<slug>
+
+# Examples:
+feat/T1-user-auth
+fix/T3.2-token-expiry
+refactor/T5-delivery-progress
+```
+- Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `ci`
+- Task IDs: `T1`, `T2`, `T1.1`, `T2.3` (from task tracker)
+- Slug: auto-generated from task ID, or explicit kebab-case
+
+### Automation Scripts
+| Command | Purpose |
+|---------|---------|
+| `npm run branch <type> <task-id> [slug]` | Create feature branch from main |
+| `npm run branch:feat T1 "user auth"` | Shorthand for feat branches |
+| `npm run branch:fix T3.2` | Shorthand for fix branches |
+| `npm run pr:check` | Run lint + build before merge |
+| `npm run pr:ready` | Full pre-merge validation |
+| `bash scripts/git-setup.sh` | One-time git aliases setup |
+
+### Conventional Commits (enforced by commit-msg hook)
+```
+<type>(<scope>): <description>
+
+# Examples:
+feat: add login endpoint
+fix(auth): resolve token expiry race
+refactor(ui): extract button variants
+test: add login integration tests
+chore: update dependencies
+```
+- Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `ci`, `style`, `build`
+- Scope: optional, lowercase (e.g. `(auth)`, `(api)`, `(ui)`)
+- Description: lowercase, imperative, max 72 chars
+
+### Agentic Workflow
+1. Create branch: `npm run branch feat T1 "user auth"`
+2. Agent works on branch, makes commits
+3. Validate: `npm run pr:check`
+4. Review: `git diff main...HEAD`
+5. Merge to main, delete branch
+
+### Git Aliases (after running setup)
+```
+git co    → checkout
+git br    → branch
+git st    → status
+git lg    → pretty log
+git wip   → quick save (no verify)
+git undo  → undo last commit (keep changes)
+git amend → amend last commit
+```

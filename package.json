@@ -12,7 +12,13 @@
     "test:legacy": "npx playwright test tests/bulk-import.spec.ts tests/complaint-flow.spec.ts tests/create-order-alignment.spec.ts tests/delivery-note.spec.ts tests/prototype-flows.spec.ts",
     "test:staging": "RUN_STAGING=1 npx playwright test tests/analyze-staging.spec.ts tests/debug-staging.spec.ts tests/e2e-sample-order.spec.ts",
     "test:unit": "vitest run",
-    "doctor": "npx react-doctor@latest"
+    "doctor": "npx react-doctor@latest",
+    "branch": "bash scripts/git-branch.sh",
+    "branch:feat": "bash scripts/git-branch.sh feat",
+    "branch:fix": "bash scripts/git-branch.sh fix",
+    "branch:refactor": "bash scripts/git-branch.sh refactor",
+    "pr:check": "npm run lint && npm run build",
+    "pr:ready": "npm run pr:check && echo '✅ Ready to merge'"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
