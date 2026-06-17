@@ -33,10 +33,7 @@ const productionRank: ProductionStatus[] = [
   "NEW",
   "SUBMITTED",
   "ACCEPTED",
-  "PRINTING",
-  "FINISHING",
-  "QUALITY_CONTROL",
-  "READY_FOR_DISTRIBUTION",
+  "IN_PROGRESS",
   "COMPLETED",
   "CANCELLED",
 ];
@@ -74,8 +71,8 @@ export function productionStatusFromLegacyStatus(status: LegacyOrderRequestStatu
     case "Waiting":
       return "NEW";
     case "In Production":
-      return "PRINTING";
     case "Ready to Ship":
+      return "IN_PROGRESS";
     case "On Delivery":
     case "Delivered":
     case "Completed":
@@ -188,11 +185,11 @@ export function getLegacyStatusFromDomain(
     return "On Delivery";
   }
 
-  if (productionStatus === "COMPLETED" || productionStatus === "READY_FOR_DISTRIBUTION") {
+  if (productionStatus === "COMPLETED") {
     return "Ready to Ship";
   }
 
-  if (productionStatus === "PRINTING" || productionStatus === "FINISHING" || productionStatus === "QUALITY_CONTROL") {
+  if (productionStatus === "IN_PROGRESS") {
     return "In Production";
   }
 

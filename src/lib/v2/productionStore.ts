@@ -40,14 +40,11 @@ const store = createCollectionStore<ProductionJob>({
 const ALLOWED_TRANSITIONS: Record<ProductionStatus, ProductionStatus[]> = {
   NEW: ["SUBMITTED", "CANCELLED"],
   SUBMITTED: ["ACCEPTED", "CANCELLED", "EXCEPTION"],
-  ACCEPTED: ["PRINTING", "CANCELLED", "EXCEPTION"],
-  PRINTING: ["FINISHING", "QUALITY_CONTROL", "CANCELLED", "EXCEPTION"],
-  FINISHING: ["QUALITY_CONTROL", "CANCELLED", "EXCEPTION"],
-  QUALITY_CONTROL: ["READY_FOR_DISTRIBUTION", "PRINTING", "FINISHING", "CANCELLED", "EXCEPTION"],
-  READY_FOR_DISTRIBUTION: ["COMPLETED", "QUALITY_CONTROL", "CANCELLED", "EXCEPTION"],
+  ACCEPTED: ["IN_PROGRESS", "CANCELLED", "EXCEPTION"],
+  IN_PROGRESS: ["COMPLETED", "CANCELLED", "EXCEPTION"],
   COMPLETED: [],
   CANCELLED: [],
-  EXCEPTION: ["PRINTING", "FINISHING", "QUALITY_CONTROL", "READY_FOR_DISTRIBUTION", "CANCELLED"],
+  EXCEPTION: ["IN_PROGRESS", "CANCELLED"],
 };
 
 // ---------------------------------------------------------------------------
@@ -70,14 +67,14 @@ export function getProductionJobsForOrder(orderRequestId: ID): ProductionJob[] {
   return store.getAll().filter((job) => job.orderRequestId === orderRequestId);
 }
 
-/** Ready quantity still unreserved for one order item (HI-13 readiness pool). Only eligible when status is READY_FOR_DISTRIBUTION or COMPLETED. */
+/** Ready quantity still unreserved for one order item (HI-13 readiness pool). Only eligible when status is IN_PROGRESS or COMPLETED. */
 export function getUnreservedReadyQuantity(orderItemId: ID): Quantity {
   return store
     .getAll()
     .filter(
       (job) =>
         job.orderItemId === orderItemId &&
-        (job.status === "READY_FOR_DISTRIBUTION" || job.status === "COMPLETED"),
+        (job.status === "IN_PROGRESS" || job.status === "COMPLETED"),
     )
     .reduce((total, job) => total + unreservedReadyQuantity(job.readyQuantity, job.reservedForShipmentQuantity), 0);
 }
@@ -216,9 +213,6 @@ export function updateProductionProgress(
           "Ready quantity cannot be reduced below already reserved quantity; resolve through an operational exception.",
         );
       }
-      if (dto.status === "READY_FOR_DISTRIBUTION" && readyQuantity <= 0) {
-        throw validationError("READY_FOR_DISTRIBUTION requires a ready quantity greater than zero.");
-      }
 
       const next: ProductionJob = {
         ...job,
@@ -229,8 +223,7 @@ export function updateProductionProgress(
         completedQuantity,
         reworkQuantity: dto.reworkQuantity ?? job.reworkQuantity,
         rejectedQuantity: dto.rejectedQuantity ?? job.rejectedQuantity,
-        startedAt: job.startedAt ?? (dto.status === "PRINTING" ? nowIso() : undefined),
-        qcStartedAt: job.qcStartedAt ?? (dto.status === "QUALITY_CONTROL" ? nowIso() : undefined),
+        startedAt: job.startedAt ?? (dto.status === "IN_PROGRESS" ? nowIso() : undefined),
         readyAt: job.readyAt ?? (readyQuantity > 0 ? nowIso() : undefined),
         completedAt: dto.status === "COMPLETED" ? nowIso() : job.completedAt,
         notes: dto.notes ?? job.notes,
@@ -268,7 +261,7 @@ export function markProductionReady(dto: MarkProductionReadyDto, command: Comman
     {
       productionJobId: dto.productionJobId,
       expectedVersion: dto.expectedVersion,
-      status: "READY_FOR_DISTRIBUTION",
+      status: "IN_PROGRESS",
       producedQuantity: Math.max(job.producedQuantity, dto.readyQuantity),
       qcPassedQuantity: Math.max(job.qcPassedQuantity, dto.readyQuantity),
       readyQuantity: dto.readyQuantity,
@@ -329,7 +322,7 @@ export function reopenProductionJob(dto: ReopenProductionJobDto, command: Comman
 
       const next: ProductionJob = {
         ...job,
-        status: "READY_FOR_DISTRIBUTION",
+        status: "IN_PROGRESS",
         cancelledAt: undefined,
         audit: { ...job.audit, updatedAt: nowIso(), updatedBy: command.actorUserId },
         version: job.version + 1,

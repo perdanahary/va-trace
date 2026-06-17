@@ -24,7 +24,7 @@ function orderStatusToMetricBucket(productionStatus: string, distributionStatus:
   if (["PARTIALLY_DISTRIBUTED", "FULLY_DISTRIBUTED", "PARTIALLY_RECEIVED", "DISPATCHED", "IN_TRANSIT"].includes(distributionStatus)) {
     return "delivery";
   }
-  if (["ACCEPTED", "PRINTING", "FINISHING", "QUALITY_CONTROL", "READY_FOR_DISTRIBUTION", "COMPLETED"].includes(productionStatus)) {
+  if (["ACCEPTED", "IN_PROGRESS", "COMPLETED"].includes(productionStatus)) {
     return "production";
   }
   return "waiting";

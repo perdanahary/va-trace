@@ -38,10 +38,10 @@ export function legacyStatusLabel(
   if (distributionStatus === "PARTIALLY_DISTRIBUTED" || distributionStatus === "FULLY_DISTRIBUTED") {
     return "On Delivery";
   }
-  if (productionStatus === "COMPLETED" || productionStatus === "READY_FOR_DISTRIBUTION") {
+  if (productionStatus === "COMPLETED") {
     return "Ready to Ship";
   }
-  if (productionStatus === "PRINTING" || productionStatus === "FINISHING" || productionStatus === "QUALITY_CONTROL") {
+  if (productionStatus === "IN_PROGRESS") {
     return "In Production";
   }
   return "New";
@@ -92,9 +92,8 @@ export function productionStatusFromLegacyItemStatus(status: LegacyOrderStatus):
     case "Waiting":
       return "SUBMITTED";
     case "In Production":
-      return "PRINTING";
     case "Ready to Ship":
-      return "READY_FOR_DISTRIBUTION";
+      return "IN_PROGRESS";
     case "On Delivery":
     case "Delivered":
     case "Completed":

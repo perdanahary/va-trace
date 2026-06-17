@@ -286,7 +286,7 @@ export function buildV2SeedData(): V2SeedData {
         unitOfMeasure: "PCS",
         productionStatus,
         productionReadyQuantity:
-          productionStatus === "READY_FOR_DISTRIBUTION" || productionStatus === "COMPLETED" ? legacyItem.quantity : 0,
+          productionStatus === "IN_PROGRESS" || productionStatus === "COMPLETED" ? legacyItem.quantity : 0,
         productionCompletedQuantity: productionStatus === "COMPLETED" ? legacyItem.quantity : 0,
         allocatedQuantity: legacyItem.quantity,
         shippedQuantity: 0,

@@ -202,10 +202,7 @@ export function deriveOrderProductionStatus(jobStatuses: ProductionStatus[]): Pr
     "NEW",
     "SUBMITTED",
     "ACCEPTED",
-    "PRINTING",
-    "FINISHING",
-    "QUALITY_CONTROL",
-    "READY_FOR_DISTRIBUTION",
+    "IN_PROGRESS",
     "COMPLETED",
   ];
   const lowest = Math.min(

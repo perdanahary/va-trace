@@ -39,9 +39,9 @@ const TAB_FILTERS = {
   all: () => true,
   "needs-confirmation": (row: OrderListRow) => row.productionStatus === "SUBMITTED",
   "in-production": (row: OrderListRow) =>
-    ["ACCEPTED", "PRINTING", "FINISHING", "QUALITY_CONTROL"].includes(row.productionStatus),
+    ["ACCEPTED", "IN_PROGRESS"].includes(row.productionStatus),
   shipping: (row: OrderListRow) =>
-    row.productionStatus === "READY_FOR_DISTRIBUTION" ||
+    row.productionStatus === "COMPLETED" ||
     (row.distributionStatus != null && row.distributionStatus !== "NOT_STARTED" && row.distributionStatus !== "FULLY_RECEIVED"),
   history: (row: OrderListRow) => row.distributionStatus === "FULLY_RECEIVED",
 } as const satisfies Record<string, (row: OrderListRow) => boolean>;
@@ -324,8 +324,7 @@ function renderOrderAction(
   }
 
   if (
-    ["ACCEPTED", "PRINTING", "FINISHING", "QUALITY_CONTROL",
-     "READY_FOR_DISTRIBUTION"].includes(status) ||
+    ["ACCEPTED", "IN_PROGRESS"].includes(status) ||
     (row.distributionStatus && row.distributionStatus !== "FULLY_RECEIVED")
   ) {
     return (

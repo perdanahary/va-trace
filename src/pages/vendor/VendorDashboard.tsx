@@ -37,9 +37,9 @@ export function VendorDashboard() {
   const metrics = useMemo(() => {
     const pending = orders.filter((o) => o.productionStatus === "NEW" || o.productionStatus === "SUBMITTED").length;
     const inProduction = orders.filter((o) =>
-      ["ACCEPTED", "PRINTING", "FINISHING", "QUALITY_CONTROL"].includes(o.productionStatus),
+      ["ACCEPTED", "IN_PROGRESS"].includes(o.productionStatus),
     ).length;
-    const ready = orders.filter((o) => o.productionStatus === "READY_FOR_DISTRIBUTION" || o.productionStatus === "COMPLETED").length;
+    const ready = orders.filter((o) => o.productionStatus === "COMPLETED").length;
     const shipping = orders.filter((o) =>
       ["PARTIALLY_DISTRIBUTED", "FULLY_DISTRIBUTED", "PARTIALLY_RECEIVED"].includes(o.distributionStatus),
     ).length;
@@ -294,10 +294,10 @@ function getOrdersForTab(tab: VendorTab, orders: OrderListRow[]) {
     case "Pending":
       return orders.filter((order) => order.productionStatus === "NEW" || order.productionStatus === "SUBMITTED");
     case "Production":
-      return orders.filter((order) => ["ACCEPTED", "PRINTING", "FINISHING", "QUALITY_CONTROL"].includes(order.productionStatus));
+      return orders.filter((order) => ["ACCEPTED", "IN_PROGRESS"].includes(order.productionStatus));
     case "Shipping":
       return orders.filter((order) =>
-        ["READY_FOR_DISTRIBUTION", "COMPLETED"].includes(order.productionStatus) &&
+        order.productionStatus === "COMPLETED" &&
         order.distributionStatus !== "FULLY_RECEIVED"
       );
     case "History":

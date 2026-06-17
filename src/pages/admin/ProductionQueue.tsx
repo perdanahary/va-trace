@@ -43,10 +43,7 @@ interface ProductionQueueProps {
 
 const UPDATABLE_STATUSES: ProductionStatus[] = [
   "ACCEPTED",
-  "PRINTING",
-  "FINISHING",
-  "QUALITY_CONTROL",
-  "READY_FOR_DISTRIBUTION",
+  "IN_PROGRESS",
   "COMPLETED",
 ];
 
@@ -58,7 +55,7 @@ export function ProductionQueue({ userRole = "admin" }: ProductionQueueProps) {
   useProductionJobs(); // subscribe for live updates
 
   const [openJobId, setOpenJobId] = useState<string | null>(null);
-  const [targetStatus, setTargetStatus] = useState<ProductionStatus>("PRINTING");
+  const [targetStatus, setTargetStatus] = useState<ProductionStatus>("IN_PROGRESS");
   const [producedQty, setProducedQty] = useState(0);
   const [qcQty, setQcQty] = useState(0);
   const [readyQty, setReadyQty] = useState(0);
@@ -66,9 +63,7 @@ export function ProductionQueue({ userRole = "admin" }: ProductionQueueProps) {
 
   const openJob = openJobId ? getProductionJobById(openJobId) : undefined;
 
-  const isProducedActive = targetStatus === "PRINTING" || targetStatus === "FINISHING";
-  const isQcActive = targetStatus === "QUALITY_CONTROL";
-  const isReadyActive = targetStatus === "READY_FOR_DISTRIBUTION";
+  const isInProgressActive = targetStatus === "IN_PROGRESS";
   const isCompletedActive = targetStatus === "COMPLETED";
 
   const handleProducedQtyChange = (val: number) => {
@@ -108,18 +103,7 @@ export function ProductionQueue({ userRole = "admin" }: ProductionQueueProps) {
       setQcQty(qty);
       setReadyQty(qty);
       setCompletedQty(qty);
-    } else if (status === "READY_FOR_DISTRIBUTION") {
-      if (readyQty === 0) {
-        setProducedQty(qty);
-        setQcQty(qty);
-        setReadyQty(qty);
-      }
-    } else if (status === "QUALITY_CONTROL") {
-      if (qcQty === 0) {
-        setProducedQty(qty);
-        setQcQty(qty);
-      }
-    } else if (status === "PRINTING" || status === "FINISHING") {
+    } else if (status === "IN_PROGRESS") {
       if (producedQty === 0) {
         setProducedQty(qty);
       }
@@ -216,9 +200,9 @@ export function ProductionQueue({ userRole = "admin" }: ProductionQueueProps) {
                 </Select>
               </div>
 
-              {openJob.status !== "SUBMITTED" && (isProducedActive || isQcActive || isReadyActive || isCompletedActive) ? (
+              {openJob.status !== "SUBMITTED" && (isInProgressActive || isCompletedActive) ? (
                 <div className="space-y-4">
-                  {isProducedActive && (
+                  {isInProgressActive && (
                     <div className="space-y-1.5">
                       <Label htmlFor="produced-qty">Produced</Label>
                       <Input
@@ -229,39 +213,7 @@ export function ProductionQueue({ userRole = "admin" }: ProductionQueueProps) {
                         onChange={(event) => handleProducedQtyChange(Math.max(0, Number(event.target.value) || 0))}
                       />
                       <span className="text-[10px] text-muted-foreground block leading-normal">
-                        Finished printing & finishing (awaiting QC).
-                      </span>
-                    </div>
-                  )}
-
-                  {isQcActive && (
-                    <div className="space-y-1.5">
-                      <Label htmlFor="qc-qty">QC passed</Label>
-                      <Input
-                        id="qc-qty"
-                        type="number"
-                        min={0}
-                        value={qcQty}
-                        onChange={(event) => handleQcQtyChange(Math.max(0, Number(event.target.value) || 0))}
-                      />
-                      <span className="text-[10px] text-muted-foreground block leading-normal">
-                        Passed quality inspection (must be ≤ Produced).
-                      </span>
-                    </div>
-                  )}
-
-                  {isReadyActive && (
-                    <div className="space-y-1.5">
-                      <Label htmlFor="ready-qty">Ready</Label>
-                      <Input
-                        id="ready-qty"
-                        type="number"
-                        min={0}
-                        value={readyQty}
-                        onChange={(event) => handleReadyQtyChange(Math.max(0, Number(event.target.value) || 0))}
-                      />
-                      <span className="text-[10px] text-muted-foreground block leading-normal">
-                        Packaged & ready to ship (must be ≤ QC passed).
+                        Units produced so far.
                       </span>
                     </div>
                   )}
@@ -277,7 +229,7 @@ export function ProductionQueue({ userRole = "admin" }: ProductionQueueProps) {
                         onChange={(event) => handleCompletedQtyChange(Math.max(0, Number(event.target.value) || 0))}
                       />
                       <span className="text-[10px] text-muted-foreground block leading-normal">
-                        Total units fully finalized (must be ≤ Ready).
+                        Total units fully finalized.
                       </span>
                     </div>
                   )}

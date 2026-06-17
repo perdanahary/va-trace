@@ -5,8 +5,8 @@ import type { ProductionStatus } from "@/lib/types/v2/status";
 const STEPS = [
   { key: "SUBMITTED", label: "Submitted" },
   { key: "ACCEPTED", label: "Accepted" },
-  { key: "IN_PRODUCTION", label: "In Production" },
-  { key: "READY", label: "Ready to Ship" },
+  { key: "IN_PROGRESS", label: "In Progress" },
+  { key: "COMPLETED", label: "Done" },
 ] as const;
 
 type StepKey = (typeof STEPS)[number]["key"];
@@ -15,11 +15,8 @@ const PRODUCTION_STEP_MAP: Record<string, StepKey> = {
   NEW: "SUBMITTED",
   SUBMITTED: "SUBMITTED",
   ACCEPTED: "ACCEPTED",
-  PRINTING: "IN_PRODUCTION",
-  FINISHING: "IN_PRODUCTION",
-  QUALITY_CONTROL: "IN_PRODUCTION",
-  READY_FOR_DISTRIBUTION: "READY",
-  COMPLETED: "READY",
+  IN_PROGRESS: "IN_PROGRESS",
+  COMPLETED: "COMPLETED",
 };
 
 function resolveActiveStep(productionStatus: ProductionStatus): number {
