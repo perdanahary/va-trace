@@ -25,7 +25,6 @@ export function DeliveryProgressBar({
   const shippedPercent = shippedQuantity !== undefined && allocated > 0 ? Math.min((shippedQuantity / allocated) * 100, 100) : 0;
   const receivedPercent = allocated > 0 ? Math.min((receivedQuantity / allocated) * 100, 100) : 0;
 
-  // Milestone mapping
   const milestones = [
     { key: "allocated", label: "Allocated", percent: 0 },
     { key: "shipped", label: "Shipped", percent: shippedPercent },
