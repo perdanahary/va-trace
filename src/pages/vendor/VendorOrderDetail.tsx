@@ -10,7 +10,6 @@ import {
   ChevronUp,
   ClipboardList,
   Factory,
-  FileText,
   MoreHorizontal,
   Package,
   Printer,
@@ -1942,14 +1941,9 @@ function RailDetail({
 
 function DocumentStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-border/60 bg-card p-4">
-      <div className="flex items-center gap-3">
-        <FileText className="h-4 w-4 text-muted-foreground" />
-        <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p>
-        </div>
-      </div>
+    <div className="rounded-xl border border-border/60 bg-card p-4">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p>
     </div>
   );
 }
