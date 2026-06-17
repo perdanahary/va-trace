@@ -5,7 +5,7 @@ import { MoreHorizontal, Plus, Search } from "lucide-react";
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
-import { OrderRequestTable, type OrderRequestTableColumn } from "@/components/domain/tables/OrderRequestTable";
+import { OrderRequestTable, type OrderRequestTableColumn, type SortableColumn, type SortDirection } from "@/components/domain/tables/OrderRequestTable";
 import { AppliedFilterRow, FilterMenu } from "@/components/shared/AdvancedFilterBar";
 import { ColumnToggle } from "@/components/shared/ColumnToggle";
 import { Button } from "@/components/ui/button";
@@ -63,6 +63,10 @@ export function AllOrders({ userRole = "admin" }: AllOrdersProps) {
   const [visibleColumns, setVisibleColumns] = useState<OrderRequestTableColumn[]>(
     adminOrderColumns.filter((col) => !defaultHiddenColumns.includes(col))
   );
+  const [sort, setSort] = useState<{ column: SortableColumn; direction: SortDirection }>({
+    column: "created",
+    direction: "desc",
+  });
   const createPath = userRole === "operator" ? "/operator/create" : "/admin/create";
   const pageSize = 10;
 
@@ -149,15 +153,41 @@ export function AllOrders({ userRole = "admin" }: AllOrdersProps) {
   }, [distributionOperator, productionOperator, rows, searchTerm, selectedDistributionStatus, selectedProductionStatus, selectedVendor, vendorOperator]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const sortedRows = useMemo(() => {
+    const sorted = [...filteredRows];
+    sorted.sort((a, b) => {
+      let cmp = 0;
+      switch (sort.column) {
+        case "orderRequest":
+          cmp = a.orderRequestNumber.localeCompare(b.orderRequestNumber);
+          break;
+        case "created":
+          cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+        case "deadline":
+          cmp = a.deadlineDate.localeCompare(b.deadlineDate);
+          break;
+      }
+      return sort.direction === "desc" ? -cmp : cmp;
+    });
+    return sorted;
+  }, [filteredRows, sort]);
   const visibleRows = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredRows.slice(start, start + pageSize);
-  }, [currentPage, filteredRows]);
+    return sortedRows.slice(start, start + pageSize);
+  }, [currentPage, sortedRows]);
 
   const handleColumnToggle = (column: OrderRequestTableColumn) => {
     setVisibleColumns((prev) =>
       prev.includes(column) ? prev.filter((col) => col !== column) : [...prev, column]
     );
+  };
+
+  const handleSortChange = (column: SortableColumn) => {
+    setSort((prev) => ({
+      column,
+      direction: prev.column === column && prev.direction === "asc" ? "desc" : "asc",
+    }));
   };
 
   useEffect(() => {
@@ -168,7 +198,7 @@ export function AllOrders({ userRole = "admin" }: AllOrdersProps) {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [distributionOperator, productionOperator, searchTerm, selectedDistributionStatus, selectedProductionStatus, selectedVendor, vendorOperator]);
+  }, [distributionOperator, productionOperator, searchTerm, selectedDistributionStatus, selectedProductionStatus, selectedVendor, vendorOperator, sort]);
 
   const clearFilters = () => {
     setSelectedProductionStatus("all");
@@ -226,6 +256,8 @@ export function AllOrders({ userRole = "admin" }: AllOrdersProps) {
                 emptyMessage="No order requests found."
                 renderActions={(row) => <AdminOrderActions row={row} />}
                 onRowClick={(row) => navigate(row.actionTargets.detailPath)}
+                sort={sort}
+                onSortChange={handleSortChange}
               />
             </CardContent>
           </Card>

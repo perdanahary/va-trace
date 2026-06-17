@@ -1,36 +1,118 @@
 import { useParams } from "react-router-dom";
-import { AlertTriangle, Package, Printer } from "lucide-react";
+import { Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
 import { Header } from "@/components/layout/Header";
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { generatePackagingLabels, type PackagingLabel } from "@/lib/deliveryNote";
-import { useOrders } from "@/lib/orderStore";
+import { useHydratedOrder } from "@/lib/v2/selectors/viewModels";
+import { useLabelState } from "@/lib/v2/labelStore";
+import type { ShippingLabel, ShipmentBatch } from "@/lib/types/v2/shipment";
 
 interface PackagingLabelsPrintProps {
   userRole?: UserRole;
 }
 
+/**
+ * Bridge type matching the legacy PackagingLabel shape expected by the
+ * print template card.  Built from V2 ShippingLabel + ShipmentBatch data.
+ */
+interface PrintLabel {
+  id: string;
+  labelCode: string;
+  qrPayload: string;
+  orderId: string;
+  doNumber: string;
+  poLineNumber: string;
+  productCode: string;
+  productName: string;
+  deliveredQty: number;
+  uom: string;
+  destinationCompanyName: string;
+  destinationLocationName: string;
+  destinationAddress: string;
+  salesPointCode: string;
+  projectName: string;
+}
+
+function toPrintLabel(
+  label: ShippingLabel,
+  orderRequestNumber: string,
+  batches: ShipmentBatch[],
+): PrintLabel {
+  const batch = batches.find((b) => b.id === label.shipmentBatchId);
+  const destination = batch?.destinationSnapshots.find(
+    (d) => d.salesPointId === label.salesPointId,
+  );
+
+  return {
+    id: label.id,
+    labelCode: label.labelNumber,
+    qrPayload: JSON.stringify(label.qrPayload),
+    orderId: orderRequestNumber,
+    doNumber: batch?.deliveryNoteNumber ?? "",
+    poLineNumber: "",
+    productCode: label.productCode,
+    productName: label.productName,
+    deliveredQty: label.quantity,
+    uom: label.unitOfMeasure,
+    destinationCompanyName: destination?.companyName ?? label.destinationName,
+    destinationLocationName: destination?.salesPointName ?? label.destinationName,
+    destinationAddress: label.destinationAddress,
+    salesPointCode: destination?.salesPointCode ?? label.salesPointId,
+    projectName: label.projectName,
+  };
+}
+
 export function PackagingLabelsPrint({ userRole = "admin" }: PackagingLabelsPrintProps) {
   const { id } = useParams();
-  const orders = useOrders();
-  const order = orders.find((entry) => entry.id === id) ?? orders[0];
-  const labelsDocument = generatePackagingLabels(order);
-  const backPath = userRole === "admin" ? `/admin/orders/${order.id}` : `/${userRole}/orders/${order.id}`;
+  const hydrated = useHydratedOrder(id);
+  const { labels: allLabels } = useLabelState();
+
+  const shipmentBatchIds = hydrated?.shipmentBatches.map((b) => b.id) ?? [];
+  const v2Labels = allLabels.filter((l) => shipmentBatchIds.includes(l.shipmentBatchId));
+  const printLabels = hydrated
+    ? v2Labels.map((l) => toPrintLabel(l, hydrated.order.orderRequestNumber, hydrated.shipmentBatches))
+    : [];
+
+  if (!hydrated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  if (printLabels.length === 0) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <p className="font-semibold">No Packaging Labels</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Labels are generated when the order is ready to ship.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const backPath = userRole === "admin"
+    ? `/admin/orders/${hydrated.order.id}`
+    : `/${userRole}/orders/${hydrated.order.id}`;
+
+  const docDoNumber = printLabels[0].doNumber || hydrated.order.orderRequestNumber;
 
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar userRole={userRole} />
       <ContentArea>
         <Header
-          title={`Packaging Labels: ${labelsDocument.doNumber}`}
+          title={`Packaging Labels: ${docDoNumber}`}
           breadcrumbs={[
             { label: "All Orders", to: userRole === "admin" ? "/admin/orders" : `/${userRole}/orders` },
-            { label: order.id, to: backPath },
-            { label: `Packaging Labels: ${labelsDocument.doNumber}` },
+            { label: hydrated.order.orderRequestNumber, to: backPath },
+            { label: `Packaging Labels: ${docDoNumber}` },
           ]}
           actions={
             <Button onClick={() => window.print()} className="gap-2">
@@ -41,40 +123,18 @@ export function PackagingLabelsPrint({ userRole = "admin" }: PackagingLabelsPrin
         />
 
         <main className="space-y-5 p-4 sm:p-6 lg:p-8">
-          {labelsDocument.missingRequiredFields.length > 0 ? (
-            <Alert className="mx-auto max-w-[1080px] border-warning/30 bg-warning/10">
-              <AlertTriangle className="h-4 w-4 text-warning" />
-              <AlertTitle>Missing data before print</AlertTitle>
-              <AlertDescription>Complete: {labelsDocument.missingRequiredFields.join(", ")}.</AlertDescription>
-            </Alert>
-          ) : null}
-
-          {labelsDocument.labels.length === 0 ? (
-            <div className="mx-auto max-w-[1080px] rounded-lg border border-dashed border-border bg-background p-8 text-center shadow-sm">
-              <div className="space-y-3">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                  <Package className="h-5 w-5" />
-                </div>
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">No delivered items available for labeling</h2>
-                <p className="text-sm text-muted-foreground">
-                  Packaging labels are created only for lines with delivered quantity greater than zero.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <article className="packaging-label-sheet mx-auto max-w-[1080px]">
-              {labelsDocument.labels.map((label) => (
-                <PackagingLabelCard key={label.id} label={label} />
-              ))}
-            </article>
-          )}
+          <article className="packaging-label-sheet mx-auto max-w-[1080px]">
+            {printLabels.map((label) => (
+              <PackagingLabelCard key={label.id} label={label} />
+            ))}
+          </article>
         </main>
       </ContentArea>
     </div>
   );
 }
 
-function PackagingLabelCard({ label }: { label: PackagingLabel }) {
+function PackagingLabelCard({ label }: { label: PrintLabel }) {
   return (
     <section className="packaging-label-card bg-white text-black shadow-xl" data-label-code={label.labelCode}>
       <div className="packaging-label-card__top">

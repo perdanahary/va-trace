@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, ChevronsUpDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -27,7 +27,17 @@ export type OrderRequestTableColumn =
   | "readyQuantity"
   | "shippedQuantity"
   | "pod"
+  | "orderedQuantity"
   | "exception";
+
+export type SortDirection = "asc" | "desc";
+
+export type SortableColumn = "orderRequest" | "created" | "deadline";
+
+interface SortState {
+  column: SortableColumn;
+  direction: SortDirection;
+}
 
 interface OrderRequestTableProps {
   rows: OrderListRow[];
@@ -36,6 +46,8 @@ interface OrderRequestTableProps {
   detailLabel?: string;
   emptyMessage?: string;
   onRowClick?: (row: OrderListRow) => void;
+  sort?: SortState;
+  onSortChange?: (column: SortableColumn) => void;
 }
 
 const defaultColumns: OrderRequestTableColumn[] = [
@@ -60,7 +72,11 @@ export function OrderRequestTable({
   detailLabel = "Open",
   emptyMessage = "No order requests found.",
   onRowClick,
+  sort,
+  onSortChange,
 }: OrderRequestTableProps) {
+  const sortableColumns: SortableColumn[] = ["orderRequest", "created", "deadline"];
+
   return (
     <div className="overflow-x-auto">
       <Table>
@@ -68,7 +84,18 @@ export function OrderRequestTable({
           <TableRow>
             {columns.map((column) => (
               <TableHead key={column} className={getHeaderClassName(column)}>
-                {getColumnLabel(column)}
+                {sortableColumns.includes(column as SortableColumn) && onSortChange ? (
+                  <button
+                    type="button"
+                    className="-m-1 flex items-center gap-1 rounded-md p-1 text-left font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => onSortChange(column as SortableColumn)}
+                  >
+                    {getColumnLabel(column)}
+                    <SortIcon active={sort?.column === column} direction={sort?.column === column ? sort.direction : undefined} />
+                  </button>
+                ) : (
+                  getColumnLabel(column)
+                )}
               </TableHead>
             ))}
             <TableHead className="text-right" />
@@ -114,6 +141,17 @@ export function OrderRequestTable({
   );
 }
 
+function SortIcon({ active, direction }: { active?: boolean; direction?: SortDirection }) {
+  if (!active) {
+    return <ChevronsUpDown className="h-3.5 w-3.5 opacity-50" />;
+  }
+  return direction === "asc" ? (
+    <ArrowUp className="h-3.5 w-3.5" />
+  ) : (
+    <ArrowDown className="h-3.5 w-3.5" />
+  );
+}
+
 function getColumnLabel(column: OrderRequestTableColumn) {
   switch (column) {
     case "orderRequest":
@@ -138,6 +176,8 @@ function getColumnLabel(column: OrderRequestTableColumn) {
       return "Production";
     case "distribution":
       return "Distribution";
+    case "orderedQuantity":
+      return "Ordered Qty";
     case "readyQuantity":
       return "Ready Qty";
     case "shippedQuantity":
@@ -150,12 +190,13 @@ function getColumnLabel(column: OrderRequestTableColumn) {
 }
 
 function getHeaderClassName(column: OrderRequestTableColumn) {
-  return ["salesPoints", "progress", "readyQuantity", "shippedQuantity"].includes(column) ? "text-right" : undefined;
+  return ["salesPoints", "progress", "orderedQuantity", "readyQuantity", "shippedQuantity"].includes(column) ? "text-right" : undefined;
 }
 
 function getCellClassName(column: OrderRequestTableColumn) {
   switch (column) {
     case "salesPoints":
+    case "orderedQuantity":
     case "readyQuantity":
     case "shippedQuantity":
       return "text-right text-sm tabular-nums";
@@ -218,6 +259,8 @@ function renderCell(column: OrderRequestTableColumn, row: OrderListRow, onRowCli
       return <ProductionStatusBadge status={row.productionStatus} />;
     case "distribution":
       return <DistributionStatusBadge status={row.distributionStatus} />;
+    case "orderedQuantity":
+      return row.orderedQuantity;
     case "readyQuantity":
       return row.productionReadyQuantity;
     case "shippedQuantity":

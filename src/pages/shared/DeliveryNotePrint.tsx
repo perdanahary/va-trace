@@ -8,31 +8,83 @@ import { ContentArea } from "@/components/layout/ContentArea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { generateDeliveryNote, type DeliveryNoteLine } from "@/lib/deliveryNote";
-import { useOrders } from "@/lib/orderStore";
+import { useHydratedOrder } from "@/lib/v2/selectors/viewModels";
+import { getSalesPointById } from "@/lib/v2/salesPointStore";
+import { resolveVendorDeliveryAddress } from "@/lib/v2/selectors/deliveryAddress";
+import type { DeliveryNote as V2DeliveryNote, DeliveryNoteItem } from "@/lib/types/v2/deliveryNote";
 
 interface DeliveryNotePrintProps {
   userRole?: UserRole;
 }
 
+interface DeliveryNotePrintLine {
+  id: string;
+  poLineNumber: string;
+  materialCode: string;
+  description: string;
+  orderedQty: number;
+  deliveredQty: number;
+  outstandingQty: number;
+  uom: string;
+  orderedAreaText?: string;
+  deliveredAreaText?: string;
+  outstandingAreaText?: string;
+}
+
 export function DeliveryNotePrint({ userRole = "admin" }: DeliveryNotePrintProps) {
   const { id } = useParams();
-  const orders = useOrders();
-  const order = orders.find((entry) => entry.id === id) ?? orders[0];
-  const deliveryNote = generateDeliveryNote(order);
+  const hydrated = useHydratedOrder(id);
+  const v2DeliveryNote: V2DeliveryNote | undefined = hydrated?.deliveryNotes[0];
+  const deliveryAddress = hydrated ? resolveVendorDeliveryAddress(hydrated, getSalesPointById) : null;
+
+  if (!hydrated) {
+    return <div className="flex min-h-screen items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
+  }
+  if (!v2DeliveryNote) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <p className="font-semibold">Delivery Note Not Available</p>
+          <p className="mt-2 text-sm text-muted-foreground">A delivery note is generated when the first shipment batch is dispatched.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const order = hydrated.order;
+  const printLines = v2DeliveryNote.items.map((item: DeliveryNoteItem) => ({
+    id: item.id,
+    poLineNumber: String(item.poLineNumber),
+    materialCode: item.materialCode,
+    description: item.description,
+    orderedQty: item.orderedQuantity,
+    deliveredQty: item.shippedQuantity,
+    outstandingQty: item.outstandingQuantityAfterShipment,
+    uom: item.unitOfMeasure,
+  }));
+
+  const signatureFields = v2DeliveryNote.signatureFields;
+
+  const missingRequiredFields: string[] = [];
+  if (!v2DeliveryNote.clientPoNumber) missingRequiredFields.push("PO Number");
+  if (!v2DeliveryNote.salesOrderNumber) missingRequiredFields.push("SO Number");
+  if (!deliveryAddress?.address) missingRequiredFields.push("Delivery Address");
+  if (v2DeliveryNote.items.length === 0) missingRequiredFields.push("Line Items");
+
   const backPath = userRole === "admin" ? `/admin/orders/${order.id}` : `/${userRole}/orders/${order.id}`;
   const qrTarget = `${window.location.origin}${userRole === "admin" ? `/admin/orders/${order.id}/delivery-note` : `/${userRole}/orders/${order.id}/delivery-note`}`;
+  const hhGlobalContacts = v2DeliveryNote.destinationSnapshots[0]?.contacts ?? [];
 
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar userRole={userRole} />
       <ContentArea>
         <Header
-          title={`Delivery Note: ${deliveryNote.doNumber}`}
+          title={`Delivery Note: ${v2DeliveryNote.deliveryNoteNumber}`}
           breadcrumbs={[
             { label: "All Orders", to: userRole === "admin" ? "/admin/orders" : `/${userRole}/orders` },
             { label: order.id, to: backPath },
-            { label: `Delivery Note: ${deliveryNote.doNumber}` },
+            { label: `Delivery Note: ${v2DeliveryNote.deliveryNoteNumber}` },
           ]}
           actions={
             <Button onClick={() => window.print()} className="gap-2">
@@ -43,11 +95,11 @@ export function DeliveryNotePrint({ userRole = "admin" }: DeliveryNotePrintProps
         />
 
         <main className="space-y-5 p-4 sm:p-6 lg:p-8">
-          {deliveryNote.missingRequiredFields.length > 0 ? (
+          {missingRequiredFields.length > 0 ? (
             <Alert className="mx-auto max-w-[980px] border-warning/30 bg-warning/10">
               <AlertTriangle className="h-4 w-4 text-warning" />
               <AlertTitle>Missing data before print</AlertTitle>
-              <AlertDescription>Complete: {deliveryNote.missingRequiredFields.join(", ")}.</AlertDescription>
+              <AlertDescription>Complete: {missingRequiredFields.join(", ")}.</AlertDescription>
             </Alert>
           ) : null}
 
@@ -65,37 +117,34 @@ export function DeliveryNotePrint({ userRole = "admin" }: DeliveryNotePrintProps
               </div>
 
               <div className="space-y-2 text-right">
-                <p className="text-[17px] font-bold">DO Number : {deliveryNote.doNumber}</p>
-                <Barcode value={deliveryNote.barcodeValue} />
+                <p className="text-[17px] font-bold">DO Number : {v2DeliveryNote.deliveryNoteNumber}</p>
+                <Barcode value={v2DeliveryNote.deliveryNoteNumber} />
               </div>
             </header>
 
             <section className="delivery-note-contact-row">
               <div className="delivery-note-sender">
                 <h2>Sender</h2>
-                <p className="font-bold">{deliveryNote.senderProfile.name}</p>
-                {deliveryNote.senderProfile.addressLines.map((line) => (
-                  <p key={line}>{line}</p>
-                ))}
-                <p>{deliveryNote.senderProfile.phone}</p>
+                <p className="font-bold">{v2DeliveryNote.vendor.name}</p>
+                <p>{v2DeliveryNote.vendor.phone ?? ""}</p>
               </div>
 
               <div className="delivery-note-recipient">
-                <KeyValue label="HH Global PIC" value={deliveryNote.hhGlobalContacts.map((contact) => `${contact.name}(${contact.label})`).join(" / ")} />
-                <KeyValue label="Email & Phone" value={deliveryNote.hhGlobalContacts.map((contact) => `${contact.email}/${contact.phone}`).join("\n")} />
+                <KeyValue label="HH Global PIC" value={hhGlobalContacts.map((contact) => `${contact.name}(${contact.role})`).join(" / ")} />
+                <KeyValue label="Email & Phone" value={hhGlobalContacts.map((contact) => `${contact.email ?? ""}/${contact.phone ?? ""}`).join("\n")} />
                 <div className="h-4" />
-                <KeyValue label="Deliver to" value={deliveryNote.deliverySnapshot.deliveryCompanyName} />
-                <KeyValue label="Company" value={deliveryNote.deliverySnapshot.deliveryLocationName} />
-                <KeyValue label="PIC Client" value={deliveryNote.deliverySnapshot.picClient} />
-                <KeyValue label="Address" value={deliveryNote.deliverySnapshot.address} />
-                <KeyValue label="Phone No." value={deliveryNote.deliverySnapshot.phone} />
-                <KeyValue label="SO Number" value={deliveryNote.soNumber} />
+                <KeyValue label="Deliver to" value={deliveryAddress?.companyName ?? v2DeliveryNote.destinationSnapshots[0]?.salesPointName ?? ""} />
+                <KeyValue label="Company" value={deliveryAddress?.salesPointName ?? v2DeliveryNote.destinationSnapshots[0]?.salesPointName ?? ""} />
+                <KeyValue label="PIC Client" value={deliveryAddress?.picName ?? ""} />
+                <KeyValue label="Address" value={deliveryAddress?.address ?? v2DeliveryNote.destinationSnapshots[0]?.address ?? ""} />
+                <KeyValue label="Phone No." value={deliveryAddress?.phone ?? ""} />
+                <KeyValue label="SO Number" value={v2DeliveryNote.salesOrderNumber ?? ""} />
               </div>
             </section>
 
             <section className="delivery-note-project">
-              <KeyValue label="PO No" value={deliveryNote.poNumber} />
-              <KeyValue label="Project" value={deliveryNote.projectName} />
+              <KeyValue label="PO No" value={v2DeliveryNote.clientPoNumber ?? ""} />
+              <KeyValue label="Project" value={v2DeliveryNote.projectName} />
             </section>
 
             <table className="delivery-note-table">
@@ -110,7 +159,7 @@ export function DeliveryNotePrint({ userRole = "admin" }: DeliveryNotePrintProps
                 </tr>
               </thead>
               <tbody>
-                {deliveryNote.lines.map((line) => (
+                {printLines.map((line) => (
                   <tr key={line.id}>
                     <td>{line.poLineNumber}</td>
                     <td className="font-bold">
@@ -127,7 +176,7 @@ export function DeliveryNotePrint({ userRole = "admin" }: DeliveryNotePrintProps
 
             <section className="delivery-note-note">
               <span>Note : </span>
-              {deliveryNote.note}
+              {v2DeliveryNote.notes ?? ""}
             </section>
 
             <section className="delivery-note-signatures">
@@ -157,7 +206,7 @@ function KeyValue({ label, value }: { label: string; value: string }) {
   );
 }
 
-function QuantityCell({ line, type }: { line: DeliveryNoteLine; type: "ordered" | "delivered" | "outstanding" }) {
+function QuantityCell({ line, type }: { line: DeliveryNotePrintLine; type: "ordered" | "delivered" | "outstanding" }) {
   const quantity = type === "ordered" ? line.orderedQty : type === "delivered" ? line.deliveredQty : line.outstandingQty;
   const areaText = type === "ordered" ? line.orderedAreaText : type === "delivered" ? line.deliveredAreaText : line.outstandingAreaText;
 

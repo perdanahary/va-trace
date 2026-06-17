@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { ArrowUpRight, Eye, Play } from "lucide-react";
-import { Link } from "react-router-dom";
+import { AlertTriangle, ArrowDown, ArrowUp, ArrowUpRight, ChevronsUpDown, Eye } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -11,20 +11,28 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ProductionStatusBadge, DistributionStatusBadge } from "@/components/domain/badges/badges";
 import { cn } from "@/lib/utils";
 import { useOrderRequests } from "@/lib/v2/orderRequestStore";
-import type { OrderRequest } from "@/lib/types/v2/orderRequest";
+import { useOrderListRows } from "@/lib/v2/selectors/viewModels";
+import type { OrderListRow } from "@/lib/types/v2/orderRequest";
 import { useActor } from "@/lib/v2/useActor";
 import { buildCommand, toApiError } from "@/lib/v2/workflows";
 import { acceptProductionJob, getProductionJobsForOrder } from "@/lib/v2/productionStore";
 
 type VendorTab = "Pending" | "Production" | "Shipping" | "History";
+type SortColumn = "created" | "deadline" | "orderRequest";
+type SortDirection = "asc" | "desc";
 
 export function VendorDashboard() {
   const actor = useActor("vendor", "vendor-dashboard");
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<VendorTab>("Production");
+  const [sortState, setSortState] = useState<{ column: SortColumn; direction: SortDirection }>({ column: "created", direction: "desc" });
   const orders = useOrderRequests();
+  const rows = useOrderListRows("/vendor");
+
+  const submittedCount = orders.filter((o) => o.productionStatus === "SUBMITTED").length;
 
   const metrics = useMemo(() => {
     const pending = orders.filter((o) => o.productionStatus === "NEW" || o.productionStatus === "SUBMITTED").length;
@@ -38,7 +46,7 @@ export function VendorDashboard() {
     const completed = orders.filter((o) => o.productionStatus === "COMPLETED" && o.distributionStatus === "FULLY_RECEIVED").length;
 
     return [
-      { label: "Pending", value: String(pending).padStart(2, "0"), change: "Awaiting confirmation", color: "text-warning" },
+      { label: "Pending", value: String(pending).padStart(2, "0"), change: "Needs your confirmation", color: "text-warning" },
       { label: "In Production", value: String(inProduction).padStart(2, "0"), change: "In progress", color: "text-primary" },
       { label: "Ready", value: String(ready).padStart(2, "0"), change: "Ready to dispatch", color: "text-processing" },
       { label: "Shipping", value: String(shipping).padStart(2, "0"), change: "On delivery", color: "text-processing" },
@@ -46,10 +54,30 @@ export function VendorDashboard() {
     ];
   }, [orders]);
 
-  const pendingOrders = useMemo(() => getOrdersForTab("Pending", orders), [orders]);
-  const productionOrders = useMemo(() => getOrdersForTab("Production", orders), [orders]);
-  const shippingOrders = useMemo(() => getOrdersForTab("Shipping", orders), [orders]);
-  const historyOrders = useMemo(() => getOrdersForTab("History", orders), [orders]);
+  const sortOrders = useMemo(() => {
+    return (list: OrderListRow[]) => {
+      const sorted = [...list];
+      sorted.sort((a, b) => {
+        const dir = sortState.direction === "asc" ? 1 : -1;
+        switch (sortState.column) {
+          case "created":
+            return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * dir;
+          case "deadline":
+            return (new Date(a.deadlineDate).getTime() - new Date(b.deadlineDate).getTime()) * dir;
+          case "orderRequest":
+            return a.orderRequestNumber.localeCompare(b.orderRequestNumber) * dir;
+          default:
+            return 0;
+        }
+      });
+      return sorted;
+    };
+  }, [sortState]);
+
+  const pendingOrders = useMemo(() => sortOrders(getOrdersForTab("Pending", rows)), [rows, sortOrders]);
+  const productionOrders = useMemo(() => sortOrders(getOrdersForTab("Production", rows)), [rows, sortOrders]);
+  const shippingOrders = useMemo(() => sortOrders(getOrdersForTab("Shipping", rows)), [rows, sortOrders]);
+  const historyOrders = useMemo(() => sortOrders(getOrdersForTab("History", rows)), [rows, sortOrders]);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -78,6 +106,20 @@ export function VendorDashboard() {
             ))}
           </section>
 
+          {submittedCount > 0 && (
+            <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-5 py-3">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+              <p className="text-sm font-medium text-primary">
+                You have <strong>{submittedCount} order{submittedCount > 1 ? "s" : ""}</strong>{" "}
+                waiting for your confirmation.
+              </p>
+              <Button variant="link" size="sm" className="ml-auto h-auto p-0 text-primary"
+                onClick={() => navigate(`/vendor/orders`)}>
+                View orders →
+              </Button>
+            </div>
+          )}
+
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as VendorTab)} className="space-y-4">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="Pending">Pending</TabsTrigger>
@@ -86,18 +128,18 @@ export function VendorDashboard() {
               <TabsTrigger value="History">History</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="Pending">
-              <VendorOrderTable orders={pendingOrders} tab="Pending" />
-            </TabsContent>
-            <TabsContent value="Production">
-              <VendorOrderTable orders={productionOrders} tab="Production" />
-            </TabsContent>
-            <TabsContent value="Shipping">
-              <VendorOrderTable orders={shippingOrders} tab="Shipping" />
-            </TabsContent>
-            <TabsContent value="History">
-              <VendorOrderTable orders={historyOrders} tab="History" />
-            </TabsContent>
+              <TabsContent value="Pending">
+                <VendorOrderTable orders={pendingOrders} tab="Pending" sort={sortState} onSortChange={(col) => setSortState((prev) => ({ column: col, direction: prev.column === col && prev.direction === "desc" ? "asc" : "desc" }))} />
+              </TabsContent>
+              <TabsContent value="Production">
+                <VendorOrderTable orders={productionOrders} tab="Production" sort={sortState} onSortChange={(col) => setSortState((prev) => ({ column: col, direction: prev.column === col && prev.direction === "desc" ? "asc" : "desc" }))} />
+              </TabsContent>
+              <TabsContent value="Shipping">
+                <VendorOrderTable orders={shippingOrders} tab="Shipping" sort={sortState} onSortChange={(col) => setSortState((prev) => ({ column: col, direction: prev.column === col && prev.direction === "desc" ? "asc" : "desc" }))} />
+              </TabsContent>
+              <TabsContent value="History">
+                <VendorOrderTable orders={historyOrders} tab="History" sort={sortState} onSortChange={(col) => setSortState((prev) => ({ column: col, direction: prev.column === col && prev.direction === "desc" ? "asc" : "desc" }))} />
+              </TabsContent>
           </Tabs>
         </main>
       </ContentArea>
@@ -105,10 +147,10 @@ export function VendorDashboard() {
   );
 }
 
-function VendorOrderTable({ orders, tab }: { orders: OrderRequest[]; tab: VendorTab }) {
+function VendorOrderTable({ orders, tab, sort, onSortChange }: { orders: OrderListRow[]; tab: VendorTab; sort: { column: SortColumn; direction: SortDirection }; onSortChange: (column: SortColumn) => void }) {
   const actor = useActor("vendor", "vendor-order-table");
 
-  const handleStartProduction = (orderId: string) => {
+  const handleConfirmOrder = async (orderId: string) => {
     const jobs = getProductionJobsForOrder(orderId);
     if (jobs.length === 0) {
       toast.error("No production jobs found for this order.");
@@ -119,7 +161,7 @@ function VendorOrderTable({ orders, tab }: { orders: OrderRequest[]; tab: Vendor
         { productionJobId: jobs[0].id, expectedVersion: jobs[0].version, acceptedByUserId: actor.userId },
         buildCommand(actor, "Start production from vendor dashboard"),
       );
-      toast.success("Production started.");
+      toast.success("Order confirmed. Production can now begin.");
     } catch (error) {
       toast.error(toApiError(error).message);
     }
@@ -152,32 +194,49 @@ function VendorOrderTable({ orders, tab }: { orders: OrderRequest[]; tab: Vendor
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Order ID</TableHead>
-              <TableHead>Campaign</TableHead>
-              <TableHead>Client PO</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Deadline</TableHead>
+              <TableHead>
+                <SortButton column="orderRequest" label="Order ID" sort={sort} onSortChange={onSortChange} />
+              </TableHead>
+              <TableHead>Project</TableHead>
               <TableHead>Production Status</TableHead>
               <TableHead>Distribution Status</TableHead>
               <TableHead>Delivery Progress</TableHead>
+              <TableHead>
+                <SortButton column="created" label="Created" sort={sort} onSortChange={onSortChange} />
+              </TableHead>
+              <TableHead>
+                <SortButton column="deadline" label="Deadline" sort={sort} onSortChange={onSortChange} />
+              </TableHead>
+              <TableHead className="text-right">Qty</TableHead>
               <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {orders.map((order) => {
-              const deadlineInfo = getDeadlineInfo(order.deadlineDate, order.audit.createdAt);
+            {orders.map((row) => {
+              const deadlineInfo = getDeadlineInfo(row.deadlineDate, row.createdAt);
               return (
-                <TableRow key={order.id}>
-                  <TableCell>
-                    <Link to={`/vendor/update/${order.id}`} className="font-mono text-xs text-link hover:underline">
-                      {order.orderRequestNumber}
-                    </Link>
+                <TableRow
+                  key={row.id}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => window.location.href = `/vendor/orders/${row.id}`}
+                >
+                  <TableCell className="font-mono text-xs font-medium">{row.orderRequestNumber}</TableCell>
+                  <TableCell className="max-w-[260px] text-sm">
+                    <div className="truncate">{row.projectName}</div>
                   </TableCell>
-                  <TableCell className="text-sm font-medium">
-                    <div>{order.project.name}</div>
+                  <TableCell className="whitespace-nowrap">
+                    <ProductionStatusBadge status={row.productionStatus} />
                   </TableCell>
-                  <TableCell className="text-sm">{order.clientPoNumber}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{formatCreatedDate(order.audit.createdAt)}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    <DistributionStatusBadge status={row.distributionStatus} />
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-sm">
+                    <span className="font-medium text-foreground">{row.deliveryProgressPercent}%</span>
+                    <span className="ml-1 text-muted-foreground">
+                      ({row.deliveryProgressLabel})
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{formatCreatedDate(row.createdAt)}</TableCell>
                   <TableCell
                     className={cn(
                       "text-sm",
@@ -188,35 +247,32 @@ function VendorOrderTable({ orders, tab }: { orders: OrderRequest[]; tab: Vendor
                           : "text-muted-foreground",
                     )}
                   >
-                    {deadlineInfo.label}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    <StatusBadge status={order.productionStatus} />
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    <StatusBadge status={order.distributionStatus} />
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-sm">
-                    <span className="font-medium text-foreground">{order.quantitySummary.deliveryProgressPercent}%</span>
-                    <span className="ml-1 text-muted-foreground">
-                      ({order.quantitySummary.receivedQuantity}/{order.quantitySummary.allocatedQuantity})
+                    <span className="inline-flex items-center gap-1">
+                      {!deadlineInfo.isOverdue && deadlineInfo.daysLeft !== null && deadlineInfo.daysLeft <= 3 && (
+                        <AlertTriangle className="h-3.5 w-3.5 text-warning" />
+                      )}
+                      {deadlineInfo.label}
                     </span>
                   </TableCell>
+                  <TableCell className="text-right font-medium">{row.orderedQuantity}</TableCell>
                   <TableCell className="text-right">
                     {tab === "Pending" && (
-                      <Button size="sm" onClick={() => handleStartProduction(order.id)}>
-                        <Play className="mr-1 h-3.5 w-3.5" />
-                        Start Production
-                      </Button>
+                      row.productionStatus === "NEW" ? (
+                        <Badge variant="secondary" className="text-xs font-normal">Awaiting Job</Badge>
+                      ) : row.productionStatus === "SUBMITTED" ? (
+                        <Button size="sm" onClick={(e) => { e.stopPropagation(); handleConfirmOrder(row.id); }}>
+                          Confirm Order
+                        </Button>
+                      ) : null
                     )}
                     {(tab === "Production" || tab === "Shipping") && (
                       <Button size="sm" variant="outline" asChild>
-                        <Link to={`/vendor/update/${order.id}`}>Update Progress</Link>
+                        <Link to={`/vendor/update/${row.id}`}>Update Progress</Link>
                       </Button>
                     )}
                     {tab === "History" && (
                       <Button size="sm" variant="ghost" asChild>
-                        <Link to={`/vendor/update/${order.id}`}>
+                        <Link to={`/vendor/update/${row.id}`}>
                           <Eye className="mr-1 h-3.5 w-3.5" />
                           View
                         </Link>
@@ -233,7 +289,7 @@ function VendorOrderTable({ orders, tab }: { orders: OrderRequest[]; tab: Vendor
   );
 }
 
-function getOrdersForTab(tab: VendorTab, orders: OrderRequest[]) {
+function getOrdersForTab(tab: VendorTab, orders: OrderListRow[]) {
   switch (tab) {
     case "Pending":
       return orders.filter((order) => order.productionStatus === "NEW" || order.productionStatus === "SUBMITTED");
@@ -290,4 +346,22 @@ function getDeadlineInfo(deadline: string, createdDate?: string) {
   const daysLeftMatch = deadline.match(/(\d+)/);
   const daysLeft = daysLeftMatch ? Number(daysLeftMatch[1]) : null;
   return { label: deadline, isOverdue: false, daysLeft };
+}
+
+function SortButton({ column, label, sort, onSortChange }: { column: SortColumn; label: string; sort: { column: SortColumn; direction: SortDirection }; onSortChange: (column: SortColumn) => void }) {
+  const isActive = sort.column === column;
+  return (
+    <button
+      type="button"
+      className="-m-1 flex items-center gap-1 rounded-md p-1 text-left font-medium text-muted-foreground hover:text-foreground transition-colors"
+      onClick={() => onSortChange(column)}
+    >
+      {label}
+      {isActive ? (
+        sort.direction === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
+      ) : (
+        <ChevronsUpDown className="h-3.5 w-3.5 opacity-50" />
+      )}
+    </button>
+  );
 }

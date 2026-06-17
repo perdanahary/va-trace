@@ -10,14 +10,11 @@ import {
   ChevronUp,
   ClipboardList,
   FileText,
-
   MoreHorizontal,
   Package,
   Printer,
   Send,
   ShieldAlert,
-  Truck,
-
   XCircle,
 } from "lucide-react";
 
@@ -58,13 +55,16 @@ import { useActor } from "@/lib/v2/useActor";
 import { useAuditEvents } from "@/lib/v2/auditEventStore";
 import { approveAllocation } from "@/lib/v2/allocationStore";
 import { buildCommand, toApiError } from "@/lib/v2/workflows";
-import { openException } from "@/lib/v2/exceptionStore";
-import type { CreateOperationalExceptionDto } from "@/lib/types/v2/exception";
+import { openException, useOperationalExceptions, resolveException } from "@/lib/v2/exceptionStore";
+import { getSalesPointById } from "@/lib/v2/salesPointStore";
+import { resolveVendorDeliveryAddress, type VendorDeliveryAddress } from "@/lib/v2/selectors/deliveryAddress";
+import type { CreateOperationalExceptionDto, OperationalException } from "@/lib/types/v2/exception";
 import type { HydratedOrder } from "@/lib/v2/projections";
 import type { OrderAllocationTableRow } from "@/lib/types/v2/orderRequest";
 import type { ExceptionState } from "@/lib/types/v2/status";
+import { acceptProductionJob } from "@/lib/v2/productionStore";
 
-interface OrderDetailProps {
+interface VendorOrderDetailProps {
   userRole?: UserRole;
 }
 
@@ -115,12 +115,29 @@ const ORDER_DETAIL_TABS: Array<{ value: OrderDetailTab; label: string }> = [
 
 const TABLE_LINK_CLASS = "text-link hover:underline";
 
-export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
+export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProps) {
   const { id } = useParams();
   const hydrated = useHydratedOrder(id);
   const legacyComplaint = useLegacyComplaintAdapter(hydrated?.order.id);
-  const actor = useActor(userRole, "order-detail");
+  const actor = useActor(userRole, "vendor-order-detail");
   const auditEvents = useAuditEvents();
+  const allExceptions = useOperationalExceptions();
+
+  const order = hydrated?.order;
+
+  // Active quantity variance exception for this order
+  const activeException: OperationalException | undefined = allExceptions.find(
+    (e) =>
+      e.type === "QUANTITY_VARIANCE" &&
+      ["OPEN", "ASSIGNED", "IN_REVIEW", "REOPENED"].includes(e.status) &&
+      (e.sourceEntityId === order?.id ||
+        e.affectedEntityRefs.some((r) => r.entityId === order?.id)),
+  );
+
+  // Delivery address derived from batches or allocations
+  const deliveryAddress: VendorDeliveryAddress | null = hydrated
+    ? resolveVendorDeliveryAddress(hydrated, getSalesPointById)
+    : null;
 
   const allocationRows = useMemo(
     () => (hydrated ? buildAllocationRows(hydrated) : []),
@@ -145,10 +162,9 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
     : false;
 
   const canCreateBatch =
-    (userRole === "admin" || userRole === "operator" || userRole === "vendor") &&
     totalReadyQty > 0 &&
     allocationRows.some((row) => row.canAddToBatch);
-  const canRaiseComplaint = userRole === "admin" || userRole === "operator";
+  const canRaiseComplaint = true;
 
   const visibleTabs = useMemo(() => {
     if (!isProductionPhase) return ORDER_DETAIL_TABS;
@@ -168,12 +184,16 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
       setActiveTab("overview");
     }
   }, [isProductionPhase, activeTab]);
+
   const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
+  const [preselectedAllocationIds, setPreselectedAllocationIds] = useState<string[]>([]);
   const [isComplaintDialogOpen, setIsComplaintDialogOpen] = useState(false);
   const [isDocumentsExpanded, setIsDocumentsExpanded] = useState(true);
   const [isExceptionsExpanded, setIsExceptionsExpanded] = useState(true);
   const [isNotesExpanded, setIsNotesExpanded] = useState(true);
+  const [isShippingExpanded, setIsShippingExpanded] = useState(true);
   const [complaintRemarks, setComplaintRemarks] = useState("");
+  const [vendorNote, setVendorNote] = useState("");
   const [complaintDraftItems, setComplaintDraftItems] = useState<ComplaintDraftItem[]>(legacyComplaint.complaintItems);
 
   if (!hydrated || !viewModel) {
@@ -184,7 +204,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
           <Header
             title={id ?? "Order detail"}
             breadcrumbs={[
-              { label: "All Orders", to: userRole === "admin" ? "/admin/orders" : `/${userRole}/orders` },
+              { label: "All Orders", to: `/${userRole}/orders` },
               { label: id ?? "Order detail" },
             ]}
           />
@@ -203,7 +223,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
     );
   }
 
-  const backPath = userRole === "admin" ? "/admin/orders" : `/${userRole}/orders`;
+  const backPath = `/${userRole}/orders`;
   const complaint = legacyComplaint.complaint;
   const complaintLocked = complaint?.status === "pending";
   const deadlineDate = new Date(viewModel.order.deadlineDate);
@@ -214,16 +234,71 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
   const latestNoteMeta = formatRelativeDateTime(viewModel.order.audit.updatedAt);
   const recentJobs = hydrated.productionJobs.slice(0, 3);
 
+  // -------------------------------------------------------------------------
+  // Handlers
+  // -------------------------------------------------------------------------
+
+  const handleConfirmOrder = () => {
+    if (!order) return;
+    const jobs = hydrated?.productionJobs ?? [];
+    if (jobs.length === 0) {
+      toast.error("No production job is assigned yet. Please contact your admin.");
+      return;
+    }
+    const job = jobs[0];
+    try {
+      acceptProductionJob(
+        { productionJobId: job.id, expectedVersion: job.version, acceptedByUserId: actor.userId },
+        buildCommand(actor, "Confirm order from vendor order detail"),
+      );
+      toast.success("Order confirmed. Production can now begin.");
+    } catch (error) {
+      toast.error("Failed to confirm order. Please try again.");
+    }
+  };
+
   const handleApproveAllocation = (allocationId: string) => {
     const allocation = hydrated.allocations.find((entry) => entry.id === allocationId);
     if (!allocation) return;
 
     try {
-      approveAllocation(allocation.id, "Approved from order workbench.", allocation.version, buildCommand(actor));
+      approveAllocation(allocation.id, "Approved from vendor order detail.", allocation.version, buildCommand(actor));
       toast.success("Allocation approved.");
     } catch (error) {
       toast.error(toApiError(error).message);
     }
+  };
+
+  const handleResolveException = (
+    exception: OperationalException,
+    resolutionType: "FIXED" | "ACCEPTED_VARIANCE",
+  ) => {
+    try {
+      resolveException(
+        {
+          exceptionId: exception.id,
+          expectedVersion: exception.version,
+          resolution: {
+            reason:
+              vendorNote.trim() ||
+              (resolutionType === "FIXED"
+                ? "Vendor confirmed quantity is correct."
+                : "Vendor accepted the quantity variance."),
+            resolutionType,
+          },
+        },
+        buildCommand(actor, "Resolve quantity variance from vendor detail"),
+      );
+      toast.success("Variance resolved successfully.");
+      setVendorNote("");
+    } catch (error) {
+      toast.error("Failed to resolve variance. Please try again.");
+    }
+  };
+
+  const openBatchDialog = (allocationId?: string) => {
+    setPreselectedAllocationIds(allocationId ? [allocationId] : []);
+    setIsBatchDialogOpen(true);
   };
 
   const openComplaintDialog = () => {
@@ -251,13 +326,13 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
         sourceEntityId: hydrated.order.id,
         affectedEntityRefs: affectedRefs,
         title: `Quantity variance on order ${hydrated.order.orderRequestNumber}`,
-        description: complaintRemarks.trim() || "Admin flagged a quantity discrepancy on this order.",
+        description: complaintRemarks.trim() || "Vendor flagged a quantity discrepancy on this order.",
         dueAt: undefined,
       } satisfies CreateOperationalExceptionDto,
-      buildCommand(actor, "Raise quantity variance from admin order detail"),
+      buildCommand(actor, "Raise quantity variance from vendor order detail"),
     );
 
-    toast.success("Quantity variance reported. Vendor has been notified.");
+    toast.success("Quantity variance reported.");
     setIsComplaintDialogOpen(false);
   };
 
@@ -274,69 +349,122 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
     );
   };
 
-  const renderWorkflowActions = (size: "default" | "sm" = "sm") => (
-    <>
-      {isProductionPhase ? (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-processing/30 bg-processing/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-processing">
-          Production Ongoing (Order Locked)
-        </span>
-      ) : canCreateBatch ? (
-        <Button size={size} onClick={() => setIsBatchDialogOpen(true)}>
-          Create Shipment Batch
-        </Button>
-      ) : null}
-      {viewModel.workflowBatch ? (
-        <Button asChild variant="outline" size={size}>
-          <Link to={`/${userRole}/shipments/${viewModel.workflowBatch.id}`}>
-            <Package className="h-4 w-4" />
-            Open Active Batch
-          </Link>
-        </Button>
-      ) : null}
-      {viewModel.workflowBatch?.deliveryNoteId ? (
-        <Button asChild variant="outline" size={size}>
-          <Link to={`/${userRole}/shipments/${viewModel.workflowBatch.id}/delivery-note`}>
-            <Printer className="h-4 w-4" />
-            Delivery Note
-          </Link>
-        </Button>
-      ) : null}
-      {viewModel.workflowBatch ? (
-        <Button asChild variant="outline" size={size}>
-          <Link to={`/${userRole}/shipments/${viewModel.workflowBatch.id}/labels`}>
-            <Package className="h-4 w-4" />
-            Labels
-          </Link>
-        </Button>
-      ) : null}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size={size}>
-            <MoreHorizontal className="h-4 w-4" />
-            More
+  // -------------------------------------------------------------------------
+  // Workflow actions
+  // -------------------------------------------------------------------------
+
+  const renderWorkflowActions = (size: "default" | "sm" = "sm") => {
+    if (hydrated?.productionStatus === "SUBMITTED") {
+      return (
+        <>
+          <Button size={size} onClick={handleConfirmOrder}>
+            <CheckCircle2 className="mr-2 h-4 w-4" />
+            Confirm Order
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52">
-          {canRaiseComplaint && !isProductionPhase ? (
-            <DropdownMenuItem onSelect={openComplaintDialog}>
-              <AlertTriangle className="mr-2 h-4 w-4" />
-              {complaint ? "Review Complaint" : "Raise Complaint"}
-            </DropdownMenuItem>
-          ) : null}
-          {!isProductionPhase ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size={size}>
+                <MoreHorizontal className="h-4 w-4" />
+                More
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onSelect={() => setActiveTab("audit")}>
+                <ClipboardList className="mr-2 h-4 w-4" />
+                Open Audit Trail
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
+      );
+    }
+
+    if (isProductionPhase) {
+      return (
+        <>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-processing/30 bg-processing/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-processing">
+            Production Ongoing (Order Locked)
+          </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size={size}>
+                <MoreHorizontal className="h-4 w-4" />
+                More
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onSelect={() => setActiveTab("audit")}>
+                <ClipboardList className="mr-2 h-4 w-4" />
+                Open Audit Trail
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
+      );
+    }
+
+    return (
+      <>
+        {canCreateBatch ? (
+          <Button size={size} onClick={() => openBatchDialog()}>
+            Create Shipment Batch
+          </Button>
+        ) : null}
+        {viewModel.workflowBatch ? (
+          <Button asChild variant="outline" size={size}>
+            <Link to={`/${userRole}/shipments/${viewModel.workflowBatch.id}`}>
+              <Package className="h-4 w-4" />
+              Open Active Batch
+            </Link>
+          </Button>
+        ) : null}
+        {viewModel.workflowBatch?.deliveryNoteId ? (
+          <Button asChild variant="outline" size={size}>
+            <Link to={`/${userRole}/shipments/${viewModel.workflowBatch.id}/delivery-note`}>
+              <Printer className="h-4 w-4" />
+              Delivery Note
+            </Link>
+          </Button>
+        ) : null}
+        {viewModel.workflowBatch ? (
+          <Button asChild variant="outline" size={size}>
+            <Link to={`/${userRole}/shipments/${viewModel.workflowBatch.id}/labels`}>
+              <Package className="h-4 w-4" />
+              Labels
+            </Link>
+          </Button>
+        ) : null}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size={size}>
+              <MoreHorizontal className="h-4 w-4" />
+              More
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            {canRaiseComplaint ? (
+              <DropdownMenuItem onSelect={openComplaintDialog}>
+                <AlertTriangle className="mr-2 h-4 w-4" />
+                {complaint ? "Review Complaint" : "Raise Complaint"}
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem onSelect={() => setActiveTab("compliance")}>
               <ShieldAlert className="mr-2 h-4 w-4" />
               Open Compliance
             </DropdownMenuItem>
-          ) : null}
-          <DropdownMenuItem onSelect={() => setActiveTab("audit")}>
-            <ClipboardList className="mr-2 h-4 w-4" />
-            Open Audit Trail
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </>
-  );
+            <DropdownMenuItem onSelect={() => setActiveTab("audit")}>
+              <ClipboardList className="mr-2 h-4 w-4" />
+              Open Audit Trail
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </>
+    );
+  };
+
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -355,8 +483,6 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
           <div className="mx-auto max-w-[1440px]">
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
               <div className="space-y-5">
-
-
                 <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as OrderDetailTab)} className="space-y-5">
                   <TabsList className="mb-6">
                     {visibleTabs.map((tab) => (
@@ -365,7 +491,21 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                       </TabsTrigger>
                     ))}
                   </TabsList>
+
+                  {/* ================================================================ */}
+                  {/* OVERVIEW TAB                                                     */}
+                  {/* ================================================================ */}
                   <TabsContent value="overview" className="space-y-5">
+                    {hydrated.productionStatus === "SUBMITTED" ? (
+                      <div className="rounded-lg border border-primary/30 bg-primary/5 px-5 py-4">
+                        <p className="text-sm font-semibold text-primary">Action Required</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          This order has been assigned to you. Review the details and click{" "}
+                          <strong>Confirm Order</strong> to begin production.
+                        </p>
+                      </div>
+                    ) : null}
+
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       {viewModel.summaryStats.map((stat) => (
                         <OverviewStat key={stat.label} label={stat.label} value={stat.value} hint={stat.hint} color={stat.color} />
@@ -411,7 +551,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                                 <Link
                                   to={`/${userRole}/shipments/${viewModel.workflowBatch.id}`}
                                   className={TABLE_LINK_CLASS}
-                                  >
+                                >
                                   {viewModel.workflowBatch.batchNumber}
                                 </Link>
                                 <ShipmentBatchStatusBadge status={viewModel.workflowBatch.status} />
@@ -421,7 +561,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                                 <KeyMetric label="Shipped" value={`${viewModel.workflowBatch.quantitySummary.shippedQuantity} pcs`} />
                                 <KeyMetric label="Received" value={`${viewModel.workflowBatch.quantitySummary.verifiedReceivedQuantity} pcs`} />
                                 <KeyMetric label="Status" value={formatBatchStatusLabel(viewModel.workflowBatch.status)} />
-                                <KeyMetric label="Proof of Delivery (POD)" value={formatPodLabel(hydrated.podStatus)} />
+                                <KeyMetric label="POD" value={formatPodLabel(hydrated.podStatus)} />
                               </div>
                             </div>
 
@@ -462,17 +602,10 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                             ) : (
                               recentJobs.map((job) => {
                                 const item = hydrated.order.items.find((entry) => entry.id === job.orderItemId);
-                                const jobLink = userRole === "admin" ? `/admin/production/${job.id}` : null;
                                 return (
                                   <TableRow key={job.id}>
                                     <TableCell className="font-mono text-xs">
-                                      {jobLink ? (
-                                        <Link to={jobLink} className={TABLE_LINK_CLASS}>
-                                          {job.jobNumber}
-                                        </Link>
-                                      ) : (
-                                        job.jobNumber
-                                      )}
+                                      {job.jobNumber}
                                     </TableCell>
                                     <TableCell className="text-sm">{item?.description ?? job.orderItemId}</TableCell>
                                     <TableCell className="text-right text-sm tabular-nums">{job.orderedQuantity}</TableCell>
@@ -502,6 +635,9 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                     </Card>
                   </TabsContent>
 
+                  {/* ================================================================ */}
+                  {/* OPERATIONS TAB                                                   */}
+                  {/* ================================================================ */}
                   <TabsContent value="operations" className="space-y-5">
                     <Card className="border-border/70 shadow-sm">
                       <CardHeader className="border-b bg-muted/20">
@@ -511,7 +647,11 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="p-0">
-                        <SalesPointAllocationTable rows={allocationRows} onApprove={handleApproveAllocation} />
+                        <SalesPointAllocationTable
+                          rows={allocationRows}
+                          onApprove={handleApproveAllocation}
+                          onAddToBatch={(allocationId) => openBatchDialog(allocationId)}
+                        />
                       </CardContent>
                     </Card>
 
@@ -543,17 +683,10 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                             ) : (
                               hydrated.productionJobs.map((job) => {
                                 const item = hydrated.order.items.find((entry) => entry.id === job.orderItemId);
-                                const jobLink = userRole === "admin" ? `/admin/production/${job.id}` : null;
                                 return (
                                   <TableRow key={job.id}>
                                     <TableCell className="font-mono text-xs">
-                                      {jobLink ? (
-                                        <Link to={jobLink} className={TABLE_LINK_CLASS}>
-                                          {job.jobNumber}
-                                        </Link>
-                                      ) : (
-                                        job.jobNumber
-                                      )}
+                                      {job.jobNumber}
                                     </TableCell>
                                     <TableCell className="text-sm">{item?.description ?? job.orderItemId}</TableCell>
                                     <TableCell className="text-right text-sm tabular-nums">{job.orderedQuantity}</TableCell>
@@ -585,7 +718,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                               <TableHead className="text-right">Shipped</TableHead>
                               <TableHead className="text-right">Received</TableHead>
                               <TableHead>Status</TableHead>
-                              <TableHead>Proof of Delivery (POD)</TableHead>
+                              <TableHead>POD</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -624,6 +757,9 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                     </Card>
                   </TabsContent>
 
+                  {/* ================================================================ */}
+                  {/* DOCUMENTS TAB                                                    */}
+                  {/* ================================================================ */}
                   <TabsContent value="documents" className="space-y-5">
                     <Card className="border-border/70 shadow-sm">
                       <CardHeader className="border-b bg-muted/20">
@@ -693,7 +829,6 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                           }
                           mono={viewModel.order.externalReferences.length > 0}
                         />
-
                         <DetailPair
                           label="Link"
                           value={
@@ -716,6 +851,9 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                     </Card>
                   </TabsContent>
 
+                  {/* ================================================================ */}
+                  {/* COMPLIANCE TAB                                                   */}
+                  {/* ================================================================ */}
                   <TabsContent value="compliance" className="space-y-5">
                     <Card className="border-border/70 shadow-sm">
                       <CardHeader className="border-b bg-muted/20">
@@ -739,7 +877,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                             {hydrated.deliveryConfirmations.length === 0 ? (
                               <TableRow>
                                 <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-                                  No Proof of Delivery (POD) submissions yet.
+                                  No POD submissions yet.
                                 </TableCell>
                               </TableRow>
                             ) : (
@@ -801,6 +939,46 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                       </CardContent>
                     </Card>
 
+                    {activeException ? (
+                      <Card className="border-warning/40 shadow-sm">
+                        <CardHeader className="border-b bg-warning/5">
+                          <CardTitle className="text-base">Quantity Variance</CardTitle>
+                          <CardDescription>
+                            {activeException.title}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4 p-6">
+                          <p className="text-sm text-muted-foreground">
+                            {activeException.description}
+                          </p>
+
+                          <Textarea
+                            value={vendorNote}
+                            onChange={(event) => setVendorNote(event.target.value)}
+                            placeholder="Add a note explaining how the variance was resolved."
+                          />
+
+                          <div className="flex flex-col gap-3 sm:flex-row">
+                            <Button
+                              variant="outline"
+                              className="w-full sm:w-auto"
+                              onClick={() => handleResolveException(activeException, "ACCEPTED_VARIANCE")}
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                              Accept Variance
+                            </Button>
+                            <Button
+                              className="w-full sm:w-auto"
+                              onClick={() => handleResolveException(activeException, "FIXED")}
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                              Mark as Fixed
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ) : null}
+
                     {complaint?.history.length ? (
                       <Card className="border-border/70 shadow-sm">
                         <CardHeader className="border-b bg-muted/20">
@@ -824,6 +1002,9 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                     ) : null}
                   </TabsContent>
 
+                  {/* ================================================================ */}
+                  {/* AUDIT TAB                                                        */}
+                  {/* ================================================================ */}
                   <TabsContent value="audit">
                     <Card className="border-border/70 shadow-sm">
                       <CardHeader className="border-b bg-muted/20">
@@ -871,6 +1052,9 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                 </Tabs>
               </div>
 
+              {/* ================================================================ */}
+              {/* AT A GLANCE SIDEBAR                                              */}
+              {/* ================================================================ */}
               <aside className="space-y-4 xl:sticky xl:top-[84px] xl:self-start">
                 <Card className="overflow-hidden border-border/70 shadow-sm">
                   <CardHeader className="border-b bg-muted/20">
@@ -955,6 +1139,51 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                       </>
                     ) : null}
 
+                    <div className="border-b border-border/60">
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between p-5 text-left"
+                        onClick={() => setIsShippingExpanded((current) => !current)}
+                      >
+                        <span className="text-base font-semibold">Shipping Address</span>
+                        {isShippingExpanded ? (
+                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </button>
+                      {isShippingExpanded ? (
+                        <div className="border-t border-border/60 p-5">
+                          {deliveryAddress ? (
+                            <div className="space-y-3">
+                              <RailDetail label="Company" value={deliveryAddress.companyName} />
+                              <RailDetail label="Sales Point" value={deliveryAddress.salesPointName} />
+                              <RailDetail label="WCode" value={deliveryAddress.wCode} />
+                              <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-3">
+                                <p className="text-sm text-muted-foreground">Address</p>
+                                <div>
+                                  <p className="text-sm text-foreground">{deliveryAddress.address}</p>
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    {deliveryAddress.zone} · {deliveryAddress.region}
+                                  </p>
+                                </div>
+                              </div>
+                              {deliveryAddress.picName ? (
+                                <RailDetail label="PIC" value={deliveryAddress.picName} />
+                              ) : null}
+                              {deliveryAddress.phone ? (
+                                <RailDetail label="Phone" value={deliveryAddress.phone} />
+                              ) : null}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              No shipping destination available yet. Allocations or shipment batches will populate this information.
+                            </p>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+
                     <div>
                       <button
                         type="button"
@@ -994,6 +1223,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
         </main>
       </ContentArea>
 
+      {/* Complaint Dialog */}
       <Dialog open={isComplaintDialogOpen} onOpenChange={setIsComplaintDialogOpen}>
         <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto">
           <DialogHeader>
@@ -1001,7 +1231,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
             <DialogDescription>
               {complaint
                 ? "Review the submitted actual received quantities and vendor response."
-                : "Record the actual received quantity for each item before sending the revision request to vendor."}
+                : "Record the actual received quantity for each item before sending the revision request."}
             </DialogDescription>
           </DialogHeader>
 
@@ -1116,21 +1346,24 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
         onOpenChange={setIsBatchDialogOpen}
         order={hydrated}
         actor={actor}
+        preselectedAllocationIds={preselectedAllocationIds}
       />
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Helper functions (from admin OrderDetail)
+// ---------------------------------------------------------------------------
 
 function useLegacyComplaintAdapter(orderId: string | undefined): LegacyComplaintAdapter {
   const orders = useOrders();
 
   return useMemo(() => {
     const legacyOrder = orderId ? orders.find((entry) => entry.id === orderId) : undefined;
-     
     const legacy = legacyOrder as any;
     const complaint = legacy?.complaint as Record<string, unknown> | undefined;
 
-     
     return {
       complaint,
       complaintItems: (legacyOrder?.items ?? []).map((item: { id: string; name: string; poLineNumber: string; quantity: number; deliveredQuantity?: number }) => ({
@@ -1184,7 +1417,7 @@ function buildAdminOrderWorkbenchViewModel(
       {
         label: "Received",
         value: `${order.quantitySummary.receivedQuantity} pcs`,
-        hint: `${order.quantitySummary.openPodIssueCount} open Proof of Delivery (POD) issue${order.quantitySummary.openPodIssueCount === 1 ? "" : "s"}`,
+        hint: `${order.quantitySummary.openPodIssueCount} open POD issue${order.quantitySummary.openPodIssueCount === 1 ? "" : "s"}`,
         color: "text-success",
       },
     ],
@@ -1289,7 +1522,7 @@ function buildFocusCard(
 
   if (hydrated.deliveryConfirmations.length > 0 && hydrated.podStatus !== "VERIFIED") {
     return {
-      eyebrow: "Proof of Delivery (POD) review",
+      eyebrow: "POD review",
       title: "Proof of Delivery (POD) review is the current bottleneck",
       description:
         "Proof of Delivery (POD) review is the current bottleneck.",
@@ -1330,6 +1563,10 @@ function clampQuantity(value: number, max: number) {
   return Math.max(0, Math.min(Math.round(value), max));
 }
 
+// ---------------------------------------------------------------------------
+// Helper components
+// ---------------------------------------------------------------------------
+
 function OverviewStat({ label, value, hint, color, compact }: { label: string; value: string; hint?: string; color?: string; compact?: boolean }) {
   if (compact) {
     return (
@@ -1362,7 +1599,6 @@ function OverviewStat({ label, value, hint, color, compact }: { label: string; v
     </Card>
   );
 }
-
 
 function KeyMetric({ label, value }: { label: string; value: string }) {
   return (
@@ -1440,6 +1676,20 @@ function StatusChip({ status }: { status: "pending" | "approved" | "rejected" })
   );
 }
 
+// ---------------------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------------------
+
+function pickWorkflowBatch<T extends { status: string }>(batches: T[]): T | undefined {
+  return (
+    batches
+      .slice()
+      .reverse()
+      .find((batch) => !["CLOSED", "FULLY_RECEIVED", "CANCELLED", "VOIDED"].includes(batch.status)) ??
+    batches.at(-1)
+  );
+}
+
 function formatDateLabel(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -1464,6 +1714,7 @@ function formatRelativeDateTime(value: string) {
   if (diffHours < 1) {
     return "Less than 1 hour ago";
   }
+
   if (diffHours < 24) {
     return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
   }
@@ -1486,14 +1737,4 @@ function formatBatchStatusLabel(status: string) {
 
 function formatPodLabel(status: string) {
   return formatDistributionLabel(status);
-}
-
-function pickWorkflowBatch<T extends { status: string }>(batches: T[]): T | undefined {
-  return (
-    batches
-      .slice()
-      .reverse()
-      .find((batch) => !["CLOSED", "FULLY_RECEIVED", "CANCELLED", "VOIDED"].includes(batch.status)) ??
-    batches.at(-1)
-  );
 }

@@ -21,7 +21,7 @@ import { CreateOrder } from './pages/client/CreateOrder';
 import { VendorDashboard } from './pages/vendor/VendorDashboard';
 import { VendorOrders } from './pages/vendor/VendorOrders';
 import { VendorProfile } from './pages/vendor/VendorProfile';
-import { VendorUpdateProgress } from './pages/vendor/UpdateProgress';
+import { VendorOrderDetail } from './pages/vendor/VendorOrderDetail';
 import { OrderProgress } from './pages/shared/OrderProgress';
 import { DeliveryNotePrint } from './pages/shared/DeliveryNotePrint';
 import { PackagingLabelsPrint } from './pages/shared/PackagingLabelsPrint';
@@ -172,7 +172,7 @@ function App() {
                 <Route path="/vendor/orders" element={<VendorOrders />} />
                 <Route path="/vendor/profile" element={<VendorProfile />} />
                 <Route path="/vendor/progress" element={<OrderProgress userRole="vendor" />} />
-                <Route path="/vendor/orders/:id" element={<VendorUpdateProgress />} />
+                <Route path="/vendor/orders/:id" element={<VendorOrderDetail />} />
                 <Route path="/vendor/update/:id" element={<RedirectWithParam to={(id) => `/vendor/orders/${id}`} />} />
                 <Route path="/vendor/orders/:id/delivery-note" element={<DeliveryNotePrint userRole="vendor" />} />
                 <Route path="/vendor/orders/:id/packaging-labels" element={<PackagingLabelsPrint userRole="vendor" />} />

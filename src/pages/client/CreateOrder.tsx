@@ -156,7 +156,7 @@ const supplierOptions = useMemo(
       campaign: clientPO || "Direct Entry",
       clientPO,
       // soNumber is auto-generated when vendor starts production
-      supplier: selectedSupplier || "Pending",
+      supplier: selectedSupplier,
       salesPointId: selectedSalesPoint,
       deadline,
       note: note.trim() || undefined,

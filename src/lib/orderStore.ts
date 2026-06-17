@@ -6,11 +6,7 @@ import {
 } from "@/lib/mockData";
 import { normalizeOrderReferenceLink, normalizeOrderTags, type OrderReferenceLink } from "@/lib/orderMetadata";
 import type {
-  ComplaintHistoryEntry,
-  ComplaintLineItem,
-  ComplaintStatus,
   Order,
-  OrderComplaint,
   OrderLine,
   StoredPackagingLabel,
   StoredDeliveryNoteRecord,
@@ -61,18 +57,6 @@ export interface ManualOrderDraft {
   items: ManualOrderLineDraft[];
 }
 
-export interface RaiseComplaintInput {
-  remarks: string;
-  createdBy: string;
-  items: Array<Pick<ComplaintLineItem, "lineId" | "actualReceivedQty">>;
-}
-
-export interface ResolveComplaintInput {
-  decision: ComplaintStatus;
-  reviewedBy: string;
-  reviewNote?: string;
-}
-
 export interface CreateShipmentBatchInput {
   items?: Array<{
     orderLineId: string;
@@ -90,60 +74,18 @@ export interface PodUploadInput {
   remarks?: string;
 }
 
-const STORAGE_KEY = "va-trace-orders";
 const STORE_EVENT = "va-trace-orders:change";
-const defaultOrders = normalizeOrders(mockOrders) as StoredOrder[];
-let cachedOrders: StoredOrder[] = defaultOrders;
-let cachedStorageValue: string | null = null;
+let orders: StoredOrder[] = normalizeOrders(mockOrders) as StoredOrder[];
 
-function readStoredOrders(): StoredOrder[] {
-  if (typeof window === "undefined") {
-    return defaultOrders;
-  }
-
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-
-    if (!stored) {
-      if (cachedStorageValue === null) {
-        return cachedOrders;
-      }
-
-      cachedOrders = defaultOrders;
-      cachedStorageValue = null;
-      return cachedOrders;
-    }
-
-    if (stored === cachedStorageValue) {
-      return cachedOrders;
-    }
-
-    const parsed = JSON.parse(stored) as StoredOrder[];
-    if (Array.isArray(parsed)) {
-      cachedOrders = normalizeOrders(parsed) as StoredOrder[];
-      cachedStorageValue = stored;
-      return cachedOrders;
-    }
-
-    cachedOrders = defaultOrders;
-    cachedStorageValue = null;
-    return cachedOrders;
-  } catch {
-    return cachedOrders;
-  }
+function getOrders(): StoredOrder[] {
+  return orders;
 }
 
-function writeStoredOrders(nextOrders: StoredOrder[]) {
-  if (typeof window === "undefined") {
-    return;
+function setOrders(nextOrders: StoredOrder[]) {
+  orders = normalizeOrders(nextOrders) as StoredOrder[];
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(STORE_EVENT));
   }
-
-  const normalizedOrders = normalizeOrders(nextOrders) as StoredOrder[];
-  const serialized = JSON.stringify(normalizedOrders);
-  cachedOrders = normalizedOrders;
-  cachedStorageValue = serialized;
-  window.localStorage.setItem(STORAGE_KEY, serialized);
-  window.dispatchEvent(new Event(STORE_EVENT));
 }
 
 function subscribe(listener: () => void) {
@@ -151,77 +93,37 @@ function subscribe(listener: () => void) {
     return () => undefined;
   }
 
-  const handleStorage = (event: StorageEvent) => {
-    if (event.key === STORAGE_KEY) {
-      listener();
-    }
-  };
-
   const handleStoreEvent = () => listener();
-
-  window.addEventListener("storage", handleStorage);
   window.addEventListener(STORE_EVENT, handleStoreEvent);
-
   return () => {
-    window.removeEventListener("storage", handleStorage);
     window.removeEventListener(STORE_EVENT, handleStoreEvent);
   };
 }
 
 export function getOrdersSnapshot() {
-  return readStoredOrders();
+  return getOrders();
 }
 
 export function useOrders() {
-  return useSyncExternalStore(subscribe, readStoredOrders, () => defaultOrders);
+  return useSyncExternalStore(subscribe, getOrders, () => normalizeOrders(mockOrders) as StoredOrder[]);
 }
 
 export function saveOrders(nextOrders: StoredOrder[]) {
-  writeStoredOrders(nextOrders);
+  setOrders(nextOrders);
 }
 
 export function appendOrders(newOrders: StoredOrder[]) {
-  const existingOrders = readStoredOrders();
-  writeStoredOrders([...newOrders, ...existingOrders]);
+  setOrders([...newOrders, ...getOrders()]);
 }
 
 export function upsertOrder(updatedOrder: StoredOrder) {
-  const existingOrders = readStoredOrders();
+  const existingOrders = getOrders();
   const normalizedOrder = normalizeOrder(updatedOrder) as StoredOrder;
   const nextOrders = existingOrders.some((order) => order.id === updatedOrder.id)
     ? existingOrders.map((order) => (order.id === updatedOrder.id ? normalizedOrder : order))
     : [normalizedOrder, ...existingOrders];
 
-  writeStoredOrders(nextOrders);
-}
-
-function resolveComplaintLineItems(order: StoredOrder, inputItems: RaiseComplaintInput["items"]): ComplaintLineItem[] {
-  return order.items.map((item) => {
-    const requestedItem = inputItems.find((entry) => entry.lineId === item.id);
-    const systemDeliveredQty = item.deliveredQuantity ?? item.quantity;
-    const actualReceivedQty = clampQuantity(requestedItem?.actualReceivedQty ?? systemDeliveredQty, item.quantity);
-
-    return {
-      lineId: item.id,
-      productCode: item.productCode,
-      productName: item.name,
-      poLineNumber: item.poLineNumber,
-      orderedQty: item.quantity,
-      systemDeliveredQty,
-      actualReceivedQty,
-      deltaQty: Math.max(systemDeliveredQty - actualReceivedQty, 0),
-    };
-  });
-}
-
-function createComplaintHistory(action: ComplaintHistoryEntry["action"], actor: string, note?: string) {
-  return {
-    id: `${action}-${Date.now()}`,
-    action,
-    actor,
-    timestamp: new Date().toISOString(),
-    note,
-  };
+  setOrders(nextOrders);
 }
 
 function clampQuantity(value: number, max: number) {
@@ -246,7 +148,7 @@ function createDoNumber(order: { id: string; createdDate: string }) {
 }
 
 export function generateLabelForItem(orderId: string, lineId: string): StoredPackagingLabel | null {
-  const existingOrders = readStoredOrders();
+  const existingOrders = getOrders();
   let generatedLabel: StoredPackagingLabel | null = null;
 
   const nextOrders: StoredOrder[] = existingOrders.map((order) => {
@@ -282,12 +184,12 @@ export function generateLabelForItem(orderId: string, lineId: string): StoredPac
     };
   });
 
-  writeStoredOrders(nextOrders);
+  setOrders(nextOrders);
   return generatedLabel;
 }
 
 export function generateBulkLabels(orderId: string): StoredPackagingLabel[] {
-  const existingOrders = readStoredOrders();
+  const existingOrders = getOrders();
   let generatedLabels: StoredPackagingLabel[] = [];
 
   const nextOrders: StoredOrder[] = existingOrders.map((order) => {
@@ -321,12 +223,12 @@ export function generateBulkLabels(orderId: string): StoredPackagingLabel[] {
     };
   });
 
-  writeStoredOrders(nextOrders);
+  setOrders(nextOrders);
   return generatedLabels;
 }
 
 export function regenerateDeliveryNote(orderId: string, scopeLineIds?: string[]): StoredDeliveryNoteRecord | null {
-  const existingOrders = readStoredOrders();
+  const existingOrders = getOrders();
   let generatedNote: StoredDeliveryNoteRecord | null = null;
 
   const nextOrders: StoredOrder[] = existingOrders.map((order) => {
@@ -353,12 +255,12 @@ export function regenerateDeliveryNote(orderId: string, scopeLineIds?: string[])
     return { ...order, storedDeliveryNotes: nextNotes };
   });
 
-  writeStoredOrders(nextOrders);
+  setOrders(nextOrders);
   return generatedNote;
 }
 
 export function createShipmentBatch(orderId: string, input: CreateShipmentBatchInput = {}): ShipmentBatch | null {
-  const existingOrders = readStoredOrders();
+  const existingOrders = getOrders();
   let createdBatch: ShipmentBatch | null = null;
 
   const nextOrders = existingOrders.map((order) => {
@@ -402,12 +304,12 @@ export function createShipmentBatch(orderId: string, input: CreateShipmentBatchI
     }) as StoredOrder;
   });
 
-  writeStoredOrders(nextOrders);
+  setOrders(nextOrders);
   return createdBatch;
 }
 
 export function dispatchShipmentBatch(orderId: string, batchId: string) {
-  const existingOrders = readStoredOrders();
+  const existingOrders = getOrders();
   const nextOrders = existingOrders.map((order) => {
     if (order.id !== orderId) return order;
 
@@ -424,11 +326,11 @@ export function dispatchShipmentBatch(orderId: string, batchId: string) {
     return normalizeOrder({ ...order, shipmentBatches }) as StoredOrder;
   });
 
-  writeStoredOrders(nextOrders);
+  setOrders(nextOrders);
 }
 
 export function uploadPodForShipmentBatch(orderId: string, batchId: string, input: PodUploadInput): DeliveryConfirmation | null {
-  const existingOrders = readStoredOrders();
+  const existingOrders = getOrders();
   let confirmation: DeliveryConfirmation | null = null;
 
   const nextOrders = existingOrders.map((order) => {
@@ -484,7 +386,7 @@ export function uploadPodForShipmentBatch(orderId: string, batchId: string, inpu
     return normalizeOrder({ ...order, items: updatedItems, shipmentBatches }) as StoredOrder;
   });
 
-  writeStoredOrders(nextOrders);
+  setOrders(nextOrders);
   return confirmation;
 }
 
@@ -526,7 +428,7 @@ export function createManualOrder(draft: ManualOrderDraft): StoredOrder {
 }
 
 export function startProduction(orderId: string) {
-  const existingOrders = readStoredOrders();
+  const existingOrders = getOrders();
   const nextOrders: StoredOrder[] = existingOrders.map((order) => {
     if (order.id !== orderId) {
       return order;
@@ -548,81 +450,5 @@ export function startProduction(orderId: string) {
     };
   });
 
-  writeStoredOrders(nextOrders);
-}
-
-export function raiseQuantityComplaint(orderId: string, input: RaiseComplaintInput) {
-  const existingOrders = readStoredOrders();
-  const nextOrders: StoredOrder[] = existingOrders.map((order) => {
-    if (order.id !== orderId) {
-      return order;
-    }
-
-    const complaintItems = resolveComplaintLineItems(order, input.items);
-    const complaint: OrderComplaint = {
-      id: `CMP-${order.id}-${Date.now().toString().slice(-6)}`,
-      status: "pending",
-      remarks: input.remarks,
-      createdAt: new Date().toISOString(),
-      createdBy: input.createdBy,
-      items: complaintItems,
-      history: [createComplaintHistory("created", input.createdBy, input.remarks)],
-    };
-
-    return {
-      ...order,
-      complaint,
-      complaintStatus: "pending" as ComplaintStatus,
-      revisionStatus: "pending" as ComplaintStatus,
-    };
-  });
-
-  writeStoredOrders(nextOrders);
-}
-
-export function resolveQuantityComplaint(orderId: string, input: ResolveComplaintInput) {
-  const existingOrders = readStoredOrders();
-  const nextOrders: StoredOrder[] = existingOrders.map((order) => {
-    if (order.id !== orderId || !order.complaint) {
-      return order;
-    }
-
-    const nextComplaint: OrderComplaint = {
-      ...order.complaint,
-      status: input.decision,
-      reviewedAt: new Date().toISOString(),
-      reviewedBy: input.reviewedBy,
-      reviewNote: input.reviewNote,
-      history: [
-        ...order.complaint.history,
-        createComplaintHistory(input.decision === "approved" ? "approved" : "rejected", input.reviewedBy, input.reviewNote),
-      ],
-    };
-
-    const updatedItems =
-      input.decision === "approved"
-        ? order.items.map((item) => {
-            const complaintLine = nextComplaint.items.find((entry) => entry.lineId === item.id);
-
-            if (!complaintLine) {
-              return item;
-            }
-
-            return {
-              ...item,
-              deliveredQuantity: complaintLine.actualReceivedQty,
-            };
-          })
-        : order.items;
-
-    return {
-      ...order,
-      items: updatedItems,
-      complaint: nextComplaint,
-      complaintStatus: input.decision as ComplaintStatus,
-      revisionStatus: input.decision as ComplaintStatus,
-    };
-  });
-
-  writeStoredOrders(nextOrders);
+  setOrders(nextOrders);
 }

@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ProductionStatusBadge, DistributionStatusBadge } from "@/components/domain/badges/badges";
 import { cn } from "@/lib/utils";
 import { useOrderRequests } from "@/lib/v2/orderRequestStore";
 import { useOrderListRows } from "@/lib/v2/selectors/viewModels";
@@ -159,10 +159,10 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
                           <div className="truncate">{row.projectName}</div>
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
-                          <StatusBadge status={row.productionStatus} />
+                          <ProductionStatusBadge status={row.productionStatus} />
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
-                          <StatusBadge status={row.distributionStatus} />
+                          <DistributionStatusBadge status={row.distributionStatus} />
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-sm">
                           <span className="font-medium text-foreground">{row.deliveryProgressPercent}%</span>

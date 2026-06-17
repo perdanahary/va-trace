@@ -34,7 +34,7 @@ export interface SalesPointDeliveryProfile extends SalesPointMapping {
   picClient: string;
 }
 
-export interface DeliveryNoteLine {
+interface DeliveryNoteLine {
   id: string;
   poLineNumber: string;
   materialCode: string;
@@ -48,7 +48,7 @@ export interface DeliveryNoteLine {
   outstandingAreaText?: string;
 }
 
-export interface DeliveryNote {
+interface DeliveryNote {
   id: string;
   orderId: string;
   shipmentBatchId?: string;
@@ -69,7 +69,7 @@ export interface DeliveryNote {
   missingRequiredFields: string[];
 }
 
-export interface PackagingLabel {
+interface PackagingLabel {
   id: string;
   lineId: string;
   labelCode: string;
@@ -88,7 +88,7 @@ export interface PackagingLabel {
   projectName: string;
 }
 
-export interface PackagingLabelsDocument {
+interface PackagingLabelsDocument {
   orderId: string;
   doNumber: string;
   senderProfile: CompanyProfile;
@@ -311,140 +311,6 @@ function getSenderProfile(supplierName: string): CompanyProfile {
 // These now read from stored labels when available.
 // ============================================================
 
-export function generateDeliveryNote(order: Order): DeliveryNote {
-  const deliverySnapshot = getSalesPointDeliveryProfile(order.salesPointId);
-  const senderProfile = getSenderProfile(order.supplier);
-  const doNumber = createDoNumber(order);
-  const shipmentBatch = order.shipmentBatches[0];
-  const storedBatchNote = shipmentBatch
-    ? order.storedDeliveryNotes.find((note) => note.shipmentBatchId === shipmentBatch.id)
-    : undefined;
-  const generatedBatchNote = shipmentBatch
-    ? buildDeliveryNoteRecordFromShipmentBatch(order, shipmentBatch, storedBatchNote?.doNumber ?? doNumber, deliverySnapshot)
-    : undefined;
-
-  // Use stored labels as source of truth if available
-  const storedLabels = order.storedLabels ?? [];
-  const lines = order.items.map((item) => {
-    const product = mockProducts.find((entry) => entry.code === item.productCode);
-    const storedLabel = storedLabels.find((l) => l.lineId === item.id && (!shipmentBatch || l.shipmentBatchId === shipmentBatch.id));
-    const batchItem = shipmentBatch?.items.find((entry) => entry.orderLineId === item.id);
-    const batchLine = generatedBatchNote?.lines.find((entry) => entry.id === item.id);
-    const deliveredQty = batchLine?.deliveredQty ?? batchItem?.quantity ?? storedLabel?.deliveredQty ?? item.deliveredQuantity ?? 0;
-    const areaText = getAreaText(product?.dimensions, deliveredQty);
-
-    return {
-      id: item.id,
-      poLineNumber: item.poLineNumber,
-      materialCode: item.productCode,
-      description: product?.name ?? item.name,
-      orderedQty: item.quantity,
-      deliveredQty,
-      outstandingQty: Math.max(item.quantity - deliveredQty, 0),
-      uom: "Pcs",
-      orderedAreaText: getAreaText(product?.dimensions, item.quantity),
-      deliveredAreaText: areaText,
-      outstandingAreaText: getAreaText(product?.dimensions, Math.max(item.quantity - deliveredQty, 0)),
-    };
-  });
-
-  return {
-    id: doNumber,
-    orderId: order.id,
-    shipmentBatchId: shipmentBatch?.id,
-    status: generatedBatchNote?.status,
-    doNumber,
-    barcodeValue: doNumber,
-    qrPayload: `va-trace://delivery-note/${doNumber}`,
-    poNumber: order.clientPO,
-    soNumber: order.soNumber,
-    projectName: order.campaign ?? "",
-    senderProfile,
-    hhGlobalContacts,
-    deliverySnapshot,
-    lines,
-    note: "Tim Area WAJIB melakukan GR CPT dan COUPA.",
-    deliveredBy: { date: "", name: "" },
-    receivedBy: { date: "", name: "" },
-    missingRequiredFields: getMissingRequiredFields(order, deliverySnapshot),
-  };
-}
-
-export function generatePackagingLabels(order: Order): PackagingLabelsDocument {
-  const deliverySnapshot = getSalesPointDeliveryProfile(order.salesPointId);
-  const senderProfile = getSenderProfile(order.supplier);
-  const doNumber = createDoNumber(order);
-
-  // Use stored labels as source of truth when available
-  const storedLabels = order.storedLabels ?? [];
-  const labels: PackagingLabel[] = [];
-
-  const processedLineIds = new Set<string>();
-
-  // First: use stored labels
-  for (const stored of storedLabels) {
-    processedLineIds.add(stored.lineId);
-    labels.push({
-      id: stored.id,
-      lineId: stored.lineId,
-      labelCode: stored.labelCode,
-      qrPayload: stored.qrPayload,
-      orderId: stored.orderId,
-      doNumber: stored.doNumber,
-      poLineNumber: stored.poLineNumber,
-      productCode: stored.productCode,
-      productName: stored.productName,
-      deliveredQty: stored.deliveredQty,
-      uom: stored.uom,
-      destinationCompanyName: stored.destinationCompanyName,
-      destinationLocationName: stored.destinationLocationName,
-      destinationAddress: stored.destinationAddress,
-      salesPointCode: stored.salesPointCode,
-      projectName: stored.projectName,
-    });
-  }
-
-  // Fallback: for items with delivered qty > 0 but no stored label yet
-  for (const item of order.items) {
-    if (processedLineIds.has(item.id)) continue;
-  const deliveredQty = item.deliveredQuantity ?? item.quantity;
-    if (deliveredQty <= 0) continue;
-
-    const labelCode = `${doNumber}-${item.poLineNumber.padStart(3, "0")}`;
-    labels.push({
-      id: labelCode,
-      lineId: item.id,
-      labelCode,
-      qrPayload: `va-trace://packaging-label/${doNumber}/${item.id}`,
-      orderId: order.id,
-      doNumber,
-      poLineNumber: item.poLineNumber,
-      productCode: item.productCode,
-      productName: item.name,
-      deliveredQty,
-      uom: "Pcs",
-      destinationCompanyName: deliverySnapshot.deliveryCompanyName,
-      destinationLocationName: deliverySnapshot.deliveryLocationName,
-      destinationAddress: deliverySnapshot.address,
-      salesPointCode: deliverySnapshot.wcode,
-      projectName: order.campaign ?? "",
-    });
-  }
-
-  return {
-    orderId: order.id,
-    doNumber,
-    senderProfile,
-    deliverySnapshot,
-    labels,
-    missingRequiredFields: getMissingRequiredFields(order, deliverySnapshot),
-  };
-}
-
-export function getDeliveryNoteByOrderId(orderId: string) {
-  const order = getOrdersSnapshot().find((entry) => entry.id === orderId);
-  return order ? generateDeliveryNote(order) : null;
-}
 
 function getMissingRequiredFields(order: Order, salesPoint: SalesPointDeliveryProfile) {
   const missing: string[] = [];

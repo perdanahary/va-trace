@@ -90,7 +90,7 @@ export function productionStatusFromLegacyItemStatus(status: LegacyOrderStatus):
   switch (status) {
     case "New":
     case "Waiting":
-      return "NEW";
+      return "SUBMITTED";
     case "In Production":
       return "PRINTING";
     case "Ready to Ship":

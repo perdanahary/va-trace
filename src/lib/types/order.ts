@@ -19,40 +19,6 @@ export interface OrderLine extends OrderItemProgress {
 
 export type LabelStatus = "none" | "partial" | "all";
 
-export type ComplaintStatus = "pending" | "approved" | "rejected";
-
-export interface ComplaintLineItem {
-  lineId: string;
-  productCode: string;
-  productName: string;
-  poLineNumber: string;
-  orderedQty: number;
-  systemDeliveredQty: number;
-  actualReceivedQty: number;
-  deltaQty: number;
-}
-
-export interface ComplaintHistoryEntry {
-  id: string;
-  action: "created" | "approved" | "rejected" | "quantity-adjusted";
-  actor: string;
-  timestamp: string;
-  note?: string;
-}
-
-export interface OrderComplaint {
-  id: string;
-  status: ComplaintStatus;
-  remarks: string;
-  createdAt: string;
-  createdBy: string;
-  reviewedAt?: string;
-  reviewedBy?: string;
-  reviewNote?: string;
-  items: ComplaintLineItem[];
-  history: ComplaintHistoryEntry[];
-}
-
 export interface SalesPointAllocation {
   id: string;
   orderId: string;
@@ -94,9 +60,6 @@ export interface Order {
   productionJobs: ProductionJob[];
   allocations: SalesPointAllocation[];
   shipmentBatches: ShipmentBatch[];
-  complaint?: OrderComplaint;
-  complaintStatus?: ComplaintStatus;
-  revisionStatus?: ComplaintStatus;
   note?: string;
   labelStatus: LabelStatus;
   labelGeneratedAt?: string;

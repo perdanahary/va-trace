@@ -155,7 +155,7 @@ function vendorReference(supplierName: string): VendorReference {
   if (supplier) {
     return { id: supplier.id, name: supplier.name };
   }
-  return { id: `vendor_${slug(supplierName || "unassigned")}`, name: supplierName || "Unassigned" };
+  throw new Error(`Unknown vendor: "${supplierName}". Cannot seed order: vendor must match a registered supplier.`);
 }
 
 function clientReference(order: StoredOrder): ClientReference {
@@ -695,6 +695,118 @@ export function buildV2SeedData(): V2SeedData {
       version: 1,
     });
   }
+
+  // === New Order After Order Request (direct V2 seed — not migrated from legacy) ===
+  const newOrderRequestId = "OR-2026-300001";
+  const newOrderAudit = migrationAudit("2026-06-17T00:00:00.000Z");
+  const newOrderClient: ClientReference = { id: "CUS-SAMPOERNA", name: "Sampoerna" };
+  const newOrderProject: ProjectReference = { id: "project_c1-2026-tposm-poster-a3", name: "C1 - 2026 - TPOSM - Poster - A3 Size - Art Paper 150gsm - DSE12 25K (May)", clientId: newOrderClient.id };
+  const newOrderVendor: VendorReference = { id: "SUP-004", name: "PT. HH Global Services Indonesia" };
+  const newOrderSalesPoint = resolveSalesPoint("WH020");
+
+  const newOrderItems: OrderItem[] = [
+    {
+      id: `${newOrderRequestId}::item-nr-01`,
+      orderRequestId: newOrderRequestId,
+      lineNumber: 1,
+      product: productReference("2026-00195039-0030", "TPOSM - Poster - A3 Size - Art Paper 150gsm - DSE12 25K"),
+      description: "TPOSM - Poster - A3 Size - Art Paper 150gsm - DSE12 25K",
+      orderedQuantity: 500,
+      unitOfMeasure: "PCS",
+      productionStatus: "NEW",
+      productionReadyQuantity: 0,
+      productionCompletedQuantity: 0,
+      allocatedQuantity: 0,
+      shippedQuantity: 0,
+      receivedQuantity: 0,
+      remainingToAllocateQuantity: 500,
+    },
+    {
+      id: `${newOrderRequestId}::item-nr-02`,
+      orderRequestId: newOrderRequestId,
+      lineNumber: 2,
+      product: productReference("2026-00195039-0031", "GT SRC - Poster - A2 Size - Art Paper 150gsm - DSE12 25K"),
+      description: "GT SRC - Poster - A2 Size - Art Paper 150gsm - DSE12 25K",
+      orderedQuantity: 250,
+      unitOfMeasure: "PCS",
+      productionStatus: "NEW",
+      productionReadyQuantity: 0,
+      productionCompletedQuantity: 0,
+      allocatedQuantity: 0,
+      shippedQuantity: 0,
+      receivedQuantity: 0,
+      remainingToAllocateQuantity: 250,
+    },
+  ];
+
+  for (const item of newOrderItems) {
+    productionJobs.push({
+      id: `${item.id}::job`,
+      jobNumber: `JOB-${newOrderRequestId.replace(/^OR-/, "")}-${String(item.lineNumber).padStart(2, "0")}`,
+      orderRequestId: newOrderRequestId,
+      orderItemId: item.id,
+      vendorId: "SUP-004",
+      status: "NEW",
+      orderedQuantity: item.orderedQuantity,
+      producedQuantity: 0,
+      qcPassedQuantity: 0,
+      readyQuantity: 0,
+      reservedForShipmentQuantity: 0,
+      completedQuantity: 0,
+      reworkQuantity: 0,
+      rejectedQuantity: 0,
+      attachmentFileAssetIds: [],
+      exceptionIds: [],
+      audit: newOrderAudit,
+      version: 1,
+    });
+  }
+
+  orderRequests.push({
+    id: newOrderRequestId,
+    orderRequestNumber: newOrderRequestId,
+    clientPoNumber: "30001001",
+    tags: ["New Order", "Poster"],
+    referenceLink: { url: "https://example.com/orders/OR-2026-300001", displayTitle: "Order request brief" },
+    client: newOrderClient,
+    project: newOrderProject,
+    vendor: newOrderVendor,
+    requester: { userId: "user_sampoerna", name: "", email: "", role: "CLIENT", organizationName: "PT HM Sampoerna Tbk" },
+    source: "ADMIN_CREATE",
+    priority: "NORMAL",
+    productionStatus: "NEW",
+    distributionStatus: "NOT_STARTED",
+    deadlineDate: "2026-07-22",
+    remarks: undefined,
+    externalReferences: [{ type: "SALES_ORDER", value: "SO300001", sourceSystem: "MANUAL" }],
+    items: newOrderItems,
+    allocationIds: [],
+    quantitySummary: {
+      orderedQuantity: 750,
+      allocatedQuantity: 0,
+      shippedQuantity: 0,
+      receivedQuantity: 0,
+      outstandingToShipQuantity: 0,
+      outstandingToReceiveQuantity: 0,
+      productionReadyQuantity: 0,
+      productionCompletionPercent: 0,
+      deliveryProgressPercent: 0,
+      salesPointCount: 0,
+      salesPointsFullyReceived: 0,
+      openPodIssueCount: 0,
+    },
+    documentSummary: {
+      shipmentBatchCount: 0,
+      deliveryNoteCount: 0,
+      printedDeliveryNoteCount: 0,
+      uploadedPodCount: 0,
+      verifiedPodCount: 0,
+      missingPodCount: 0,
+    },
+    exceptionSummary: { hasException: false, exceptionCount: 0 },
+    audit: newOrderAudit,
+    version: 1,
+  });
 
   cachedSeed = {
     salesPoints,

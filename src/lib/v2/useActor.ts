@@ -24,6 +24,7 @@ export function useActor(roleHint: string, sourceScreen?: string): Actor {
     return {
       userId: currentUser?.id ?? `demo-${roleHint}`,
       role,
+      vendorId: role === "VENDOR" ? currentUser?.supplierId : undefined,
       sourceScreen,
     };
   }, [currentUser, roleHint, sourceScreen]);

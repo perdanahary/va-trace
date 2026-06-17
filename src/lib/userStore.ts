@@ -11,13 +11,15 @@ export interface AppUser {
   role: UserRole;
   company: string;
   status: 'Active' | 'Inactive';
+  /** Links a vendor user to their supplier record for scoped API commands. */
+  supplierId?: string;
 }
 
 const STORAGE_KEY = 'va-trace-users';
 const USERS_UPDATED_EVENT = "va-trace-users-updated";
 
 const initialUsers: AppUser[] = [
-  { id: '1', name: "Marco Polo", email: "marco@officebee.co", role: "vendor", company: "CV Cetakan Terbaik", status: "Active" },
+  { id: '1', name: "Marco Polo", email: "marco@officebee.co", role: "vendor", company: "CV Cetakan Terbaik", status: "Active", supplierId: "SUP-002" },
   { id: '2', name: "John Brand", email: "john@client.com", role: "client", company: "PT HM Sampoerna Tbk", status: "Active" },
   { id: '3', name: "Sarah Admin", email: "sarah@officebee.co", role: "admin", company: "Officebee HQ", status: "Active" },
   { id: '4', name: "Dev Vendor", email: "dev@vendor.co", role: "vendor", company: "PT Multi Print", status: "Inactive" },

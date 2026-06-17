@@ -47,7 +47,7 @@ export function buildOrderListRowsFromStoredOrders(orders: StoredOrder[], rolePr
           ).length,
         0,
       ),
-      hasException: order.distributionStatus === "EXCEPTION" || Boolean(order.complaint),
+      hasException: order.distributionStatus === "EXCEPTION",
       legacyStatusLabel: order.status,
       actionTargets: {
         detailPath: `${rolePrefix}/orders/${order.id}`,
