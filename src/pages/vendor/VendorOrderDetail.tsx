@@ -207,6 +207,7 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
   }, [isProductionPhase, activeTab]);
 
   const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
+  const [isJobsPickerOpen, setIsJobsPickerOpen] = useState(false);
   const [openJobId, setOpenJobId] = useState<string | null>(null);
   const [targetStatus, setTargetStatus] = useState<ProductionStatus>("PRINTING");
   const [producedQty, setProducedQty] = useState(0);
@@ -527,39 +528,17 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
 
       return (
         <>
-          {singleActiveJob ? (
-            <Button size={size} onClick={() => handleOpenUpdateDialog(singleActiveJob.id)}>
-              <Factory className="mr-2 h-4 w-4" />
-              Update Production
-            </Button>
-          ) : activeJobs.length > 1 ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size={size}>
-                  <Factory className="mr-2 h-4 w-4" />
-                  Update Production
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                {activeJobs.map((job) => {
-                  const item = hydrated?.order.items.find((entry) => entry.id === job.orderItemId);
-                  return (
-                    <DropdownMenuItem key={job.id} onSelect={() => handleOpenUpdateDialog(job.id)}>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">{job.jobNumber}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {item?.description ?? "—"} · {formatStatusLabel(job.status)}
-                        </span>
-                      </div>
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
-          <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-processing/20 bg-processing/5 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-processing/70">
-            Production ongoing
-          </span>
+          <Button
+            size={size}
+            onClick={() =>
+              singleActiveJob
+                ? handleOpenUpdateDialog(singleActiveJob.id)
+                : setIsJobsPickerOpen(true)
+            }
+          >
+            <Factory className="mr-2 h-4 w-4" />
+            Update Production
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size={size}>
@@ -1554,6 +1533,62 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
         preselectedAllocationIds={preselectedAllocationIds}
       />
 
+      <Dialog open={isJobsPickerOpen} onOpenChange={setIsJobsPickerOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Production Jobs</DialogTitle>
+            <DialogDescription>
+              Select a job to update its production progress.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-auto -mx-6 px-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Job</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="text-right">Ordered</TableHead>
+                  <TableHead className="text-right">Ready</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {hydrated.productionJobs
+                  .filter((j) => j.status !== "COMPLETED" && j.status !== "CANCELLED")
+                  .map((job) => {
+                    const item = hydrated.order.items.find((entry) => entry.id === job.orderItemId);
+                    return (
+                      <TableRow key={job.id}>
+                        <TableCell className="font-mono text-xs">{job.jobNumber}</TableCell>
+                        <TableCell className="text-sm">{item?.description ?? job.orderItemId}</TableCell>
+                        <TableCell className="text-right text-sm tabular-nums">{job.orderedQuantity}</TableCell>
+                        <TableCell className="text-right text-sm tabular-nums">{job.readyQuantity}</TableCell>
+                        <TableCell>
+                          <ProductionStatusBadge status={job.status} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            className="h-7 px-2 font-semibold text-link hover:bg-link/10"
+                            onClick={() => {
+                              setIsJobsPickerOpen(false);
+                              handleOpenUpdateDialog(job.id);
+                            }}
+                          >
+                            Update
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={Boolean(openJob)} onOpenChange={(open) => !open && setOpenJobId(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1917,7 +1952,7 @@ function KeyMetric({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="mt-2 text-2xl font-semibold tracking-tight">{value}</p>
+      <p className="mt-2 text-2xl font-medium tracking-tight">{value}</p>
     </div>
   );
 }
