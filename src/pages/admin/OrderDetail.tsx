@@ -373,15 +373,12 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
 
                     <Card className="border-border/70 shadow-sm">
                       <CardHeader className="border-b bg-muted/20">
-                        <CardTitle>{isProductionPhase ? "Production Pipeline" : "Delivery Progress"}</CardTitle>
-                        <CardDescription>
-                          {isProductionPhase
-                            ? "Current production stage and readiness."
-                            : "Order-level shipment and receipt progress."}
-                        </CardDescription>
+                        <CardTitle className="text-xl">
+                          {isProductionPhase ? "Production Pipeline" : "Delivery Progress"}
+                        </CardTitle>
                       </CardHeader>
                       <CardContent className="flex flex-col items-center p-5">
-                        <div className="w-full max-w-2xl">
+                        <div className="w-full">
                           {isProductionPhase ? (
                             <ProductionPipelineStepper
                               productionStatus={hydrated.productionStatus}
@@ -393,6 +390,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                               receivedQuantity={viewModel.order.quantitySummary.receivedQuantity}
                               allocatedQuantity={viewModel.order.quantitySummary.allocatedQuantity}
                               shippedQuantity={viewModel.order.quantitySummary.shippedQuantity}
+                              className="w-full"
                             />
                           )}
                         </div>
