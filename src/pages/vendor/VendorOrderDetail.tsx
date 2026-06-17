@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -136,6 +136,7 @@ const TABLE_LINK_CLASS = "text-link hover:underline";
 
 export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProps) {
   const { id } = useParams();
+  const navigate = useNavigate();
   const hydrated = useHydratedOrder(id);
   const legacyComplaint = useLegacyComplaintAdapter(hydrated?.order.id);
   const actor = useActor(userRole, "vendor-order-detail");
@@ -754,34 +755,35 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
 
                     {viewModel.workflowBatch ? (
                       <Card className="border-border/70 shadow-sm">
+                        <CardHeader className="border-b bg-muted/20">
+                          <div className="flex items-center justify-between">
+                            <CardTitle>Active Shipment Batch</CardTitle>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-2 text-sm font-medium text-link hover:underline"
+                              onClick={() => navigate(`/${userRole}/shipments/${viewModel.workflowBatch.id}`)}
+                            >
+                              Open Batch
+                              <ArrowRight className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </CardHeader>
                         <CardContent className="p-5">
-                          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                            <div className="space-y-5">
-                              <div className="flex flex-wrap items-center gap-3">
-                                <h2 className="text-xl font-semibold">Active Shipment Batch</h2>
-                                <Link
-                                  to={`/${userRole}/shipments/${viewModel.workflowBatch.id}`}
-                                  className={TABLE_LINK_CLASS}
-                                >
-                                  {viewModel.workflowBatch.batchNumber}
-                                </Link>
-                                <ShipmentBatchStatusBadge status={viewModel.workflowBatch.status} />
-                              </div>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <Link
+                              to={`/${userRole}/shipments/${viewModel.workflowBatch.id}`}
+                              className={TABLE_LINK_CLASS}
+                            >
+                              {viewModel.workflowBatch.batchNumber}
+                            </Link>
+                            <ShipmentBatchStatusBadge status={viewModel.workflowBatch.status} />
+                          </div>
 
-                              <div className="grid gap-4 sm:grid-cols-4">
-                                <KeyMetric label="Shipped" value={`${viewModel.workflowBatch.quantitySummary.shippedQuantity} pcs`} />
-                                <KeyMetric label="Received" value={`${viewModel.workflowBatch.quantitySummary.verifiedReceivedQuantity} pcs`} />
-                                <KeyMetric label="Status" value={formatBatchStatusLabel(viewModel.workflowBatch.status)} />
-                                <KeyMetric label="POD" value={formatPodLabel(hydrated.podStatus)} />
-                              </div>
-                            </div>
-
-                            <Button asChild variant="outline" className="self-start rounded-xl">
-                              <Link to={`/${userRole}/shipments/${viewModel.workflowBatch.id}`}>
-                                Open Batch
-                                <ArrowRight className="h-4 w-4" />
-                              </Link>
-                            </Button>
+                          <div className="mt-4 grid gap-4 sm:grid-cols-4">
+                            <KeyMetric label="Shipped" value={`${viewModel.workflowBatch.quantitySummary.shippedQuantity} pcs`} />
+                            <KeyMetric label="Received" value={`${viewModel.workflowBatch.quantitySummary.verifiedReceivedQuantity} pcs`} />
+                            <KeyMetric label="Status" value={formatBatchStatusLabel(viewModel.workflowBatch.status)} />
+                            <KeyMetric label="POD" value={formatPodLabel(hydrated.podStatus)} />
                           </div>
                         </CardContent>
                       </Card>
