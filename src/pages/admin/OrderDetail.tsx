@@ -412,7 +412,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                             <button
                               type="button"
                               className="inline-flex items-center gap-2 text-sm font-medium text-link hover:underline"
-                              onClick={() => navigate(`/${userRole}/shipments/${viewModel.workflowBatch.id}`)}
+                              onClick={() => navigate(`/${userRole}/shipments/${viewModel.workflowBatch!.id}`)}
                             >
                               Open Batch
                               <ArrowRight className="h-4 w-4" />

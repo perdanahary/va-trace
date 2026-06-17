@@ -768,7 +768,7 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                       </CardContent>
                     </Card>
 
-                    {viewModel.workflowBatch ? (
+                    {viewModel.workflowBatch && (
                       <Card className="border-border/70 shadow-sm">
                         <CardHeader className="border-b bg-muted/20">
                           <div className="flex items-center justify-between">
@@ -776,7 +776,7 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                             <button
                               type="button"
                               className="inline-flex items-center gap-2 text-sm font-medium text-link hover:underline"
-                              onClick={() => navigate(`/${userRole}/shipments/${viewModel.workflowBatch.id}`)}
+                              onClick={() => navigate(`/${userRole}/shipments/${viewModel.workflowBatch!.id}`)}
                             >
                               Open Batch
                               <ArrowRight className="h-4 w-4" />
@@ -802,7 +802,7 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                           </div>
                         </CardContent>
                       </Card>
-                    ) : null}
+                    )}
 
                   </TabsContent>
 
