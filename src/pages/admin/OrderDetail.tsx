@@ -141,7 +141,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
     [hydrated],
   );
   const isProductionPhase = hydrated
-    ? hydrated.distributionStatus === "NOT_STARTED" && totalReadyQty === 0
+    ? hydrated.productionStatus !== "COMPLETED" && hydrated.productionStatus !== "CANCELLED"
     : false;
 
   const canCreateBatch =
@@ -384,7 +384,11 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                       <CardContent className="flex flex-col items-center p-5">
                         <div className="w-full max-w-2xl">
                           {isProductionPhase ? (
-                            <ProductionPipelineStepper productionStatus={hydrated.productionStatus} className="w-full justify-center" />
+                            <ProductionPipelineStepper
+                              productionStatus={hydrated.productionStatus}
+                              jobStatuses={hydrated.productionJobs.map((j) => j.status)}
+                              className="w-full justify-center"
+                            />
                           ) : (
                             <DeliveryProgressBar
                               receivedQuantity={viewModel.order.quantitySummary.receivedQuantity}
@@ -1266,7 +1270,7 @@ function buildFocusCard(
   exceptionState: ExceptionState,
 ) {
   const totalReadyQty = hydrated.productionJobs.reduce((sum, job) => sum + job.readyQuantity, 0);
-  const inProductionPhase = hydrated.distributionStatus === "NOT_STARTED" && totalReadyQty === 0;
+  const inProductionPhase = hydrated.productionStatus !== "COMPLETED" && hydrated.productionStatus !== "CANCELLED";
 
   if (inProductionPhase) {
     return {

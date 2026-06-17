@@ -29,14 +29,28 @@ function resolveActiveStep(productionStatus: ProductionStatus): number {
 
 interface ProductionPipelineStepperProps {
   productionStatus: ProductionStatus;
+  jobStatuses?: ProductionStatus[];
   className?: string;
+}
+
+function buildStepJobCounts(jobStatuses: ProductionStatus[]): Record<StepKey, number> {
+  const counts: Record<string, number> = {};
+  for (const status of jobStatuses) {
+    const stepKey = PRODUCTION_STEP_MAP[status] ?? "SUBMITTED";
+    counts[stepKey] = (counts[stepKey] ?? 0) + 1;
+  }
+  return counts as Record<StepKey, number>;
 }
 
 export function ProductionPipelineStepper({
   productionStatus,
+  jobStatuses,
   className,
 }: ProductionPipelineStepperProps) {
   const activeIndex = resolveActiveStep(productionStatus);
+  const stepCounts = jobStatuses ? buildStepJobCounts(jobStatuses) : undefined;
+  const hasMultipleJobs = jobStatuses && jobStatuses.length > 1;
+  const isSplit = hasMultipleJobs && Object.keys(stepCounts!).length > 1;
 
   return (
     <div className={cn("flex items-start gap-0", className)}>
@@ -44,6 +58,7 @@ export function ProductionPipelineStepper({
         const isCompleted = index < activeIndex;
         const isActive = index === activeIndex;
         const isFuture = index > activeIndex;
+        const count = stepCounts?.[step.key] ?? 0;
 
         return (
           <div key={step.key} className="flex items-start">
@@ -72,6 +87,16 @@ export function ProductionPipelineStepper({
               >
                 {step.label}
               </span>
+              {isSplit && count > 0 ? (
+                <span
+                  className={cn(
+                    "text-[10px] font-semibold tabular-nums",
+                    isActive ? "text-processing" : isCompleted ? "text-success" : "text-muted-foreground",
+                  )}
+                >
+                  {count} {count === 1 ? "job" : "jobs"}
+                </span>
+              ) : null}
             </div>
             {index < STEPS.length - 1 ? (
               <div

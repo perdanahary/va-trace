@@ -23,8 +23,7 @@ import {
 } from "@/components/ui/table";
 import { ProductionStatusBadge, DistributionStatusBadge } from "@/components/domain/badges/badges";
 import { cn } from "@/lib/utils";
-import { useOrderRequests } from "@/lib/v2/orderRequestStore";
-import { useOrderListRows } from "@/lib/v2/selectors/viewModels";
+import { useHydratedOrders, useOrderListRows } from "@/lib/v2/selectors/viewModels";
 
 interface AdminDashboardProps {
   userRole?: UserRole;
@@ -32,7 +31,7 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
   const navigate = useNavigate();
-  const orders = useOrderRequests();
+  const hydratedOrders = useHydratedOrders();
   const rows = useOrderListRows(`/${userRole}`);
 
   const metrics = useMemo(() => {
@@ -40,22 +39,23 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
     const normalize = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const today = normalize(now);
 
-    const activeOrders = orders.filter((o) => o.productionStatus !== "COMPLETED").length;
+    const activeOrders = hydratedOrders.filter((entry) => entry.order.productionStatus !== "COMPLETED").length;
 
-    const atRisk = orders.filter((o) => {
-      if (o.productionStatus === "COMPLETED" && o.distributionStatus === "FULLY_RECEIVED") return false;
-      const parsed = new Date(o.deadlineDate);
+    const atRisk = hydratedOrders.filter((entry) => {
+      const { order } = entry;
+      if (order.productionStatus === "COMPLETED" && order.distributionStatus === "FULLY_RECEIVED") return false;
+      const parsed = new Date(order.deadlineDate);
       if (Number.isNaN(parsed.getTime())) return false;
       const diff = Math.round((normalize(parsed).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
       return diff >= 0 && diff <= 3;
     }).length;
 
-    const completed = orders.filter(
-      (o) => o.productionStatus === "COMPLETED" && o.distributionStatus === "FULLY_RECEIVED",
+    const completed = hydratedOrders.filter(
+      (entry) => entry.order.productionStatus === "COMPLETED" && entry.order.distributionStatus === "FULLY_RECEIVED",
     ).length;
 
-    const thisMonth = orders.filter((o) => {
-      const created = new Date(o.audit.createdAt);
+    const thisMonth = hydratedOrders.filter((entry) => {
+      const created = new Date(entry.order.audit.createdAt);
       return !Number.isNaN(created.getTime()) && created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
     }).length;
 
@@ -65,7 +65,7 @@ export function AdminDashboard({ userRole = "admin" }: AdminDashboardProps) {
       { label: "Completed", value: String(completed), change: "Completed orders", color: "text-success" },
       { label: "Work Volume This Month", value: String(thisMonth), change: "Orders this month", color: "text-primary" },
     ];
-  }, [orders]);
+  }, [hydratedOrders]);
 
   const getHeaderTitle = () => {
     switch (userRole) {
