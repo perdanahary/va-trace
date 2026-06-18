@@ -325,11 +325,14 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
     }
 
     if (isProductionPhase) {
-      const activeJobs = hydrated?.productionJobs.filter(
-        (j) => j.status !== "COMPLETED" && j.status !== "CANCELLED",
-      ) ?? [];
       return (
         <>
+          {canCreateBatch ? (
+            <Button size={size} onClick={() => openBatchDialog()}>
+              <Package className="mr-2 h-4 w-4" />
+              Create Shipment Batch
+            </Button>
+          ) : null}
           <Button size={size} asChild>
             <Link to={`/${userRole}/orders/${hydrated?.order.id}/production`}>
               <Factory className="mr-2 h-4 w-4" />
@@ -459,6 +462,14 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                       {viewModel.summaryStats.map((stat) => (
                         <OverviewStat key={stat.label} label={stat.label} value={stat.value} hint={stat.hint} color={stat.color} />
                       ))}
+                      {isProductionPhase && totalReadyQty > 0 ? (
+                        <OverviewStat
+                          label="Ready for Shipping"
+                          value={`${totalReadyQty} pcs`}
+                          hint={`${Math.round((totalReadyQty / viewModel.order.quantitySummary.orderedQuantity) * 100)}% of ordered`}
+                          color="text-success"
+                        />
+                      ) : null}
                     </div>
 
                     <Card className="border-border/70 shadow-sm">
@@ -496,58 +507,89 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
 
                         {isProductionPhase ? (
                           <div className="mt-5 border-t border-border/60 pt-5">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Job</TableHead>
-                                  <TableHead>Product</TableHead>
-                                  <TableHead className="text-right">Ordered</TableHead>
-                                  <TableHead className="text-right">Ready</TableHead>
-                                  <TableHead>Status</TableHead>
-                                  <TableHead className="text-right" />
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {recentJobs.length === 0 ? (
-                                  <TableRow>
-                                    <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-                                      No production jobs have been generated yet.
-                                    </TableCell>
-                                  </TableRow>
-                                ) : (
-                                  recentJobs.map((job) => {
-                                    const item = hydrated.order.items.find((entry) => entry.id === job.orderItemId);
-                                    return (
-                                      <TableRow key={job.id}>
-                                        <TableCell className="font-mono text-xs">
-                                          {job.jobNumber}
-                                        </TableCell>
-                                        <TableCell className="text-sm">{item?.description ?? job.orderItemId}</TableCell>
-                                        <TableCell className="text-right text-sm tabular-nums">{job.orderedQuantity}</TableCell>
-                                        <TableCell className="text-right text-sm tabular-nums">{job.completedQuantity}</TableCell>
-                                        <TableCell>
-                                          <ProductionStatusBadge status={job.status} />
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                          {job.status !== "COMPLETED" && job.status !== "CANCELLED" ? (
-                                            <Button
-                                              variant="ghost"
-                                              size="xs"
-                                              asChild
-                                              className="h-7 px-2 font-semibold text-link hover:bg-link/10"
-                                            >
-                                              <Link to={`/${userRole}/orders/${hydrated.order.id}/production`}>
-                                                Update
-                                              </Link>
-                                            </Button>
-                                          ) : null}
-                                        </TableCell>
-                                      </TableRow>
-                                    );
-                                  })
-                                )}
-                              </TableBody>
-                            </Table>
+                            {recentJobs.length === 0 ? (
+                              <p className="py-6 text-center text-sm text-muted-foreground">
+                                No production jobs have been generated yet.
+                              </p>
+                            ) : (
+                              <>
+                                {recentJobs.some((j) => j.completedQuantity > 0) ? (
+                                  <div className="mb-5">
+                                    <h4 className="mb-3 text-sm font-semibold text-success">Ready for Shipping</h4>
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead>Job</TableHead>
+                                          <TableHead>Product</TableHead>
+                                          <TableHead className="text-right">Ordered</TableHead>
+                                          <TableHead className="text-right">Ready</TableHead>
+                                          <TableHead>Status</TableHead>
+                                          <TableHead className="text-right" />
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {recentJobs.filter((j) => j.completedQuantity > 0).map((job) => {
+                                          const item = hydrated.order.items.find((entry) => entry.id === job.orderItemId);
+                                          return (
+                                            <TableRow key={job.id}>
+                                              <TableCell className="font-mono text-xs">{job.jobNumber}</TableCell>
+                                              <TableCell className="text-sm">{item?.description ?? job.orderItemId}</TableCell>
+                                              <TableCell className="text-right text-sm tabular-nums">{job.orderedQuantity}</TableCell>
+                                              <TableCell className="text-right text-sm tabular-nums font-medium text-success">{job.completedQuantity}</TableCell>
+                                              <TableCell><ProductionStatusBadge status={job.status} /></TableCell>
+                                              <TableCell className="text-right">
+                                                {job.status !== "COMPLETED" && job.status !== "CANCELLED" ? (
+                                                  <Button variant="ghost" size="xs" asChild className="h-7 px-2 font-semibold text-link hover:bg-link/10">
+                                                    <Link to={`/${userRole}/orders/${hydrated.order.id}/production`}>Update</Link>
+                                                  </Button>
+                                                ) : null}
+                                              </TableCell>
+                                            </TableRow>
+                                          );
+                                        })}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                ) : null}
+
+                                {recentJobs.some((j) => j.completedQuantity === 0 && j.status !== "COMPLETED" && j.status !== "CANCELLED") ? (
+                                  <div>
+                                    <h4 className="mb-3 text-sm font-semibold text-processing">In Progress</h4>
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead>Job</TableHead>
+                                          <TableHead>Product</TableHead>
+                                          <TableHead className="text-right">Ordered</TableHead>
+                                          <TableHead className="text-right">Ready</TableHead>
+                                          <TableHead>Status</TableHead>
+                                          <TableHead className="text-right" />
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {recentJobs.filter((j) => j.completedQuantity === 0 && j.status !== "COMPLETED" && j.status !== "CANCELLED").map((job) => {
+                                          const item = hydrated.order.items.find((entry) => entry.id === job.orderItemId);
+                                          return (
+                                            <TableRow key={job.id}>
+                                              <TableCell className="font-mono text-xs">{job.jobNumber}</TableCell>
+                                              <TableCell className="text-sm">{item?.description ?? job.orderItemId}</TableCell>
+                                              <TableCell className="text-right text-sm tabular-nums">{job.orderedQuantity}</TableCell>
+                                              <TableCell className="text-right text-sm tabular-nums">{job.completedQuantity}</TableCell>
+                                              <TableCell><ProductionStatusBadge status={job.status} /></TableCell>
+                                              <TableCell className="text-right">
+                                                <Button variant="ghost" size="xs" asChild className="h-7 px-2 font-semibold text-link hover:bg-link/10">
+                                                  <Link to={`/${userRole}/orders/${hydrated.order.id}/production`}>Update</Link>
+                                                </Button>
+                                              </TableCell>
+                                            </TableRow>
+                                          );
+                                        })}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                ) : null}
+                              </>
+                            )}
                             {hydrated.productionJobs.length > 3 ? (
                               <div className="mt-4 flex justify-end">
                                 <button
@@ -630,59 +672,90 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                           Jobs generated for this order and their current readiness.
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="p-0">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Job</TableHead>
-                              <TableHead>Product</TableHead>
-                              <TableHead className="text-right">Ordered</TableHead>
-                              <TableHead className="text-right">Ready</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead className="text-right" />
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {hydrated.productionJobs.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-                                  No production jobs have been generated yet.
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              hydrated.productionJobs.map((job) => {
-                                const item = hydrated.order.items.find((entry) => entry.id === job.orderItemId);
-                                return (
-                                  <TableRow key={job.id}>
-                                    <TableCell className="font-mono text-xs">
-                                      {job.jobNumber}
-                                    </TableCell>
-                                    <TableCell className="text-sm">{item?.description ?? job.orderItemId}</TableCell>
-                                    <TableCell className="text-right text-sm tabular-nums">{job.orderedQuantity}</TableCell>
-                                    <TableCell className="text-right text-sm tabular-nums">{job.completedQuantity}</TableCell>
-                                    <TableCell>
-                                      <ProductionStatusBadge status={job.status} />
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                      {job.status !== "COMPLETED" && job.status !== "CANCELLED" ? (
-                                        <Button
-                                          variant="ghost"
-                                          size="xs"
-                                          asChild
-                                          className="h-7 px-2 font-semibold text-link hover:bg-link/10"
-                                        >
-                                          <Link to={`/${userRole}/orders/${hydrated.order.id}/production`}>
-                                            Update
-                                          </Link>
-                                        </Button>
-                                      ) : null}
-                                    </TableCell>
-                                  </TableRow>
-                                );
-                              })
-                            )}
-                          </TableBody>
-                        </Table>
+                      <CardContent className="p-5">
+                        {hydrated.productionJobs.length === 0 ? (
+                          <p className="py-6 text-center text-sm text-muted-foreground">
+                            No production jobs have been generated yet.
+                          </p>
+                        ) : (
+                          <div className="space-y-6">
+                            {hydrated.productionJobs.some((j) => j.completedQuantity > 0) ? (
+                              <div>
+                                <h4 className="mb-3 text-sm font-semibold text-success">Ready for Shipping</h4>
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Job</TableHead>
+                                      <TableHead>Product</TableHead>
+                                      <TableHead className="text-right">Ordered</TableHead>
+                                      <TableHead className="text-right">Ready</TableHead>
+                                      <TableHead>Status</TableHead>
+                                      <TableHead className="text-right" />
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {hydrated.productionJobs.filter((j) => j.completedQuantity > 0).map((job) => {
+                                      const item = hydrated.order.items.find((entry) => entry.id === job.orderItemId);
+                                      return (
+                                        <TableRow key={job.id}>
+                                          <TableCell className="font-mono text-xs">{job.jobNumber}</TableCell>
+                                          <TableCell className="text-sm">{item?.description ?? job.orderItemId}</TableCell>
+                                          <TableCell className="text-right text-sm tabular-nums">{job.orderedQuantity}</TableCell>
+                                          <TableCell className="text-right text-sm tabular-nums font-medium text-success">{job.completedQuantity}</TableCell>
+                                          <TableCell><ProductionStatusBadge status={job.status} /></TableCell>
+                                          <TableCell className="text-right">
+                                            {job.status !== "COMPLETED" && job.status !== "CANCELLED" ? (
+                                              <Button variant="ghost" size="xs" asChild className="h-7 px-2 font-semibold text-link hover:bg-link/10">
+                                                <Link to={`/${userRole}/orders/${hydrated.order.id}/production`}>Update</Link>
+                                              </Button>
+                                            ) : null}
+                                          </TableCell>
+                                        </TableRow>
+                                      );
+                                    })}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            ) : null}
+
+                            {hydrated.productionJobs.some((j) => j.completedQuantity === 0 && j.status !== "COMPLETED" && j.status !== "CANCELLED") ? (
+                              <div>
+                                <h4 className="mb-3 text-sm font-semibold text-processing">In Progress</h4>
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Job</TableHead>
+                                      <TableHead>Product</TableHead>
+                                      <TableHead className="text-right">Ordered</TableHead>
+                                      <TableHead className="text-right">Ready</TableHead>
+                                      <TableHead>Status</TableHead>
+                                      <TableHead className="text-right" />
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {hydrated.productionJobs.filter((j) => j.completedQuantity === 0 && j.status !== "COMPLETED" && j.status !== "CANCELLED").map((job) => {
+                                      const item = hydrated.order.items.find((entry) => entry.id === job.orderItemId);
+                                      return (
+                                        <TableRow key={job.id}>
+                                          <TableCell className="font-mono text-xs">{job.jobNumber}</TableCell>
+                                          <TableCell className="text-sm">{item?.description ?? job.orderItemId}</TableCell>
+                                          <TableCell className="text-right text-sm tabular-nums">{job.orderedQuantity}</TableCell>
+                                          <TableCell className="text-right text-sm tabular-nums">{job.completedQuantity}</TableCell>
+                                          <TableCell><ProductionStatusBadge status={job.status} /></TableCell>
+                                          <TableCell className="text-right">
+                                            <Button variant="ghost" size="xs" asChild className="h-7 px-2 font-semibold text-link hover:bg-link/10">
+                                              <Link to={`/${userRole}/orders/${hydrated.order.id}/production`}>Update</Link>
+                                            </Button>
+                                          </TableCell>
+                                        </TableRow>
+                                      );
+                                    })}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            ) : null}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
 
