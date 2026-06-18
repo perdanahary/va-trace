@@ -13,6 +13,7 @@ import type { OrderListRow } from "@/lib/types/v2/orderRequest";
 import { useActor } from "@/lib/v2/useActor";
 import { buildCommand, toApiError } from "@/lib/v2/workflows";
 import { acceptProductionJob, getProductionJobsForOrder } from "@/lib/v2/productionStore";
+import { acceptOrderRequest } from "@/lib/v2/orderRequestStore";
 
 export type SortColumn = "created" | "deadline" | "orderRequest";
 export type SortDirection = "asc" | "desc";
@@ -40,6 +41,10 @@ export function VendorOrderTable({ orders, tab, sort, onSortChange }: VendorOrde
       acceptProductionJob(
         { productionJobId: jobs[0].id, expectedVersion: jobs[0].version, acceptedByUserId: actor.userId },
         buildCommand(actor, "Start production from vendor dashboard"),
+      );
+      acceptOrderRequest(
+        { orderRequestId: orderId, vendorId: actor.vendorId ?? actor.userId, acceptedAt: new Date().toISOString() },
+        buildCommand(actor, "Confirm order from vendor dashboard"),
       );
       toast.success("Order confirmed. Production can now begin.");
     } catch (error) {
