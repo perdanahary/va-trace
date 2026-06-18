@@ -702,7 +702,16 @@ export function buildV2SeedData(): V2SeedData {
   const newOrderRequestId = "OR-2026-300001";
   const newOrderAudit = migrationAudit("2026-06-17T00:00:00.000Z");
   const newOrderClient: ClientReference = { id: "CUS-SAMPOERNA", name: "Sampoerna" };
-  const newOrderProject: ProjectReference = { id: "project_c1-2026-tposm-poster-a3", name: "C1 - 2026 - TPOSM - Poster - A3 Size - Art Paper 150gsm - DSE12 25K (May)", clientId: newOrderClient.id };
+  // Hardcoded sample PIC — also wired to this seed order so buildPicSeeds picks it up.
+  const samplePic = { id: "pic_andi-prasetyo", code: "PIC001", name: "Andi Prasetyo", email: "andi.prasetyo@officebee.co" };
+  const newOrderProject: ProjectReference = {
+    id: "project_c1-2026-tposm-poster-a3",
+    name: "C1 - 2026 - TPOSM - Poster - A3 Size - Art Paper 150gsm - DSE12 25K (May)",
+    clientId: newOrderClient.id,
+    picId: samplePic.id,
+    picName: samplePic.name,
+    picEmail: samplePic.email,
+  };
   const newOrderVendor: VendorReference = { id: "SUP-004", name: "PT. HH Global Services Indonesia" };
   const newOrderSalesPoint = resolveSalesPoint("WH020");
 
@@ -889,7 +898,12 @@ export function buildV2SeedData(): V2SeedData {
 function buildPicSeeds(orderRequests: OrderRequest[]): Pic[] {
   const seen = new Set<string>();
   const pics: Pic[] = [];
-  let counter = 0;
+
+  // Hardcoded sample PIC — always present as a baseline.
+  const sample = { id: "pic_andi-prasetyo", code: "PIC001", name: "Andi Prasetyo", email: "andi.prasetyo@officebee.co" };
+  seen.add(sample.email.toLowerCase());
+  pics.push({ ...sample, audit: migrationAudit(), version: 1 });
+  let counter = 1;
 
   for (const order of orderRequests) {
     const name = order.project.picName?.trim();

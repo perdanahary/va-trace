@@ -83,7 +83,7 @@ const navItems: Record<UserRole, NavEntry[]> = {
         { icon: Truck, label: "Shipment Batches", path: "/admin/shipments" },
         { icon: FileText, label: "Delivery Notes", path: "/admin/delivery-notes" },
         { icon: Tags, label: "Shipping Labels", path: "/admin/labels" },
-        { icon: ClipboardCheck, label: "Proof of Delivery (POD) Verification", path: "/admin/pod" },
+        { icon: ClipboardCheck, label: "POD Verification", path: "/admin/pod" },
         { icon: AlertTriangle, label: "Exceptions", path: "/admin/exceptions" },
       ],
     },

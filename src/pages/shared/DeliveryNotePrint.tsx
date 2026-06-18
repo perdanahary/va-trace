@@ -145,6 +145,9 @@ export function DeliveryNotePrint({ userRole = "admin" }: DeliveryNotePrintProps
             <section className="delivery-note-project">
               <KeyValue label="PO No" value={v2DeliveryNote.clientPoNumber ?? ""} />
               <KeyValue label="Project" value={v2DeliveryNote.projectName} />
+              {v2DeliveryNote.picName ? (
+                <KeyValue label="PIC" value={`${v2DeliveryNote.picName}${v2DeliveryNote.picEmail ? ` (${v2DeliveryNote.picEmail})` : ""}`} />
+              ) : null}
             </section>
 
             <table className="delivery-note-table">

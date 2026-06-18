@@ -913,6 +913,9 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
                     <div className="space-y-5 border-b border-border/60 p-5">
                       <p className="text-base font-semibold">Order Essentials</p>
                       <RailDetail label="Project" value={viewModel.order.project.name} />
+                      {viewModel.order.project.picName ? (
+                        <RailDetail label="PIC" value={`${viewModel.order.project.picName}${viewModel.order.project.picEmail ? ` · ${viewModel.order.project.picEmail}` : ""}`} />
+                      ) : null}
                       <RailDetail label="Vendor" value={viewModel.order.vendor.name} />
                       <RailDetail label="Client PO" value={viewModel.order.clientPoNumber ?? "—"} />
                       <RailDetail label="Deadline" value={deadlineDateLabel} subvalue={deadlineDaysLeft !== null ? `${deadlineDaysLeft} day${deadlineDaysLeft === 1 ? "" : "s"} left` : undefined} strong />

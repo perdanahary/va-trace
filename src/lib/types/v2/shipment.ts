@@ -4,7 +4,7 @@
  * HI-13 (reservations), MED-02 (snapshot versions).
  */
 
-import type { AuditStamp, EntityReference, ID, ISODateString, ISODateTimeString, Quantity } from "./foundation";
+import type { AuditStamp, EntityReference, ID, ISODateString, ISODateTimeString, ProjectReference, Quantity } from "./foundation";
 import type {
   AlertSeverity,
   DeliveryNoteStatus,
@@ -136,7 +136,7 @@ export interface ShipmentBatch {
   orderRequestNumber: string;
   clientPoNumber: string | null;
   client: EntityReference;
-  project: EntityReference;
+  project: ProjectReference;
   vendor: EntityReference;
   status: ShipmentBatchStatus;
   deliveryNoteId?: ID;

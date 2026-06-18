@@ -199,7 +199,7 @@ export function PICList() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-sm text-muted-foreground">
                           {formatDate(pic.audit.createdAt)}
                         </span>
                       </TableCell>

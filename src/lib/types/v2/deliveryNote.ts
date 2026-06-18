@@ -123,6 +123,8 @@ export interface DeliveryNote {
   clientPoNumber: string | null;
   salesOrderNumber?: string;
   projectName: string;
+  picName?: string;
+  picEmail?: string;
   client: PartySnapshot;
   vendor: PartySnapshot;
   senderSnapshot: PartySnapshot;
@@ -363,6 +365,8 @@ export interface DeliveryNoteListRow {
   vendorName: string;
   clientName: string;
   projectName: string;
+  picName?: string;
+  picEmail?: string;
   salesPointCount: number;
   shippedQuantity: Quantity;
   generatedAt: ISODateTimeString;

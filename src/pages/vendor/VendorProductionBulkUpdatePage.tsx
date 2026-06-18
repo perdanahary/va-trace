@@ -476,6 +476,9 @@ export function VendorProductionBulkUpdatePage({ userRole = "vendor" }: VendorPr
                       <p className="text-base font-semibold">Order Essentials</p>
                       <RailDetail label="Order" value={hydrated.order.orderRequestNumber} />
                       <RailDetail label="Project" value={hydrated.order.project.name} />
+                      {hydrated.order.project.picName ? (
+                        <RailDetail label="PIC" value={`${hydrated.order.project.picName}${hydrated.order.project.picEmail ? ` · ${hydrated.order.project.picEmail}` : ""}`} />
+                      ) : null}
                       <RailDetail label="Vendor" value={hydrated.order.vendor.name} />
                       <RailDetail label="Client PO" value={hydrated.order.clientPoNumber ?? "—"} />
                       <RailDetail

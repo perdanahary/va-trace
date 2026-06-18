@@ -149,6 +149,8 @@ export function generateDeliveryNote(
         orderRequestNumber: batch.orderRequestNumber,
         clientPoNumber: batch.clientPoNumber,
         projectName: batch.project.name,
+        picName: batch.project.picName,
+        picEmail: batch.project.picEmail,
         client: { id: batch.client.id, name: batch.client.name },
         vendor: { id: batch.vendor.id, name: batch.vendor.name },
         senderSnapshot: { name: options.senderName, address: options.senderAddress },
