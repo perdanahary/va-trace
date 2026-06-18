@@ -32,6 +32,9 @@ import { InboxPage } from './pages/shared/InboxPage';
 import { ImportUploadPage } from './pages/shared/ImportUploadPage';
 import { ImportDispatchWorkspace } from './pages/admin/ImportDispatchWorkspace';
 import { NotFoundPage } from './pages/shared/NotFoundPage';
+import { LoginPage } from './pages/auth/LoginPage';
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
 import { ShipmentBatchList } from './pages/admin/ShipmentBatchList';
 import { ShipmentBatchDetail } from './pages/admin/ShipmentBatchDetail';
 import { DeliveryNoteList } from './pages/admin/DeliveryNoteList';
@@ -76,6 +79,11 @@ function RoleRouteGuard({ children }: { children: ReactNode }) {
   const pathRole = location.pathname.split("/")[1];
   const currentRole = currentUser?.role;
 
+  // redirect unauthenticated users to login
+  if (!currentUser && pathRole in ROLE_HOME) {
+    return <Navigate to="/auth/login" replace state={{ from: location.pathname }} />;
+  }
+
   if (currentRole && pathRole in ROLE_HOME && pathRole !== currentRole) {
     return <Navigate to={ROLE_HOME[currentRole]} replace state={{ blockedPath: location.pathname }} />;
   }
@@ -91,6 +99,12 @@ function App() {
           <MotionConfig reducedMotion="user">
           <SidebarVisibilityProvider>
             <div className="min-h-screen bg-background font-sans text-foreground antialiased">
+              {/* Auth Routes — fully outside role guard */}
+                <Routes>
+                <Route path="/auth/login" element={<LoginPage />} />
+                <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+                </Routes>
               <RoleRouteGuard>
               <Routes>
               {/* Admin Routes */}
@@ -193,8 +207,8 @@ function App() {
                 <Route path="/vendor/pod" element={<VendorPodUpload />} />
                 <Route path="/vendor/inbox" element={<InboxPage userRole="vendor" />} />
               
-              {/* Root Redirect */}
-                <Route path="/" element={<Navigate to="/admin" replace />} />
+              {/* Root Redirect — go to login when not authenticated */}
+                <Route path="/" element={<Navigate to="/auth/login" replace />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
               </RoleRouteGuard>

@@ -432,3 +432,49 @@ git wip   → quick save (no verify)
 git undo  → undo last commit (keep changes)
 git amend → amend last commit
 ```
+
+---
+
+## 12. Plane.so Project Management
+
+### Project IDs (VATRACE)
+| Entity | ID |
+|--------|----|
+| Project | `1be64742-dac8-4085-a4bc-90a23b9d7a44` |
+| Workspace | `f204a2ab-669c-4491-9218-f72c8dba17d0` |
+
+### State IDs
+| State | ID |
+|-------|----|
+| Backlog | `0efa3c51-25c3-409c-9e3c-93d686a81b59` |
+| Todo | `42e19be1-92e4-47de-9e04-a18f56cd63b2` |
+| In Progress | `480f05c1-b9f0-40da-9a0d-8085b5338925` |
+| Testing | `ef254bf5-606a-4941-a5a0-1bfdb06c1fa2` |
+| Done | `eee3d9b5-30a7-47b6-92ae-5281faebe9a9` |
+| Cancelled | `aacbeb82-54cd-400e-8c5d-2c67d92ed9f5` |
+
+### Label IDs
+| Label | ID |
+|-------|----|
+| Dev | `7bb17047-b583-42ec-944c-9a49264d7072` |
+| UI/UX | `92acf46f-fc51-4c4c-b604-bd082d63bacb` |
+| Infra Ops | `b073d074-ab52-4f00-b1c3-08cd7582f034` |
+
+### CLI Usage
+```bash
+# List UI/UX issues
+python3 ~/.codex/skills/plane-project/scripts/plane.py issues 1be64742-dac8-4085-a4bc-90a23b9d7a44 "" "" "" 92acf46f-fc51-4c4c-b604-bd082d63bacb
+
+# Update status to Testing
+python3 ~/.codex/skills/plane-project/scripts/plane.py issue-update 1be64742-dac8-4085-a4bc-90a23b9d7a44 <issue-id> '{"state":"ef254bf5-606a-4941-a5a0-1bfdb06c1fa2"}'
+
+# Add comment
+python3 ~/.codex/skills/plane-project/scripts/plane.py comment 1be64742-dac8-4085-a4bc-90a23b9d7a44 <issue-id> "<p>Comment here</p>"
+```
+
+### Workflow
+1. List scoped issues → pick one
+2. Create branch: `feat/VATRACE-<seq>-<slug>`
+3. Work + commit
+4. Comment on issue with file refs
+5. Update status to Testing/Done
