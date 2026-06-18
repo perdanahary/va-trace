@@ -53,7 +53,6 @@ export function AdminCreateOrder({ userRole = "admin" }: AdminCreateOrderProps) 
   const [selectedProject, setSelectedProject] = useState("");
   const [projectPicName, setProjectPicName] = useState("");
   const [projectPicEmail, setProjectPicEmail] = useState("");
-  const [kodePic, setKodePic] = useState("");
   const [productToAdd, setProductToAdd] = useState("");
   const { suppliers } = useSupplierStore();
   const salesPoints = useSalesPoints();
@@ -242,9 +241,6 @@ export function AdminCreateOrder({ userRole = "admin" }: AdminCreateOrderProps) 
             },
             productsById,
           },
-          externalReferences: kodePic.trim()
-            ? [{ type: "PIC_CODE" as const, value: kodePic.trim(), sourceSystem: "MANUAL" as const }]
-            : undefined,
           items: items.map((item, index) => ({
             productId: item.productCode,
             lineNumber: Number(item.poLineNumber) || index + 1,
@@ -516,9 +512,6 @@ export function AdminCreateOrder({ userRole = "admin" }: AdminCreateOrderProps) 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField label="PO number reference" required htmlFor="client-po">
                   <Input id="client-po" placeholder="e.g. 123928098" value={clientPO} onChange={(e) => setClientPO(e.target.value)} />
-                </FormField>
-                <FormField label="Kode PIC" htmlFor="kode-pic">
-                  <Input id="kode-pic" placeholder="e.g. PIC-001" value={kodePic} onChange={(e) => setKodePic(e.target.value)} />
                 </FormField>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
