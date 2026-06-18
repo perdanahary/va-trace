@@ -5,14 +5,14 @@ import { useCurrentUser } from "@/lib/authStore";
 import { Sidebar, type UserRole } from "@/components/layout/Sidebar";
 import { ContentArea } from "@/components/layout/ContentArea";
 import { Header } from "@/components/layout/Header";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AppliedFilterRow, FilterMenu, matchesFilterValue } from "@/components/shared/AdvancedFilterBar";
 import { AllocationStatusBadge, ExceptionStateBadge, PodStatusBadge } from "@/components/domain/badges/badges";
 import { DeliveryProgressBar } from "@/components/domain/DeliveryProgressBar";
-import { Search } from "lucide-react";
+import { ArrowUpRight, Download, Package, Truck, CheckCircle2, AlertTriangle, Boxes, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AllocationProgressRow } from "@/lib/types/v2/orderRequest";
 import { ALLOCATION_STATUSES } from "@/lib/types/v2/status";
@@ -90,12 +90,12 @@ export function OrderProgress({ userRole }: OrderProgressProps) {
     const exceptions = allRows.filter((r) => r.hasException).length;
 
     return [
-      { label: "Total Allocations", value: total, color: "text-foreground", statusFilter: "all" },
-      { label: "Not Shipped", value: notShipped, color: "text-muted-foreground", statusFilter: "NOT_SHIPPED" },
-      { label: "In Transit", value: inTransit, color: "text-processing", statusFilter: "FULLY_SHIPPED" },
-      { label: "Partially Received", value: partialReceive, color: "text-warning", statusFilter: "PARTIALLY_RECEIVED" },
-      { label: "Fully Received", value: fullyReceived, color: "text-success", statusFilter: "FULLY_RECEIVED" },
-      { label: "Exceptions", value: exceptions, color: "text-destructive", statusFilter: "EXCEPTION" },
+      { label: "Total Allocations", value: total, color: "text-foreground", statusFilter: "all", sublabel: "All tracked allocations", icon: Boxes, iconTone: "default" as const },
+      { label: "Not Shipped", value: notShipped, color: "text-muted-foreground", statusFilter: "NOT_SHIPPED", sublabel: "Awaiting shipment", icon: Package, iconTone: "default" as const },
+      { label: "In Transit", value: inTransit, color: "text-processing", statusFilter: "FULLY_SHIPPED", sublabel: "Partially / fully shipped", icon: Truck, iconTone: "processing" as const },
+      { label: "Partially Received", value: partialReceive, color: "text-warning", statusFilter: "PARTIALLY_RECEIVED", sublabel: "Partial delivery", icon: AlertTriangle, iconTone: "warning" as const },
+      { label: "Fully Received", value: fullyReceived, color: "text-success", statusFilter: "FULLY_RECEIVED", sublabel: "Delivery complete", icon: CheckCircle2, iconTone: "success" as const },
+      { label: "Exceptions", value: exceptions, color: "text-destructive", statusFilter: "EXCEPTION", sublabel: "Orders with issues", icon: AlertTriangle, iconTone: "warning" as const },
     ];
   }, [allRows]);
 
@@ -145,25 +145,52 @@ export function OrderProgress({ userRole }: OrderProgressProps) {
     <div className="flex min-h-screen bg-background">
       <Sidebar userRole={userRole} />
       <ContentArea>
-        <Header title={`${userRole.toUpperCase()} - Order Progress Tracking`} />
+        <Header
+          title={`${userRole.toUpperCase()} - Order Progress Tracking`}
+          actions={<Button variant="outline" size="sm"><Download className="mr-2 h-4 w-4" />Export</Button>}
+        />
 
         <main className="mx-auto space-y-6 p-4 sm:p-6 lg:p-8">
           <section className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-            {metrics.map((metric) => (
-              <Card
-                key={metric.label}
-                className={cn(
-                  "cursor-pointer transition-all hover:border-primary/50",
-                  allocationFilter === metric.statusFilter ? "border-primary ring-1 ring-primary" : "border-border/70",
-                )}
-                onClick={() => openMetric(metric.statusFilter)}
-              >
-                <CardContent className="flex flex-col justify-center p-4">
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{metric.label}</p>
-                  <h3 className={cn("text-2xl font-bold", metric.color)}>{metric.value}</h3>
-                </CardContent>
-              </Card>
-            ))}
+            {metrics.map((metric) => {
+              const Icon = metric.icon;
+              const toneBgMap: Record<string, string> = {
+                warning: "bg-warning/10",
+                success: "bg-success/10",
+                processing: "bg-processing/10",
+              };
+              const toneTextMap: Record<string, string> = {
+                warning: "text-warning",
+                success: "text-success",
+                processing: "text-processing",
+              };
+              return (
+                <Card
+                  key={metric.label}
+                  className={cn(
+                    "group border-border/70 shadow-sm transition-colors hover:border-primary/40",
+                    allocationFilter === metric.statusFilter ? "border-primary ring-1 ring-primary" : "",
+                  )}
+                  onClick={() => openMetric(metric.statusFilter)}
+                >
+                  <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+                    <div>
+                      <CardDescription>{metric.label}</CardDescription>
+                      <CardTitle className={cn("text-3xl", metric.color)}>{metric.value}</CardTitle>
+                    </div>
+                    <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+                  </CardHeader>
+                  <CardContent className="flex items-center justify-between pt-0">
+                    <p className="text-xs text-muted-foreground">{metric.sublabel}</p>
+                    {Icon && (
+                      <div className={cn("rounded-md p-2", toneBgMap[metric.iconTone] ?? "bg-muted")}>
+                        <Icon className={cn("h-4 w-4", toneTextMap[metric.iconTone] ?? "text-muted-foreground")} />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </section>
 
           <section className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -179,9 +206,6 @@ export function OrderProgress({ userRole }: OrderProgressProps) {
 
             <div className="flex items-center gap-2">
               <FilterMenu groups={filterGroups} />
-              <div className="text-sm text-muted-foreground">
-                {filteredRows.length} visible of {allRows.length} total
-              </div>
             </div>
           </section>
 
