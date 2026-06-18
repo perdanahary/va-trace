@@ -1,3 +1,4 @@
+import { ArrowRight } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -22,6 +23,7 @@ export interface ColumnContext {
   onStatusChange: (jobId: string, status: ProductionStatus) => void;
   onQuantityChange: (jobId: string, field: "producedQuantity" | "completedQuantity", value: number) => void;
   getDraftQuantity: (jobId: string, field: "producedQuantity" | "completedQuantity") => number | undefined;
+  getDraftStatus: (jobId: string) => ProductionStatus | undefined;
 }
 
 const STATUS_TRANSITIONS: Record<ProductionStatus, ProductionStatus[]> = {
@@ -36,27 +38,37 @@ const STATUS_TRANSITIONS: Record<ProductionStatus, ProductionStatus[]> = {
 
 function StatusCell({ job, ctx }: { job: ProductionJob; ctx: ColumnContext }) {
   const allowed = useMemo(() => STATUS_TRANSITIONS[job.status] ?? [], [job.status]);
+  const draftStatus = ctx.getDraftStatus(job.id);
+  const hasAutoStatus = draftStatus !== undefined && draftStatus !== job.status;
 
   if (allowed.length === 0) {
     return <ProductionStatusBadge status={job.status} />;
   }
 
   return (
-    <Select
-      value={job.status}
-      onValueChange={(value) => ctx.onStatusChange(job.id, value as ProductionStatus)}
-    >
-      <SelectTrigger className="h-7 w-[130px] border-0 p-0 shadow-none hover:bg-muted/40">
-        <ProductionStatusBadge status={job.status} />
-      </SelectTrigger>
-      <SelectContent>
-        {allowed.map((s) => (
-          <SelectItem key={s} value={s}>
-            {formatStatusLabel(s)}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div className="flex items-center gap-1">
+      <Select
+        value={job.status}
+        onValueChange={(value) => ctx.onStatusChange(job.id, value as ProductionStatus)}
+      >
+        <SelectTrigger className="h-7 w-[130px] border-0 p-0 shadow-none hover:bg-muted/40">
+          <ProductionStatusBadge status={job.status} />
+        </SelectTrigger>
+        <SelectContent>
+          {allowed.map((s) => (
+            <SelectItem key={s} value={s}>
+              {formatStatusLabel(s)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {hasAutoStatus && (
+        <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+          <ArrowRight className="h-3 w-3" />
+          <ProductionStatusBadge status={draftStatus} />
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -188,6 +200,6 @@ export function useColumns(ctx: ColumnContext): ColumnDef<ProductionJobListRow>[
         size: 140,
       },
     ],
-    [orderId, userRole, ctx.onStatusChange, ctx.onQuantityChange, ctx.getDraftQuantity],
+    [orderId, userRole, ctx.onStatusChange, ctx.onQuantityChange, ctx.getDraftQuantity, ctx.getDraftStatus],
   );
 }

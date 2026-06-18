@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -22,6 +22,7 @@ interface BulkJobTableProps {
   onStatusChange: (jobId: string, status: ProductionStatus) => void;
   onQuantityChange: (jobId: string, field: "producedQuantity" | "completedQuantity", value: number) => void;
   getDraftQuantity: (jobId: string, field: "producedQuantity" | "completedQuantity") => number | undefined;
+  getDraftStatus: (jobId: string) => ProductionStatus | undefined;
 }
 
 export function BulkJobTable({
@@ -33,10 +34,27 @@ export function BulkJobTable({
   onStatusChange,
   onQuantityChange,
   getDraftQuantity,
+  getDraftStatus,
 }: BulkJobTableProps) {
+  // Stabilize draft callbacks through refs so column definitions don't rebuild on every keystroke.
+  const draftQtyRef = useRef(getDraftQuantity);
+  draftQtyRef.current = getDraftQuantity;
+  const draftStatusRef = useRef(getDraftStatus);
+  draftStatusRef.current = getDraftStatus;
+
+  const stableGetDraftQuantity = useMemo(
+    () => (jobId: string, field: "producedQuantity" | "completedQuantity") =>
+      draftQtyRef.current(jobId, field),
+    [],
+  );
+  const stableGetDraftStatus = useMemo(
+    () => (jobId: string) => draftStatusRef.current(jobId),
+    [],
+  );
+
   const ctx: ColumnContext = useMemo(
-    () => ({ orderId, userRole, onStatusChange, onQuantityChange, getDraftQuantity }),
-    [orderId, userRole, onStatusChange, onQuantityChange, getDraftQuantity],
+    () => ({ orderId, userRole, onStatusChange, onQuantityChange, getDraftQuantity: stableGetDraftQuantity, getDraftStatus: stableGetDraftStatus }),
+    [orderId, userRole, onStatusChange, onQuantityChange, stableGetDraftQuantity, stableGetDraftStatus],
   );
   const columns = useColumns(ctx);
 

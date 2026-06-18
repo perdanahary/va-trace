@@ -42,6 +42,18 @@ function initialDraft(job: ProductionJob): JobDraft {
   };
 }
 
+/** Derive a suggested status from quantity thresholds, or null if no auto-advance applies. */
+function autoStatus(job: ProductionJob, producedQty: number, completedQty: number): ProductionStatus | null {
+  const s = job.status;
+  if (s === "ACCEPTED") {
+    return producedQty > 0 ? "IN_PROGRESS" : "ACCEPTED";
+  }
+  if (s === "IN_PROGRESS") {
+    return completedQty >= job.orderedQuantity ? "COMPLETED" : "IN_PROGRESS";
+  }
+  return null;
+}
+
 export function VendorProductionBulkUpdatePage({ userRole = "vendor" }: VendorProductionBulkUpdatePageProps) {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
@@ -130,7 +142,14 @@ export function VendorProductionBulkUpdatePage({ userRole = "vendor" }: VendorPr
       if (!job) return;
       setDrafts((prev) => {
         const existing = prev[jobId] ?? initialDraft(job);
-        return { ...prev, [jobId]: { ...existing, [field]: value } };
+        const baseDraft = initialDraft(job);
+        const manualStatus = existing.status !== baseDraft.status;
+
+        const nextQty = { ...existing, [field]: value };
+        const suggested = autoStatus(job, nextQty.producedQuantity, nextQty.completedQuantity);
+
+        const status = !manualStatus && suggested !== null ? suggested : existing.status;
+        return { ...prev, [jobId]: { ...nextQty, status } };
       });
     },
     [activeJobs],
@@ -142,6 +161,16 @@ export function VendorProductionBulkUpdatePage({ userRole = "vendor" }: VendorPr
       return draft ? draft[field] : undefined;
     },
     [drafts],
+  );
+
+  const getDraftStatus = useCallback(
+    (jobId: string) => {
+      const job = activeJobs.find((j) => j.id === jobId);
+      const draft = drafts[jobId];
+      if (!job || !draft) return undefined;
+      return draft.status !== job.status ? draft.status : undefined;
+    },
+    [activeJobs, drafts],
   );
 
   const handleBatchAction = useCallback(
@@ -388,6 +417,7 @@ export function VendorProductionBulkUpdatePage({ userRole = "vendor" }: VendorPr
                   onStatusChange={handleStatusChange}
                   onQuantityChange={handleQuantityChange}
                   getDraftQuantity={getDraftQuantity}
+                  getDraftStatus={getDraftStatus}
                 />
 
                 {/* Update progress dialog */}
