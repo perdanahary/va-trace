@@ -390,7 +390,7 @@ export function OrderDetail({ userRole = "admin" }: OrderDetailProps) {
 
                     <Card className="border-border/70 shadow-sm">
                       <CardHeader className="border-b bg-muted/20">
-                        <CardTitle className="text-xl">
+                        <CardTitle>
                           {isProductionPhase ? "Production Pipeline" : "Delivery Progress"}
                         </CardTitle>
                       </CardHeader>

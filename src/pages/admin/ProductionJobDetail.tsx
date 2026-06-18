@@ -83,27 +83,11 @@ export function ProductionJobDetail({ userRole = "admin" }: ProductionJobDetailP
             </Button>
           </section>
 
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <Metric label="Ordered" value={job.orderedQuantity} />
             <Metric label="Produced" value={job.producedQuantity} />
-            <Metric label="QC Passed" value={job.qcPassedQuantity} />
-            <Metric label="Ready" value={job.readyQuantity} />
           </div>
 
-          <Card className="border-border/70 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">Readiness Pool</CardTitle>
-              <CardDescription>Ready quantity is the pool used for shipment batch eligibility and reservations.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Progress value={job.orderedQuantity > 0 ? (job.readyQuantity / job.orderedQuantity) * 100 : 0} />
-              <div className="grid gap-4 text-sm sm:grid-cols-3">
-                <Detail label="Reserved for shipment" value={job.reservedForShipmentQuantity} />
-                <Detail label="Completed" value={job.completedQuantity} />
-                <Detail label="Rejected" value={job.rejectedQuantity} />
-              </div>
-            </CardContent>
-          </Card>
         </main>
       </ContentArea>
     </div>
@@ -114,7 +98,7 @@ function Metric({ label, value }: { label: string; value: number }) {
   return (
     <Card className="border-border/70 shadow-sm">
       <CardContent className="p-4">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
+        <CardDescription>{label}</CardDescription>
         <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
       </CardContent>
     </Card>
@@ -124,7 +108,7 @@ function Metric({ label, value }: { label: string; value: number }) {
 function Detail({ label, value }: { label: string; value: number }) {
   return (
     <div>
-      <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
+      <CardDescription>{label}</CardDescription>
       <p className="mt-1 font-medium tabular-nums">{value}</p>
     </div>
   );

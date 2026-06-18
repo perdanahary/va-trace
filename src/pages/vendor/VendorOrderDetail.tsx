@@ -328,18 +328,10 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
       const activeJobs = hydrated?.productionJobs.filter(
         (j) => j.status !== "COMPLETED" && j.status !== "CANCELLED",
       ) ?? [];
-      const singleActiveJob = activeJobs.length === 1 ? activeJobs[0] : null;
-
       return (
         <>
           <Button size={size} asChild>
-            <Link
-              to={
-                singleActiveJob
-                  ? `/${userRole}/orders/${hydrated?.order.id}/production/${singleActiveJob.id}`
-                  : `/${userRole}/orders/${hydrated?.order.id}/production`
-              }
-            >
+            <Link to={`/${userRole}/orders/${hydrated?.order.id}/production`}>
               <Factory className="mr-2 h-4 w-4" />
               Update Production
             </Link>
@@ -544,7 +536,7 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                                               asChild
                                               className="h-7 px-2 font-semibold text-link hover:bg-link/10"
                                             >
-                                              <Link to={`/${userRole}/orders/${hydrated.order.id}/production/${job.id}`}>
+                                              <Link to={`/${userRole}/orders/${hydrated.order.id}/production`}>
                                                 Update
                                               </Link>
                                             </Button>
@@ -679,7 +671,7 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                                           asChild
                                           className="h-7 px-2 font-semibold text-link hover:bg-link/10"
                                         >
-                                          <Link to={`/${userRole}/orders/${hydrated.order.id}/production/${job.id}`}>
+                                          <Link to={`/${userRole}/orders/${hydrated.order.id}/production`}>
                                             Update
                                           </Link>
                                         </Button>

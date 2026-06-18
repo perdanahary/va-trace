@@ -57,8 +57,6 @@ export function ProductionQueue({ userRole = "admin" }: ProductionQueueProps) {
   const [openJobId, setOpenJobId] = useState<string | null>(null);
   const [targetStatus, setTargetStatus] = useState<ProductionStatus>("IN_PROGRESS");
   const [producedQty, setProducedQty] = useState(0);
-  const [qcQty, setQcQty] = useState(0);
-  const [readyQty, setReadyQty] = useState(0);
   const [completedQty, setCompletedQty] = useState(0);
 
   const openJob = openJobId ? getProductionJobById(openJobId) : undefined;
@@ -66,47 +64,15 @@ export function ProductionQueue({ userRole = "admin" }: ProductionQueueProps) {
   const isInProgressActive = targetStatus === "IN_PROGRESS";
   const isCompletedActive = targetStatus === "COMPLETED";
 
-  const handleProducedQtyChange = (val: number) => {
-    setProducedQty(val);
-    if (qcQty > val) setQcQty(val);
-    if (readyQty > val) setReadyQty(val);
-    if (completedQty > val) setCompletedQty(val);
-  };
-
-  const handleQcQtyChange = (val: number) => {
-    setQcQty(val);
-    if (producedQty < val) setProducedQty(val);
-    if (readyQty > val) setReadyQty(val);
-    if (completedQty > val) setCompletedQty(val);
-  };
-
-  const handleReadyQtyChange = (val: number) => {
-    setReadyQty(val);
-    if (qcQty < val) setQcQty(val);
-    if (producedQty < val) setProducedQty(val);
-    if (completedQty > val) setCompletedQty(val);
-  };
-
-  const handleCompletedQtyChange = (val: number) => {
-    setCompletedQty(val);
-    if (readyQty < val) setReadyQty(val);
-    if (qcQty < val) setQcQty(val);
-    if (producedQty < val) setProducedQty(val);
-  };
-
   const handleStatusChange = (status: ProductionStatus) => {
     setTargetStatus(status);
     if (!openJob) return;
     const qty = openJob.orderedQuantity;
     if (status === "COMPLETED") {
       setProducedQty(qty);
-      setQcQty(qty);
-      setReadyQty(qty);
       setCompletedQty(qty);
     } else if (status === "IN_PROGRESS") {
-      if (producedQty === 0) {
-        setProducedQty(qty);
-      }
+      if (producedQty === 0) setProducedQty(qty);
     }
   };
 
@@ -116,8 +82,6 @@ export function ProductionQueue({ userRole = "admin" }: ProductionQueueProps) {
     setOpenJobId(jobId);
     setTargetStatus(job.status === "SUBMITTED" || job.status === "NEW" ? "ACCEPTED" : job.status);
     setProducedQty(job.producedQuantity);
-    setQcQty(job.qcPassedQuantity);
-    setReadyQty(job.readyQuantity);
     setCompletedQty(job.completedQuantity);
   };
 
@@ -136,8 +100,6 @@ export function ProductionQueue({ userRole = "admin" }: ProductionQueueProps) {
             expectedVersion: openJob.version,
             status: targetStatus,
             producedQuantity: producedQty,
-            qcPassedQuantity: qcQty,
-            readyQuantity: readyQty,
             completedQuantity: completedQty,
           },
           buildCommand(actor),
@@ -161,7 +123,7 @@ export function ProductionQueue({ userRole = "admin" }: ProductionQueueProps) {
             <CardHeader>
               <CardTitle className="text-base">Production Jobs</CardTitle>
               <CardDescription>
-                Manufacturing execution. Ready quantity feeds shipment batch eligibility.
+                Manufacturing execution. Update produced and finished quantities.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -210,7 +172,7 @@ export function ProductionQueue({ userRole = "admin" }: ProductionQueueProps) {
                         type="number"
                         min={0}
                         value={producedQty}
-                        onChange={(event) => handleProducedQtyChange(Math.max(0, Number(event.target.value) || 0))}
+                        onChange={(event) => setProducedQty(Math.max(0, Number(event.target.value) || 0))}
                       />
                       <span className="text-[10px] text-muted-foreground block leading-normal">
                         Units produced so far.
@@ -220,13 +182,13 @@ export function ProductionQueue({ userRole = "admin" }: ProductionQueueProps) {
 
                   {isCompletedActive && (
                     <div className="space-y-1.5">
-                      <Label htmlFor="completed-qty">Completed</Label>
+                      <Label htmlFor="completed-qty">Finished</Label>
                       <Input
                         id="completed-qty"
                         type="number"
                         min={0}
                         value={completedQty}
-                        onChange={(event) => handleCompletedQtyChange(Math.max(0, Number(event.target.value) || 0))}
+                        onChange={(event) => setCompletedQty(Math.max(0, Number(event.target.value) || 0))}
                       />
                       <span className="text-[10px] text-muted-foreground block leading-normal">
                         Total units fully finalized.

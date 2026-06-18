@@ -92,12 +92,9 @@ export function useColumns(ctx: ColumnContext): ColumnDef<ProductionJobListRow>[
         accessorKey: "jobNumber",
         header: "Job",
         cell: ({ getValue, row }) => (
-          <Link
-            to={`/${userRole}/orders/${orderId}/production/${row.original.id}`}
-            className="font-mono text-xs font-medium text-link hover:underline"
-          >
+          <span className="font-mono text-xs font-medium">
             {getValue<string>()}
-          </Link>
+          </span>
         ),
         size: 100,
       },

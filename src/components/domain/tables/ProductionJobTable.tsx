@@ -36,10 +36,7 @@ export function ProductionJobTable({
             <TableHead>Vendor</TableHead>
             <TableHead className="text-right">Ordered</TableHead>
             <TableHead className="text-right">Produced</TableHead>
-            <TableHead className="text-right">QC Passed</TableHead>
-            <TableHead className="text-right">Ready</TableHead>
-            <TableHead className="text-right">Reserved</TableHead>
-            <TableHead className="text-right">Completed</TableHead>
+            <TableHead className="text-right">Finished</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Deadline</TableHead>
             <TableHead className="text-right" />
@@ -61,11 +58,6 @@ export function ProductionJobTable({
               <TableCell className="text-sm">{row.vendor.name}</TableCell>
               <TableCell className="text-right text-sm tabular-nums">{row.orderedQuantity}</TableCell>
               <TableCell className="text-right text-sm tabular-nums">{row.producedQuantity}</TableCell>
-              <TableCell className="text-right text-sm tabular-nums">{row.qcPassedQuantity}</TableCell>
-              <TableCell className="text-right text-sm font-medium tabular-nums">{row.readyQuantity}</TableCell>
-              <TableCell className="text-right text-sm tabular-nums text-muted-foreground">
-                {row.reservedForShipmentQuantity}
-              </TableCell>
               <TableCell className="text-right text-sm tabular-nums">{row.completedQuantity}</TableCell>
               <TableCell className="whitespace-nowrap">
                 <ProductionStatusBadge status={row.status} />
