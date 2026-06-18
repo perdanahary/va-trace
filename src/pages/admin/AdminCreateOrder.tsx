@@ -513,8 +513,6 @@ export function AdminCreateOrder({ userRole = "admin" }: AdminCreateOrderProps) 
                 <FormField label="PO number reference" required htmlFor="client-po">
                   <Input id="client-po" placeholder="e.g. 123928098" value={clientPO} onChange={(e) => setClientPO(e.target.value)} />
                 </FormField>
-              </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField label="Deadline" required>
                   <div className="relative">
                     <Button
