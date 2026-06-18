@@ -60,15 +60,13 @@ describe("V2 stores and workflows (P4-08..P4-15)", () => {
       (entry) => entry.shippedQuantity === 0 && entry.allocatedQuantity >= 10,
     )!;
 
-    // Walk the legitimate production chain to READY_FOR_DISTRIBUTION (P4-05).
+    // Walk the legitimate production chain to COMPLETED (P4-05).
     let job = getProductionJobsForOrder(order.id).find((entry) => entry.orderItemId === allocation.orderItemId)!;
     const chain: Array<typeof job.status> = [
       "SUBMITTED",
       "ACCEPTED",
-      "PRINTING",
-      "FINISHING",
-      "QUALITY_CONTROL",
-      "READY_FOR_DISTRIBUTION",
+      "IN_PROGRESS",
+      "COMPLETED",
     ];
     for (const nextStatus of chain) {
       job = getProductionJobsForOrder(order.id).find((entry) => entry.id === job.id)!;
@@ -87,7 +85,7 @@ describe("V2 stores and workflows (P4-08..P4-15)", () => {
           expectedVersion: job.version,
           status: nextStatus,
           producedQuantity: job.orderedQuantity,
-          completedQuantity: nextStatus === "READY_FOR_DISTRIBUTION" ? job.orderedQuantity : job.completedQuantity,
+          completedQuantity: nextStatus === "COMPLETED" ? job.orderedQuantity : job.completedQuantity,
         },
         adminCommand(`progress-${job.id}-${nextStatus}`),
       );

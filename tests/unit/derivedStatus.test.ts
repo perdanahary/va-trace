@@ -94,7 +94,7 @@ describe("completion rule (P4-04)", () => {
   it("fails on incomplete production, partial receipt, or blocking exception", () => {
     expect(
       isOrderComplete({
-        productionStatus: "READY_FOR_DISTRIBUTION",
+        productionStatus: "IN_PROGRESS",
         distributionStatus: "FULLY_RECEIVED",
         allocations: fullyReceived,
         hasOpenBlockingException: false,
@@ -121,11 +121,11 @@ describe("completion rule (P4-04)", () => {
 
 describe("order production status projection (P4-05)", () => {
   it("uses the least advanced active job", () => {
-    expect(deriveOrderProductionStatus(["PRINTING", "READY_FOR_DISTRIBUTION"])).toBe("PRINTING");
+    expect(deriveOrderProductionStatus(["IN_PROGRESS", "COMPLETED"])).toBe("IN_PROGRESS");
     expect(deriveOrderProductionStatus(["COMPLETED", "COMPLETED"])).toBe("COMPLETED");
     expect(deriveOrderProductionStatus(["COMPLETED", "CANCELLED"])).toBe("COMPLETED");
     expect(deriveOrderProductionStatus(["CANCELLED", "CANCELLED"])).toBe("CANCELLED");
-    expect(deriveOrderProductionStatus(["EXCEPTION", "PRINTING"])).toBe("EXCEPTION");
+    expect(deriveOrderProductionStatus(["EXCEPTION", "IN_PROGRESS"])).toBe("EXCEPTION");
   });
 });
 

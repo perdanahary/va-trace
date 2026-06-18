@@ -615,23 +615,39 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                             </button>
                           </div>
                         </CardHeader>
-                        <CardContent className="p-5">
-                          <div className="flex flex-wrap items-center gap-3">
-                            <Link
-                              to={`/${userRole}/shipments/${viewModel.workflowBatch.id}`}
-                              className={TABLE_LINK_CLASS}
-                            >
-                              {viewModel.workflowBatch.batchNumber}
-                            </Link>
-                            <ShipmentBatchStatusBadge status={viewModel.workflowBatch.status} />
-                          </div>
-
-                          <div className="mt-4 grid gap-4 sm:grid-cols-4">
-                            <KeyMetric label="Shipped" value={`${viewModel.workflowBatch.quantitySummary.shippedQuantity} pcs`} />
-                            <KeyMetric label="Received" value={`${viewModel.workflowBatch.quantitySummary.verifiedReceivedQuantity} pcs`} />
-                            <KeyMetric label="Status" value={formatBatchStatusLabel(viewModel.workflowBatch.status)} />
-                            <KeyMetric label="POD" value={formatPodLabel(hydrated.podStatus)} />
-                          </div>
+                        <CardContent className="p-0">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Batch</TableHead>
+                                <TableHead className="text-right">Shipped</TableHead>
+                                <TableHead className="text-right">Received</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>POD</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              <TableRow>
+                                <TableCell className="font-mono text-xs">
+                                  <Link to={`/${userRole}/shipments/${viewModel.workflowBatch.id}`} className={TABLE_LINK_CLASS}>
+                                    {viewModel.workflowBatch.batchNumber}
+                                  </Link>
+                                </TableCell>
+                                <TableCell className="text-right text-sm tabular-nums">
+                                  {viewModel.workflowBatch.quantitySummary.shippedQuantity}
+                                </TableCell>
+                                <TableCell className="text-right text-sm tabular-nums">
+                                  {viewModel.workflowBatch.quantitySummary.verifiedReceivedQuantity}
+                                </TableCell>
+                                <TableCell>
+                                  <ShipmentBatchStatusBadge status={viewModel.workflowBatch.status} />
+                                </TableCell>
+                                <TableCell>
+                                  <PodStatusBadge status={hydrated.podStatus} />
+                                </TableCell>
+                              </TableRow>
+                            </TableBody>
+                          </Table>
                         </CardContent>
                       </Card>
                     )}
@@ -1519,15 +1535,6 @@ function OverviewStat({ label, value, hint, color, compact }: { label: string; v
   );
 }
 
-function KeyMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="mt-2 text-2xl font-medium tracking-tight">{value}</p>
-    </div>
-  );
-}
-
 function DetailPair({ label, value, mono = false }: { label: string; value: ReactNode; mono?: boolean }) {
   return (
     <div className="space-y-1">
@@ -1625,10 +1632,3 @@ function formatDistributionLabel(status: string) {
     .join(" ");
 }
 
-function formatBatchStatusLabel(status: string) {
-  return formatDistributionLabel(status);
-}
-
-function formatPodLabel(status: string) {
-  return formatDistributionLabel(status);
-}

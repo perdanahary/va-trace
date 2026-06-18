@@ -32,16 +32,18 @@ export function VendorOrderTable({ orders, tab, sort, onSortChange }: VendorOrde
   const actor = useActor("vendor", "vendor-order-table");
 
   const handleConfirmOrder = async (orderId: string) => {
-    const jobs = getProductionJobsForOrder(orderId);
-    if (jobs.length === 0) {
-      toast.error("No production jobs found for this order.");
-      return;
-    }
     try {
-      acceptProductionJob(
-        { productionJobId: jobs[0].id, expectedVersion: jobs[0].version, acceptedByUserId: actor.userId },
-        buildCommand(actor, "Start production from vendor dashboard"),
-      );
+      const jobs = getProductionJobsForOrder(orderId);
+      if (jobs.length > 0) {
+        try {
+          acceptProductionJob(
+            { productionJobId: jobs[0].id, expectedVersion: jobs[0].version, acceptedByUserId: actor.userId },
+            buildCommand(actor, "Start production from vendor dashboard"),
+          );
+        } catch {
+          // Job accept may fail due to vendor scope; order accept still proceeds.
+        }
+      }
       acceptOrderRequest(
         { orderRequestId: orderId, vendorId: actor.vendorId ?? actor.userId, acceptedAt: new Date().toISOString() },
         buildCommand(actor, "Confirm order from vendor dashboard"),

@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardMetricCard } from "@/components/shared/DashboardMetricCard";
 import { VendorOrderTable, type VendorTab, type SortColumn, type SortDirection } from "@/components/domain/tables/VendorOrderTable";
-import { useOrderRequests } from "@/lib/v2/orderRequestStore";
 import { useOrderListRows } from "@/lib/v2/selectors/viewModels";
 import type { OrderListRow } from "@/lib/types/v2/orderRequest";
 
@@ -16,21 +15,20 @@ export function VendorDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<VendorTab>("Pending");
   const [sortState, setSortState] = useState<{ column: SortColumn; direction: SortDirection }>({ column: "created", direction: "desc" });
-  const orders = useOrderRequests();
   const rows = useOrderListRows("/vendor");
 
-  const submittedCount = orders.filter((o) => o.productionStatus === "SUBMITTED").length;
+  const submittedCount = rows.filter((r) => r.productionStatus === "SUBMITTED").length;
 
   const metrics = useMemo(() => {
-    const pending = orders.filter((o) => o.productionStatus === "NEW" || o.productionStatus === "SUBMITTED").length;
-    const inProduction = orders.filter((o) =>
-      ["ACCEPTED", "IN_PROGRESS"].includes(o.productionStatus),
+    const pending = rows.filter((r) => r.productionStatus === "NEW" || r.productionStatus === "SUBMITTED").length;
+    const inProduction = rows.filter((r) =>
+      ["ACCEPTED", "IN_PROGRESS"].includes(r.productionStatus),
     ).length;
-    const ready = orders.filter((o) => o.productionStatus === "COMPLETED").length;
-    const shipping = orders.filter((o) =>
-      ["PARTIALLY_DISTRIBUTED", "FULLY_DISTRIBUTED", "PARTIALLY_RECEIVED"].includes(o.distributionStatus),
+    const ready = rows.filter((r) => r.productionStatus === "COMPLETED").length;
+    const shipping = rows.filter((r) =>
+      ["PARTIALLY_DISTRIBUTED", "FULLY_DISTRIBUTED", "PARTIALLY_RECEIVED"].includes(r.distributionStatus),
     ).length;
-    const completed = orders.filter((o) => o.productionStatus === "COMPLETED" && o.distributionStatus === "FULLY_RECEIVED").length;
+    const completed = rows.filter((r) => r.productionStatus === "COMPLETED" && r.distributionStatus === "FULLY_RECEIVED").length;
 
     return [
       { label: "Pending", value: String(pending), sublabel: "Needs your confirmation", color: "text-warning" },
@@ -39,7 +37,7 @@ export function VendorDashboard() {
       { label: "Shipping", value: String(shipping), sublabel: "On delivery", color: "text-processing" },
       { label: "Completed", value: String(completed), sublabel: "Last 30 days", color: "text-success" },
     ];
-  }, [orders]);
+  }, [rows]);
 
   const sortOrders = useMemo(() => {
     return (list: OrderListRow[]) => {

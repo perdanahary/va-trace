@@ -23,18 +23,24 @@ describe("legacy compatibility adapters (P1-19 / P4-24)", () => {
 
   it("derives the legacy display label from both V2 models", () => {
     expect(legacyStatusLabel("NEW", "NOT_STARTED")).toBe("New");
-    expect(legacyStatusLabel("PRINTING", "NOT_STARTED")).toBe("In Production");
-    expect(legacyStatusLabel("READY_FOR_DISTRIBUTION", "NOT_STARTED")).toBe("Ready to Ship");
+    expect(legacyStatusLabel("SUBMITTED", "NOT_STARTED")).toBe("New");
+    expect(legacyStatusLabel("IN_PROGRESS", "NOT_STARTED")).toBe("In Production");
+    expect(legacyStatusLabel("COMPLETED", "NOT_STARTED")).toBe("Ready to Ship");
     expect(legacyStatusLabel("COMPLETED", "PARTIALLY_DISTRIBUTED")).toBe("On Delivery");
     expect(legacyStatusLabel("COMPLETED", "PARTIALLY_RECEIVED")).toBe("Delivered");
     expect(legacyStatusLabel("COMPLETED", "FULLY_RECEIVED")).toBe("Completed");
     expect(legacyStatusLabel("CANCELLED", "NOT_STARTED")).toBe("Overdue");
+    expect(legacyStatusLabel("EXCEPTION", "NOT_STARTED")).toBe("Overdue");
   });
 
   it("maps legacy item statuses to production statuses (migration only)", () => {
     expect(productionStatusFromLegacyItemStatus("New")).toBe("SUBMITTED");
-    expect(productionStatusFromLegacyItemStatus("In Production")).toBe("PRINTING");
-    expect(productionStatusFromLegacyItemStatus("Ready to Ship")).toBe("READY_FOR_DISTRIBUTION");
+    expect(productionStatusFromLegacyItemStatus("Waiting")).toBe("SUBMITTED");
+    expect(productionStatusFromLegacyItemStatus("In Production")).toBe("IN_PROGRESS");
+    expect(productionStatusFromLegacyItemStatus("Ready to Ship")).toBe("IN_PROGRESS");
+    expect(productionStatusFromLegacyItemStatus("On Delivery")).toBe("COMPLETED");
     expect(productionStatusFromLegacyItemStatus("Delivered")).toBe("COMPLETED");
+    expect(productionStatusFromLegacyItemStatus("Completed")).toBe("COMPLETED");
+    expect(productionStatusFromLegacyItemStatus("Overdue")).toBe("CANCELLED");
   });
 });

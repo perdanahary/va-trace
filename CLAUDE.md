@@ -87,7 +87,16 @@ V2 mutations flow through `runCommand()` which handles idempotency keys, optimis
 `src/components/shared/` — `ColumnToggle` (table column visibility), `AdvancedFilterBar`, `FilterSection`, `OrderMetadataSummary`. Domain tables in `src/components/domain/tables/` — `OrderRequestTable`, `DeliveryNoteTable`, `ShipmentBatchTable`, `ProductionJobTable`, `SalesPointAllocationTable`, `PodQueueTable`.
 
 ### Order Lifecycle
-Draft → Submitted → Accepted → In Production (Printing → Finishing → QC) → Ready For Distribution → Batch Created → Dispatched → In Transit → Received → Completed. Cancel and Amend available throughout (policy-constrained).
+Draft → Submitted → Accepted → In Production → Production Complete → Dispatched → In Transit → Received → Order Complete. Cancel and Amend available throughout (policy-constrained).
+
+V2 status types: `ProductionStatus` (NEW→SUBMITTED→ACCEPTED→IN_PROGRESS→COMPLETED→CANCELLED→EXCEPTION), `DistributionStatus` (NOT_STARTED→PARTIALLY_DISTRIBUTED→FULLY_DISTRIBUTED→PARTIALLY_RECEIVED→FULLY_RECEIVED→CANCELLED→EXCEPTION), `ShipmentBatchStatus` (DRAFT→READY→DISPATCHED→IN_TRANSIT→PARTIALLY_RECEIVED→FULLY_RECEIVED→FAILED_DELIVERY→RETURNED→EXCEPTION→CLOSED→CANCELLED→VOIDED), `AllocationStatus` (NOT_SHIPPED→PARTIALLY_SHIPPED→FULLY_SHIPPED→PARTIALLY_RECEIVED→FULLY_RECEIVED→SHORT_RECEIVED→OVER_RECEIVED→ADJUSTED→CANCELLED→EXCEPTION), `DeliveryNoteStatus` (GENERATED→PRINTED→SIGNED→UPLOADED→VERIFIED→CLOSED→SUPERSEDED→REGENERATED→VOIDED), `PodStatus` (NOT_REQUIRED→NOT_STARTED→DRAFT→PENDING_UPLOAD→SUBMITTED→PARTIALLY_VERIFIED→VERIFIED→REJECTED→CORRECTION_REQUESTED→VARIANCE→MISSING).
+
+## Plane.so Integration
+
+For plane-project skill rules, see `~/.local/share/va-skills/plane-project/skill.md`.
+
+### VATRACE-specific rules
+- **Label-aware state update**: Only UI/UX-tagged issues (`92acf46f-fc51-4c4c-b604-bd082d63bacb`) get state updates. Non-UI/UX issues: comment only, no state change.
 
 ### Page Directory
 - `src/pages/admin/AdminDashboard.tsx`, `AllOrders.tsx`, `OrderDetail.tsx` (admin)

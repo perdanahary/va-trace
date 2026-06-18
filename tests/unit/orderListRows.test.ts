@@ -15,7 +15,7 @@ describe("buildOrderListRowsFromStoredOrders", () => {
       clientName: "PT HM Sampoerna Tbk",
       projectName: "Retail Visibility",
       vendorName: "CV Cetakan Terbaik",
-      productionStatus: "READY_FOR_DISTRIBUTION",
+      productionStatus: "COMPLETED",
       distributionStatus: "PARTIALLY_DISTRIBUTED",
       deliveryProgressLabel: "25/100",
       deliveryProgressPercent: 25,
@@ -39,7 +39,7 @@ function makeOrder(): StoredOrder {
     id: "OR-2026-000001",
     campaign: "Retail Visibility",
     status: "Ready to Ship",
-    productionStatus: "READY_FOR_DISTRIBUTION",
+    productionStatus: "COMPLETED",
     distributionStatus: "PARTIALLY_DISTRIBUTED",
     deliveryProgress: {
       allocatedQuantity: 100,

@@ -338,7 +338,7 @@ test.describe("E2E Order Lifecycle – Visual Tour", () => {
                   );
                   return `Partial ${sorted.at(-1)}`;
                 })(),
-                productionStatus: "PRINTING",
+                productionStatus: "IN_PROGRESS",
               };
             },
           );
@@ -1241,7 +1241,7 @@ test.describe("E2E Order Lifecycle – Visual Tour", () => {
       labelStatus: "none",
       note: "E2E test for partial delivery with multiple batches.",
       status: "In Production",
-      productionStatus: "PRINTING",
+      productionStatus: "IN_PROGRESS",
       distributionStatus: "NOT_STARTED",
       deliveryProgress: {
         allocatedQuantity: 0,
