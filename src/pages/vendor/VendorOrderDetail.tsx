@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   ArrowRight,
-  ArrowUpRight,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -460,16 +459,18 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
 
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[repeat(auto-fill,minmax(180px,1fr))]">
                       {viewModel.summaryStats.map((stat) => (
-                        <OverviewStat key={stat.label} label={stat.label} value={stat.value} hint={stat.hint} color={stat.color} />
+                        <Fragment key={stat.label}>
+                          <OverviewStat label={stat.label} value={stat.value} hint={stat.hint} color={stat.color} />
+                          {stat.label === "Allocated" && isProductionPhase && totalReadyQty > 0 ? (
+                            <OverviewStat
+                              label="Ready for Shipping"
+                              value={`${totalReadyQty} pcs`}
+                              hint={`${Math.round((totalReadyQty / viewModel.order.quantitySummary.orderedQuantity) * 100)}% of ordered`}
+                              color="text-success"
+                            />
+                          ) : null}
+                        </Fragment>
                       ))}
-                      {isProductionPhase && totalReadyQty > 0 ? (
-                        <OverviewStat
-                          label="Ready for Shipping"
-                          value={`${totalReadyQty} pcs`}
-                          hint={`${Math.round((totalReadyQty / viewModel.order.quantitySummary.orderedQuantity) * 100)}% of ordered`}
-                          color="text-success"
-                        />
-                      ) : null}
                     </div>
 
                     <Card className="border-border/70 shadow-sm">
@@ -1505,7 +1506,7 @@ function buildFocusCard(
 function OverviewStat({ label, value, hint, color, compact }: { label: string; value: string; hint?: string; color?: string; compact?: boolean }) {
   if (compact) {
     return (
-      <div className="flex items-center gap-4 rounded-xl border border-border/70 bg-background px-4 py-3 transition-colors hover:border-primary/40">
+      <div className="flex items-center gap-4 rounded-xl border border-border/70 bg-background px-4 py-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs text-muted-foreground">{label}</p>
           <p className={`mt-0.5 text-lg font-semibold tracking-tight ${color ?? "text-primary"}`}>{value}</p>
@@ -1516,13 +1517,12 @@ function OverviewStat({ label, value, hint, color, compact }: { label: string; v
   }
 
   return (
-    <Card className="group cursor-pointer border-border/70 shadow-sm transition-colors hover:border-primary/40">
+    <Card className="border-border/70 shadow-sm">
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
         <div>
           <CardDescription>{label}</CardDescription>
           <CardTitle className={`text-3xl ${color ?? "text-primary"}`}>{value}</CardTitle>
         </div>
-        <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
       </CardHeader>
       <CardContent className="flex items-center justify-between pt-0">
         {hint ? (
