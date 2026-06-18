@@ -46,6 +46,7 @@ import type {
 } from "@/lib/types/v2/shipment";
 import type { SalesPointContactRole, ShipmentBatchStatus } from "@/lib/types/v2/status";
 import type { WorkflowPolicy } from "@/lib/types/v2/policy";
+import type { Pic } from "@/lib/types/v2/pic";
 import {
   mapLegacyConfirmationStatus,
   productionStatusFromLegacyItemStatus,
@@ -238,6 +239,7 @@ export interface V2SeedData {
   deliveryNotes: DeliveryNote[];
   deliveryConfirmations: DeliveryConfirmation[];
   policies: WorkflowPolicy[];
+  pics: Pic[];
 }
 
 let cachedSeed: V2SeedData | null = null;
@@ -867,6 +869,8 @@ export function buildV2SeedData(): V2SeedData {
     version: 1,
   });
 
+  const pics = buildPicSeeds(orderRequests);
+
   cachedSeed = {
     salesPoints,
     orderRequests,
@@ -876,8 +880,36 @@ export function buildV2SeedData(): V2SeedData {
     deliveryNotes,
     deliveryConfirmations,
     policies: [defaultGlobalPolicy()],
+    pics,
   };
   return cachedSeed;
+}
+
+/** Extracts PIC master data from seed order requests, deduplicated by email. */
+function buildPicSeeds(orderRequests: OrderRequest[]): Pic[] {
+  const seen = new Set<string>();
+  const pics: Pic[] = [];
+  let counter = 0;
+
+  for (const order of orderRequests) {
+    const name = order.project.picName?.trim();
+    const email = order.project.picEmail?.trim();
+    if (!name || !email) continue;
+    const key = email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    counter += 1;
+    pics.push({
+      id: `pic_${slug(name)}_${counter}`,
+      code: `PIC${String(counter).padStart(3, "0")}`,
+      name,
+      email,
+      audit: migrationAudit(),
+      version: 1,
+    });
+  }
+
+  return pics;
 }
 
 /** Test helper — clears the memoized seed so builders re-read legacy data. */

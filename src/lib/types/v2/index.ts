@@ -11,4 +11,5 @@ export * from "./exception";
 export * from "./events";
 export * from "./policy";
 export * from "./fileAsset";
+export * from "./pic";
 export { DEFAULT_ROLE_SCOPES } from "./scope";

@@ -20,6 +20,7 @@ import {
   ClipboardCheck,
   AlertTriangle,
   Tags,
+  UserRoundCheck,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import pmgAsiaLogo from "@/assets/pmg-asia-logo.jpeg";
@@ -92,6 +93,7 @@ const navItems: Record<UserRole, NavEntry[]> = {
     { icon: Bookmark, label: "Brands", path: "/admin/brands" },
     { icon: Map, label: "Sales Points", path: "/admin/sales-points" },
     { icon: Users, label: "Clients", path: "/admin/clients" },
+    { icon: UserRoundCheck, label: "PICs", path: "/admin/pics" },
     { icon: Users, label: "Users", path: "/admin/users" },
   ],
   operator: [

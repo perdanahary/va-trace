@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { useProjectStore } from "@/lib/projectStore";
 import { useActor } from "@/lib/v2/useActor";
 import { useSalesPoints } from "@/lib/v2/salesPointStore";
+import { usePics } from "@/lib/v2/picStore";
 import { createSubmittedOrder, toApiError } from "@/lib/v2/workflows";
 
 interface AdminCreateOrderProps {
@@ -51,12 +52,12 @@ export function AdminCreateOrder({ userRole = "admin" }: AdminCreateOrderProps) 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState("");
-  const [projectPicName, setProjectPicName] = useState("");
-  const [projectPicEmail, setProjectPicEmail] = useState("");
+  const [selectedPicId, setSelectedPicId] = useState("");
   const [productToAdd, setProductToAdd] = useState("");
   const { suppliers } = useSupplierStore();
   const salesPoints = useSalesPoints();
   const { projects, addProject } = useProjectStore();
+  const pics = usePics();
 
   const actor = useActor(userRole, "order-create");
 
@@ -120,6 +121,18 @@ export function AdminCreateOrder({ userRole = "admin" }: AdminCreateOrderProps) 
         keywords: [project],
       })),
     [projects],
+  );
+  const picOptions = useMemo(
+    () =>
+      pics
+        .map((pic) => ({
+          value: pic.id,
+          label: `${pic.code} - ${pic.name}`,
+          description: pic.email,
+          keywords: [pic.code, pic.name, pic.email],
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [pics],
   );
 
   const deadlineLabel = formatDeadlineDate(customDeadline);
@@ -214,12 +227,14 @@ export function AdminCreateOrder({ userRole = "admin" }: AdminCreateOrderProps) 
       if (referenceUrl.trim() && !referenceLink) {
         throw new Error("Link URL must be a valid http or https URL.");
       }
+      const resolvedPic = selectedPicId ? pics.find((p) => p.id === selectedPicId) : undefined;
       const projectRef = {
         id: `project_${slug(selectedProject)}`,
         name: selectedProject,
         clientId: clientRef.id,
-        picName: projectPicName.trim() || undefined,
-        picEmail: projectPicEmail.trim() || undefined,
+        picId: resolvedPic?.id,
+        picName: resolvedPic?.name,
+        picEmail: resolvedPic?.email,
       };
       const v2 = createSubmittedOrder(
         {
@@ -482,25 +497,28 @@ export function AdminCreateOrder({ userRole = "admin" }: AdminCreateOrderProps) 
                   onCreate={(name) => addProject(name)}
                 />
               </FormField>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <FormField label="Project PIC Name" htmlFor="project-pic-name">
-                  <Input
-                    id="project-pic-name"
-                    placeholder="e.g. John Doe"
-                    value={projectPicName}
-                    onChange={(e) => setProjectPicName(e.target.value)}
-                  />
-                </FormField>
-                <FormField label="Project PIC Email" htmlFor="project-pic-email">
-                  <Input
-                    id="project-pic-email"
-                    type="email"
-                    placeholder="e.g. john@example.com"
-                    value={projectPicEmail}
-                    onChange={(e) => setProjectPicEmail(e.target.value)}
-                  />
-                </FormField>
-              </div>
+              <FormField label="Project PIC">
+                <SearchableCombobox
+                  value={selectedPicId}
+                  onValueChange={setSelectedPicId}
+                  options={picOptions}
+                  placeholder="Select a PIC (optional)..."
+                  searchPlaceholder="Search PIC by code, name, or email..."
+                  emptyText="No PICs found. Add PICs from the PIC Management page."
+                />
+              </FormField>
+              {selectedPicId ? (
+                (() => {
+                  const pic = pics.find((p) => p.id === selectedPicId);
+                  if (!pic) return null;
+                  return (
+                    <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                      <p className="mb-1 font-medium text-foreground">Selected PIC</p>
+                      <p><span className="font-medium">{pic.name}</span> — {pic.email}</p>
+                    </div>
+                  );
+                })()
+              ) : null}
             </CardContent>
           </Card>
 

@@ -41,6 +41,7 @@ export type ClientReference = EntityReference;
 
 export interface ProjectReference extends EntityReference {
   clientId: ID;
+  picId?: ID;
   picName?: string;
   picEmail?: string;
 }
@@ -77,6 +78,7 @@ export type EntityType =
   | "PRODUCT"
   | "ORDER_REQUEST"
   | "ORDER_ITEM"
+  | "PIC"
   | "PRODUCTION_JOB"
   | "SALES_POINT"
   | "SALES_POINT_ALIAS"

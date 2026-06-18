@@ -14,6 +14,7 @@ import { BrandList } from './pages/admin/BrandList';
 import { SalesPointList } from './pages/admin/SalesPointList';
 import { ClientDetail } from './pages/admin/ClientDetail';
 import { ClientList } from './pages/admin/ClientList';
+import { PICList } from './pages/admin/PICList';
 import { AdminCreateOrder } from './pages/admin/AdminCreateOrder';
 import { AdminAmendOrder } from './pages/admin/AdminAmendOrder';
 import { ClientDashboard } from './pages/client/ClientDashboard';
@@ -147,6 +148,7 @@ function App() {
                 <Route path="/admin/products/:code" element={<ProductDetail />} />
                 <Route path="/admin/brands" element={<BrandList />} />
                 <Route path="/admin/sales-points" element={<SalesPointList />} />
+                <Route path="/admin/pics" element={<PICList />} />
                 <Route path="/admin/clients" element={<ClientList />} />
                 <Route path="/admin/clients/:id" element={<ClientDetail />} />
 
