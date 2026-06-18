@@ -51,9 +51,11 @@ function readStoredProjects(): string[] {
     const seeds = getSeedProjects();
 
     if (!stored) {
-      cachedProjects = seeds;
+      if (cachedProjects.length === 0) {
+        cachedProjects = seeds;
+      }
       cachedStorageValue = null;
-      return seeds;
+      return cachedProjects;
     }
 
     if (stored === cachedStorageValue) {
