@@ -193,7 +193,7 @@ export function buildOrderQuantitySummary(
   const allocatedQuantity = sum(active.map((allocation) => allocation.allocatedQuantity));
   const shippedQuantity = sum(active.map((allocation) => allocation.shippedQuantity));
   const receivedQuantity = sum(active.map((allocation) => allocation.receivedQuantity));
-  const productionReadyQuantity = sum(productionJobs.map((job) => job.readyQuantity));
+  const productionReadyQuantity = sum(productionJobs.map((job) => job.completedQuantity));
   const productionCompletedQuantity = sum(productionJobs.map((job) => job.completedQuantity));
 
   const salesPointIds = new Set(active.map((allocation) => allocation.salesPoint.id));
@@ -338,7 +338,7 @@ export function hydrateOrder(order: OrderRequest, sources: OrderProjectionSource
     return {
       ...item,
       productionStatus: itemJobs.length > 0 ? deriveOrderProductionStatus(itemJobs.map((job) => job.status)) : item.productionStatus,
-      productionReadyQuantity: sum(itemJobs.map((job) => job.readyQuantity)),
+      productionReadyQuantity: sum(itemJobs.map((job) => job.completedQuantity)),
       productionCompletedQuantity: sum(itemJobs.map((job) => job.completedQuantity)),
       allocatedQuantity: allocated,
       shippedQuantity: sum(itemAllocations.map((allocation) => allocation.shippedQuantity)),

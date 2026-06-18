@@ -145,12 +145,12 @@ export function useColumns(ctx: ColumnContext): ColumnDef<ProductionJobListRow>[
                       const n = parseInt(e.target.value, 10);
                       if (!isNaN(n) && n >= 0) ctx.onQuantityChange(row.original.id, "producedQuantity", n);
                     }}
-                    className="h-7 w-16 text-center tabular-nums text-sm"
+                    className="h-8 w-20 text-center tabular-nums text-sm"
                   />
                 </div>
               );
             },
-            size: 80,
+            size: 90,
           },
           {
             accessorKey: "completedQuantity",
@@ -170,12 +170,12 @@ export function useColumns(ctx: ColumnContext): ColumnDef<ProductionJobListRow>[
                       const n = parseInt(e.target.value, 10);
                       if (!isNaN(n) && n >= 0) ctx.onQuantityChange(row.original.id, "completedQuantity", n);
                     }}
-                    className="h-7 w-16 text-center tabular-nums text-sm"
+                    className="h-8 w-20 text-center tabular-nums text-sm"
                   />
                 </div>
               );
             },
-            size: 80,
+            size: 90,
           },
         ],
       },

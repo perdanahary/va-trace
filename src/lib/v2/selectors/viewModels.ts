@@ -369,8 +369,6 @@ export function useProductionRows(vendorName?: string): ProductionJobListRow[] {
             status: job.status,
             orderedQuantity: job.orderedQuantity,
             producedQuantity: job.producedQuantity,
-            qcPassedQuantity: job.qcPassedQuantity,
-            readyQuantity: job.readyQuantity,
             reservedForShipmentQuantity: job.reservedForShipmentQuantity,
             completedQuantity: job.completedQuantity,
             rejectedQuantity: job.rejectedQuantity,

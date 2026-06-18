@@ -24,7 +24,7 @@ export type OrderRequestTableColumn =
   | "progress"
   | "production"
   | "distribution"
-  | "readyQuantity"
+  | "completedQuantity"
   | "shippedQuantity"
   | "pod"
   | "orderedQuantity"
@@ -178,7 +178,7 @@ function getColumnLabel(column: OrderRequestTableColumn) {
       return "Distribution";
     case "orderedQuantity":
       return "Ordered Qty";
-    case "readyQuantity":
+    case "completedQuantity":
       return "Ready Qty";
     case "shippedQuantity":
       return "Shipped Qty";
@@ -190,14 +190,14 @@ function getColumnLabel(column: OrderRequestTableColumn) {
 }
 
 function getHeaderClassName(column: OrderRequestTableColumn) {
-  return ["salesPoints", "progress", "orderedQuantity", "readyQuantity", "shippedQuantity"].includes(column) ? "text-right" : undefined;
+  return ["salesPoints", "progress", "orderedQuantity", "completedQuantity", "shippedQuantity"].includes(column) ? "text-right" : undefined;
 }
 
 function getCellClassName(column: OrderRequestTableColumn) {
   switch (column) {
     case "salesPoints":
     case "orderedQuantity":
-    case "readyQuantity":
+    case "completedQuantity":
     case "shippedQuantity":
       return "text-right text-sm tabular-nums";
     case "progress":
@@ -261,7 +261,7 @@ function renderCell(column: OrderRequestTableColumn, row: OrderListRow, onRowCli
       return <DistributionStatusBadge status={row.distributionStatus} />;
     case "orderedQuantity":
       return row.orderedQuantity;
-    case "readyQuantity":
+    case "completedQuantity":
       return row.productionReadyQuantity;
     case "shippedQuantity":
       return row.shippedQuantity;

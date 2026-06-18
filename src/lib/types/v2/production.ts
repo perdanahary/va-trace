@@ -15,15 +15,11 @@ export interface ProductionJob {
   status: ProductionStatus;
   orderedQuantity: Quantity;
   producedQuantity: Quantity;
-  qcPassedQuantity: Quantity;
-  readyQuantity: Quantity;
   reservedForShipmentQuantity: Quantity;
   completedQuantity: Quantity;
   reworkQuantity: Quantity;
   rejectedQuantity: Quantity;
   startedAt?: ISODateTimeString;
-  qcStartedAt?: ISODateTimeString;
-  readyAt?: ISODateTimeString;
   completedAt?: ISODateTimeString;
   cancelledAt?: ISODateTimeString;
   assignedUserId?: ID;
@@ -43,8 +39,6 @@ export interface ProductionJobListRow {
   status: ProductionStatus;
   orderedQuantity: Quantity;
   producedQuantity: Quantity;
-  qcPassedQuantity: Quantity;
-  readyQuantity: Quantity;
   reservedForShipmentQuantity: Quantity;
   completedQuantity: Quantity;
   rejectedQuantity: Quantity;
@@ -76,19 +70,11 @@ export interface UpdateProductionProgressDto {
   expectedVersion: number;
   status: ProductionStatus;
   producedQuantity: Quantity;
-  qcPassedQuantity?: Quantity;
-  readyQuantity?: Quantity;
   completedQuantity?: Quantity;
   reworkQuantity?: Quantity;
   rejectedQuantity?: Quantity;
   notes?: string;
   attachmentFileAssetIds?: ID[];
-}
-
-export interface MarkProductionReadyDto {
-  productionJobId: ID;
-  expectedVersion: number;
-  readyQuantity: Quantity;
 }
 
 export interface CompleteProductionJobDto {

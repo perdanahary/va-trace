@@ -28,20 +28,16 @@ interface VendorProductionBulkUpdatePageProps {
 interface JobDraft {
   status: ProductionStatus;
   producedQuantity: number;
-  qcPassedQuantity: number;
-  readyQuantity: number;
   completedQuantity: number;
 }
 
 function initialDraft(job: ProductionJob): JobDraft {
   if (job.status === "SUBMITTED" || job.status === "NEW") {
-    return { status: "ACCEPTED", producedQuantity: 0, qcPassedQuantity: 0, readyQuantity: 0, completedQuantity: 0 };
+    return { status: "ACCEPTED", producedQuantity: 0, completedQuantity: 0 };
   }
   return {
     status: job.status as ProductionStatus,
     producedQuantity: job.producedQuantity,
-    qcPassedQuantity: job.qcPassedQuantity,
-    readyQuantity: job.readyQuantity,
     completedQuantity: job.completedQuantity,
   };
 }
@@ -80,8 +76,6 @@ export function VendorProductionBulkUpdatePage({ userRole = "vendor" }: VendorPr
         status: job.status,
         orderedQuantity: job.orderedQuantity,
         producedQuantity: job.producedQuantity,
-        qcPassedQuantity: job.qcPassedQuantity,
-        readyQuantity: job.readyQuantity,
         reservedForShipmentQuantity: job.reservedForShipmentQuantity,
         completedQuantity: job.completedQuantity,
         rejectedQuantity: job.rejectedQuantity,
@@ -120,8 +114,6 @@ export function VendorProductionBulkUpdatePage({ userRole = "vendor" }: VendorPr
         if (status === "COMPLETED") {
           const qty = job.orderedQuantity;
           next.producedQuantity = qty;
-          next.qcPassedQuantity = qty;
-          next.readyQuantity = qty;
           next.completedQuantity = qty;
         } else if (status === "ACCEPTED" && existing.producedQuantity === 0) {
           next.producedQuantity = job.orderedQuantity;
@@ -183,8 +175,6 @@ export function VendorProductionBulkUpdatePage({ userRole = "vendor" }: VendorPr
             [job.id]: {
               status: "COMPLETED",
               producedQuantity: qty,
-              qcPassedQuantity: qty,
-              readyQuantity: qty,
               completedQuantity: qty,
             },
           }));
@@ -206,8 +196,6 @@ export function VendorProductionBulkUpdatePage({ userRole = "vendor" }: VendorPr
             [jobId]: {
               ...existing,
               producedQuantity: qty.producedQuantity,
-              qcPassedQuantity: 0,
-              readyQuantity: 0,
               completedQuantity: qty.completedQuantity,
             },
           };
@@ -239,8 +227,6 @@ export function VendorProductionBulkUpdatePage({ userRole = "vendor" }: VendorPr
           const changed =
             draft.status !== baseDraft.status ||
             draft.producedQuantity !== baseDraft.producedQuantity ||
-            draft.qcPassedQuantity !== baseDraft.qcPassedQuantity ||
-            draft.readyQuantity !== baseDraft.readyQuantity ||
             draft.completedQuantity !== baseDraft.completedQuantity;
 
           if (!changed) continue;
@@ -251,8 +237,6 @@ export function VendorProductionBulkUpdatePage({ userRole = "vendor" }: VendorPr
               expectedVersion: job.version,
               status: draft.status,
               producedQuantity: draft.producedQuantity,
-              qcPassedQuantity: draft.qcPassedQuantity,
-              readyQuantity: draft.readyQuantity,
               completedQuantity: draft.completedQuantity,
             },
             buildCommand(actor, "Bulk update production jobs"),

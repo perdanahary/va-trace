@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { cn } from "@/lib/utils";
 
 interface DeliveryLifecycleTimelineProps {
-  readyQuantity: number;
+  completedQuantity: number;
   orderedQuantity: number;
   shippedQuantity: number;
   receivedQuantity: number;
@@ -41,15 +41,15 @@ function StatisticCard({
 }
 
 export function DeliveryLifecycleTimeline({
-  readyQuantity,
+  completedQuantity,
   orderedQuantity,
   shippedQuantity,
   receivedQuantity,
   allocatedQuantity,
   batchStatus,
 }: DeliveryLifecycleTimelineProps) {
-  const isProdCompleted = readyQuantity >= orderedQuantity && orderedQuantity > 0;
-  const isProdActive = readyQuantity > 0;
+  const isProdCompleted = completedQuantity >= orderedQuantity && orderedQuantity > 0;
+  const isProdActive = completedQuantity > 0;
 
   const isBatchCompleted = shippedQuantity >= allocatedQuantity && allocatedQuantity > 0;
   const isBatchActive = shippedQuantity > 0 || allocatedQuantity > 0;
@@ -65,7 +65,7 @@ export function DeliveryLifecycleTimeline({
       label: "Production",
       icon: Factory,
       status: isProdCompleted ? "success" : isProdActive ? "processing" : "pending",
-      valueText: `${readyQuantity} / ${orderedQuantity} pcs ready`,
+      valueText: `${completedQuantity} / ${orderedQuantity} pcs ready`,
     },
     {
       label: "Shipment Batching",
@@ -165,8 +165,8 @@ export function DeliveryLifecycleTimeline({
       <div className="grid grid-cols-2 gap-4 border-t border-border/60 pt-6 sm:grid-cols-4">
         <StatisticCard
           label="Production Progress"
-          value={`${orderedQuantity > 0 ? Math.round((readyQuantity / orderedQuantity) * 100) : 0}%`}
-          hint={`${readyQuantity} of ${orderedQuantity} pcs ready`}
+          value={`${orderedQuantity > 0 ? Math.round((completedQuantity / orderedQuantity) * 100) : 0}%`}
+          hint={`${completedQuantity} of ${orderedQuantity} pcs ready`}
           color={isProdCompleted ? "text-success" : isProdActive ? "text-processing" : "text-muted-foreground"}
         />
         <StatisticCard

@@ -30,7 +30,7 @@ const defaultLabels: Record<OrderRequestTableColumn, string> = {
   production: "Production",
   distribution: "Distribution",
   orderedQuantity: "Ordered Qty",
-  readyQuantity: "Ready Qty",
+  completedQuantity: "Completed Qty",
   shippedQuantity: "Shipped Qty",
   pod: "Proof of Delivery (POD)",
   exception: "Exception",

@@ -87,8 +87,7 @@ describe("V2 stores and workflows (P4-08..P4-15)", () => {
           expectedVersion: job.version,
           status: nextStatus,
           producedQuantity: job.orderedQuantity,
-          qcPassedQuantity: job.orderedQuantity,
-          readyQuantity: nextStatus === "READY_FOR_DISTRIBUTION" ? job.orderedQuantity : job.readyQuantity,
+          completedQuantity: nextStatus === "READY_FOR_DISTRIBUTION" ? job.orderedQuantity : job.completedQuantity,
         },
         adminCommand(`progress-${job.id}-${nextStatus}`),
       );

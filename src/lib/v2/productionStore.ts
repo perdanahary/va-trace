@@ -3,8 +3,8 @@
  * Storage key: `va-trace-v2-production`.
  *
  * Owns `ProductionJob`. Transition guards follow
- * docs/api-contracts/production-job-api.md §5. Ready quantity feeds shipment
- * batch eligibility; reservations adjust `reservedForShipmentQuantity`.
+ * docs/api-contracts/production-job-api.md §5. Completed quantity feeds
+ * shipment batch eligibility; reservations adjust `reservedForShipmentQuantity`.
  */
 
 import type { CommandMetadata, ID, MutationResponse, Quantity } from "@/lib/types/v2/foundation";
@@ -12,7 +12,6 @@ import type {
   AcceptProductionJobDto,
   CancelProductionJobDto,
   CreateProductionJobDto,
-  MarkProductionReadyDto,
   ProductionJob,
   ReopenProductionJobDto,
   UpdateProductionProgressDto,
@@ -29,7 +28,6 @@ import {
   validationError,
 } from "@/lib/v2/repository";
 import { buildV2SeedData } from "@/lib/v2/seed/seedBuilders";
-import { unreservedReadyQuantity } from "@/lib/v2/selectors/quantities";
 
 const store = createCollectionStore<ProductionJob>({
   storageKey: "va-trace-v2-production",
@@ -67,7 +65,7 @@ export function getProductionJobsForOrder(orderRequestId: ID): ProductionJob[] {
   return store.getAll().filter((job) => job.orderRequestId === orderRequestId);
 }
 
-/** Ready quantity still unreserved for one order item (HI-13 readiness pool). Only eligible when status is IN_PROGRESS or COMPLETED. */
+/** Completed quantity still unreserved for one order item. Only eligible when status is IN_PROGRESS or COMPLETED. */
 export function getUnreservedReadyQuantity(orderItemId: ID): Quantity {
   return store
     .getAll()
@@ -76,7 +74,7 @@ export function getUnreservedReadyQuantity(orderItemId: ID): Quantity {
         job.orderItemId === orderItemId &&
         (job.status === "IN_PROGRESS" || job.status === "COMPLETED"),
     )
-    .reduce((total, job) => total + unreservedReadyQuantity(job.readyQuantity, job.reservedForShipmentQuantity), 0);
+    .reduce((total, job) => total + Math.max(job.completedQuantity - job.reservedForShipmentQuantity, 0), 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -113,8 +111,6 @@ export function createProductionJobs(
           status: "SUBMITTED",
           orderedQuantity: dto.orderedQuantity,
           producedQuantity: 0,
-          qcPassedQuantity: 0,
-          readyQuantity: 0,
           reservedForShipmentQuantity: 0,
           completedQuantity: 0,
           reworkQuantity: 0,
@@ -192,25 +188,17 @@ export function updateProductionProgress(
       }
 
       const producedQuantity = dto.producedQuantity ?? job.producedQuantity;
-      const qcPassedQuantity = dto.qcPassedQuantity ?? job.qcPassedQuantity;
-      const readyQuantity = dto.readyQuantity ?? job.readyQuantity;
       const completedQuantity = dto.completedQuantity ?? job.completedQuantity;
 
-      for (const [field, value] of Object.entries({ producedQuantity, qcPassedQuantity, readyQuantity, completedQuantity })) {
+      for (const [field, value] of Object.entries({ producedQuantity, completedQuantity })) {
         if (value < 0) throw validationError(`${field} cannot be negative.`);
       }
       if (completedQuantity > job.orderedQuantity) {
         throw validationError("Completed quantity cannot exceed ordered quantity.");
       }
-      if (readyQuantity > job.orderedQuantity) {
-        throw validationError("Ready quantity cannot exceed ordered quantity.");
-      }
-      if (readyQuantity > qcPassedQuantity && command.actorRole !== "ADMIN") {
-        throw validationError("Ready quantity cannot exceed QC-passed quantity without an Admin override.");
-      }
-      if (readyQuantity < job.reservedForShipmentQuantity) {
+      if (completedQuantity < job.reservedForShipmentQuantity) {
         throw invalidTransitionError(
-          "Ready quantity cannot be reduced below already reserved quantity; resolve through an operational exception.",
+          "Completed quantity cannot be reduced below already reserved quantity; resolve through an operational exception.",
         );
       }
 
@@ -218,13 +206,10 @@ export function updateProductionProgress(
         ...job,
         status: dto.status,
         producedQuantity,
-        qcPassedQuantity,
-        readyQuantity,
         completedQuantity,
         reworkQuantity: dto.reworkQuantity ?? job.reworkQuantity,
         rejectedQuantity: dto.rejectedQuantity ?? job.rejectedQuantity,
         startedAt: job.startedAt ?? (dto.status === "IN_PROGRESS" ? nowIso() : undefined),
-        readyAt: job.readyAt ?? (readyQuantity > 0 ? nowIso() : undefined),
         completedAt: dto.status === "COMPLETED" ? nowIso() : job.completedAt,
         notes: dto.notes ?? job.notes,
         attachmentFileAssetIds: dto.attachmentFileAssetIds ?? job.attachmentFileAssetIds,
@@ -236,15 +221,15 @@ export function updateProductionProgress(
         eventType: "STATUS_CHANGED",
         sourceEntityType: "PRODUCTION_JOB",
         sourceEntityId: job.id,
-        previousValue: { status: job.status, readyQuantity: job.readyQuantity },
-        newValue: { status: next.status, readyQuantity: next.readyQuantity },
+        previousValue: { status: job.status, completedQuantity: job.completedQuantity },
+        newValue: { status: next.status, completedQuantity: next.completedQuantity },
       });
-      if (readyQuantity !== job.readyQuantity) {
+      if (completedQuantity !== job.completedQuantity) {
         context.domainEvent({
-          eventType: "PRODUCTION_READY_QUANTITY_CHANGED",
+          eventType: "PRODUCTION_COMPLETED_QUANTITY_CHANGED",
           aggregateType: "PRODUCTION_JOB",
           aggregateId: job.id,
-          payload: { readyQuantity },
+          payload: { completedQuantity },
         });
       }
 
@@ -252,22 +237,6 @@ export function updateProductionProgress(
       return next;
     },
   });
-}
-
-export function markProductionReady(dto: MarkProductionReadyDto, command: CommandMetadata): MutationResponse<ProductionJob> {
-  const job = store.getById(dto.productionJobId);
-  if (!job) throw notFoundError("PRODUCTION_JOB", dto.productionJobId);
-  return updateProductionProgress(
-    {
-      productionJobId: dto.productionJobId,
-      expectedVersion: dto.expectedVersion,
-      status: "IN_PROGRESS",
-      producedQuantity: Math.max(job.producedQuantity, dto.readyQuantity),
-      qcPassedQuantity: Math.max(job.qcPassedQuantity, dto.readyQuantity),
-      readyQuantity: dto.readyQuantity,
-    },
-    command,
-  );
 }
 
 export function cancelProductionJob(dto: CancelProductionJobDto, command: CommandMetadata): MutationResponse<ProductionJob> {
@@ -357,9 +326,9 @@ export function adjustReservedQuantity(
 
       const reserved = job.reservedForShipmentQuantity + deltaQuantity;
       if (reserved < 0) throw validationError("Reserved quantity cannot become negative.");
-      if (reserved > job.readyQuantity) {
+      if (reserved > job.completedQuantity) {
         throw invalidTransitionError(
-          `Cannot reserve ${reserved} of ${job.readyQuantity} ready units for job ${job.id}.`,
+          `Cannot reserve ${reserved} of ${job.completedQuantity} completed units for job ${job.id}.`,
         );
       }
 

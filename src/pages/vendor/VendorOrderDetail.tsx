@@ -141,7 +141,7 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
   );
 
   const totalReadyQty = useMemo(
-    () => hydrated?.productionJobs.reduce((sum, job) => sum + job.readyQuantity, 0) ?? 0,
+    () => hydrated?.productionJobs.reduce((sum, job) => sum + job.completedQuantity, 0) ?? 0,
     [hydrated],
   );
   const isProductionPhase = hydrated
@@ -524,7 +524,7 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                                         </TableCell>
                                         <TableCell className="text-sm">{item?.description ?? job.orderItemId}</TableCell>
                                         <TableCell className="text-right text-sm tabular-nums">{job.orderedQuantity}</TableCell>
-                                        <TableCell className="text-right text-sm tabular-nums">{job.readyQuantity}</TableCell>
+                                        <TableCell className="text-right text-sm tabular-nums">{job.completedQuantity}</TableCell>
                                         <TableCell>
                                           <ProductionStatusBadge status={job.status} />
                                         </TableCell>
@@ -659,7 +659,7 @@ export function VendorOrderDetail({ userRole = "vendor" }: VendorOrderDetailProp
                                     </TableCell>
                                     <TableCell className="text-sm">{item?.description ?? job.orderItemId}</TableCell>
                                     <TableCell className="text-right text-sm tabular-nums">{job.orderedQuantity}</TableCell>
-                                    <TableCell className="text-right text-sm tabular-nums">{job.readyQuantity}</TableCell>
+                                    <TableCell className="text-right text-sm tabular-nums">{job.completedQuantity}</TableCell>
                                     <TableCell>
                                       <ProductionStatusBadge status={job.status} />
                                     </TableCell>
@@ -1357,7 +1357,7 @@ function buildFocusCard(
   workflowBatch: HydratedOrder["shipmentBatches"][number] | undefined,
   exceptionState: ExceptionState,
 ) {
-  const totalReadyQty = hydrated.productionJobs.reduce((sum, job) => sum + job.readyQuantity, 0);
+  const totalReadyQty = hydrated.productionJobs.reduce((sum, job) => sum + job.completedQuantity, 0);
   const inProductionPhase = hydrated.productionStatus !== "COMPLETED" && hydrated.productionStatus !== "CANCELLED";
 
   if (inProductionPhase) {
