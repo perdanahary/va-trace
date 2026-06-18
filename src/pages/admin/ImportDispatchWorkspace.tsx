@@ -18,6 +18,7 @@ import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ImportUploadPage } from "@/pages/shared/ImportUploadPage";
 import {
   getDispatchReadiness,
@@ -38,7 +39,6 @@ interface ImportDispatchWorkspaceProps {
 
 type WorkspaceTab = "issue-groups" | "assignment-groups" | "raw-rows" | "or-preview" | "import-log";
 type RuleConditionDraft = ImportAssignmentRuleCondition;
-const DEMO_VENDOR_ID = "SUP-004";
 
 const ruleFieldOptions: Array<{ value: ImportAssignmentRuleField; label: string }> = [
   { value: "region", label: "Region" },
@@ -96,6 +96,7 @@ export function ImportDispatchWorkspace({ userRole = "admin" }: ImportDispatchWo
   const [ruleConditions, setRuleConditions] = useState<RuleConditionDraft[]>([{ field: "region", value: "" }]);
   const [dispatchResultMessage, setDispatchResultMessage] = useState<string | null>(null);
   const [expandedOrVendor, setExpandedOrVendor] = useState<string | null>(null);
+  const [dispatchDialogOpen, setDispatchDialogOpen] = useState(false);
   const priorityBatchId = useRef("");
 
   const batch = useMemo(
@@ -226,11 +227,6 @@ export function ImportDispatchWorkspace({ userRole = "admin" }: ImportDispatchWo
     () => suppliers.find((supplier) => supplier.id === ruleVendorId)?.name ?? null,
     [ruleVendorId, suppliers],
   );
-  const demoVendor = useMemo(
-    () => suppliers.find((supplier) => supplier.id === DEMO_VENDOR_ID && supplier.status === "ACTIVE") ?? null,
-    [suppliers],
-  );
-
   const issueSummaries = useMemo(() => {
     const allRows = batch?.rows ?? [];
 
@@ -623,33 +619,12 @@ export function ImportDispatchWorkspace({ userRole = "admin" }: ImportDispatchWo
     toast.success(`${rowIds.length} row(s) assigned.`);
   };
 
-  const handleAssignAllToDemoVendor = () => {
-    if (!demoVendor) {
-      toast.error("Demo vendor PT. HH Global Services Indonesia is not active.");
-      return;
-    }
-
-    const rowIds = (batch?.rows ?? [])
-      .filter(
-        (row) =>
-          row.status === "unassigned" &&
-          row.match.issues.length === 0 &&
-          (!row.possibleDuplicate || row.duplicateDecision === "include"),
-      )
-      .map((row) => row.id);
-
-    if (rowIds.length === 0 || !batch) {
-      toast.info("No eligible rows are ready for demo vendor assignment.");
-      return;
-    }
-
-    assignRowsToVendor(batch.id, rowIds, demoVendor.id);
-    setSelectedRowIds([]);
-    setActiveTab("or-preview");
-    toast.success(`${rowIds.length} row(s) assigned to ${demoVendor.name}.`);
+  const handleDispatch = () => {
+    setDispatchDialogOpen(true);
   };
 
-  const handleDispatch = () => {
+  const confirmDispatch = () => {
+    setDispatchDialogOpen(false);
     const result = dispatchBatch(batch.id);
     const parts = [];
 
@@ -1334,29 +1309,6 @@ export function ImportDispatchWorkspace({ userRole = "admin" }: ImportDispatchWo
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-semibold normal-case tracking-normal text-primary">Demo shortcut</p>
-                            <p className="mt-1 text-sm font-semibold tracking-[-0.02em] text-slate-950">
-                              Assign eligible rows to PT. HH Global Services Indonesia
-                            </p>
-                            <p className="mt-1 text-xs leading-5 text-slate-600">
-                              Use this for the fresh demo path after uploading the sample workbook.
-                            </p>
-                          </div>
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={handleAssignAllToDemoVendor}
-                            disabled={!demoVendor || summary.unassignedRows === 0 || summary.blockerRows > 0}
-                            className="h-8 shrink-0 rounded-full px-3 text-xs"
-                          >
-                            Assign demo vendor
-                          </Button>
-                        </div>
-                      </div>
-
                       <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
                         <div className="flex items-start justify-between gap-3">
                           <div>
@@ -1887,6 +1839,52 @@ export function ImportDispatchWorkspace({ userRole = "admin" }: ImportDispatchWo
           </div>
         </main>
       </ContentArea>
+
+      <Dialog open={dispatchDialogOpen} onOpenChange={setDispatchDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm dispatch</DialogTitle>
+            <DialogDescription>
+              This will create order requests for all eligible assigned rows in the current batch.
+            </DialogDescription>
+          </DialogHeader>
+          {dispatchReadiness ? (
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-600">Dispatchable rows</span>
+                <span className="font-semibold text-slate-950">{dispatchReadiness.dispatchableRows.length}</span>
+              </div>
+              {dispatchReadiness.pendingDuplicateRows.length > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-600">Pending duplicate decisions</span>
+                  <span className="font-semibold text-warning">{dispatchReadiness.pendingDuplicateRows.length}</span>
+                </div>
+              )}
+              {dispatchReadiness.unresolvedAssignedRows.length > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-600">Unresolved assigned rows</span>
+                  <span className="font-semibold text-warning">{dispatchReadiness.unresolvedAssignedRows.length}</span>
+                </div>
+              )}
+              {dispatchReadiness.remainingUnassignedCount > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-600">Remaining unassigned</span>
+                  <span className="font-semibold text-slate-500">{dispatchReadiness.remainingUnassignedCount}</span>
+                </div>
+              )}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDispatchDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={confirmDispatch}>
+              <Send className="mr-1.5 h-3.5 w-3.5" />
+              Dispatch now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { findProductForImport, upsertProvisionalProductsFromImportRows } from "@
 import { getSupplierSnapshot } from "@/lib/supplierStore";
 import { appendOrders, getOrdersSnapshot, type StoredOrder } from "@/lib/orderStore";
 import { getOrderRequestStatus } from "@/lib/orderStatus";
+import { initialSeedBatches } from "@/lib/importSeedData";
 
 export type ImportBatchStage = "Uploaded" | "Matched" | "Assignment in progress" | "Dispatched";
 export type ImportRowStatus = "parsed" | "matched" | "unresolved" | "unassigned" | "assigned" | "excluded" | "dispatched";
@@ -895,8 +896,8 @@ function buildInitialBatches(): ImportBatch[] {
             issues: [],
           },
           possibleDuplicate: false,
-          duplicateKey: "5701713444|1|wh059|tposm-sc-001|10",
-          idempotencyKey: "imb-demo-001::5701713444|1|wh059|tposm-sc-001|10::12",
+          duplicateKey: "5701713444|1|wh059|depok|tposm-sc-001|tposm - sunscreen without velcro - 0.5x1 m - vinyl ff frontlight 10 oz - dpp12 20k|10",
+          idempotencyKey: "imb-demo-001::5701713444|1|wh059|depok|tposm-sc-001|tposm - sunscreen without velcro - 0.5x1 m - vinyl ff frontlight 10 oz - dpp12 20k|10::12",
           duplicateWith: [],
           duplicateDecision: "include",
           assignment: null,
@@ -950,8 +951,8 @@ function buildInitialBatches(): ImportBatch[] {
             issues: [],
           },
           possibleDuplicate: false,
-          duplicateKey: "5701713444|2|wh059|tposm-am-024|24",
-          idempotencyKey: "imb-demo-001::5701713444|2|wh059|tposm-am-024|24::13",
+          duplicateKey: "5701713444|2|wh059|depok|tposm-am-024|shelf strip highlight|24",
+          idempotencyKey: "imb-demo-001::5701713444|2|wh059|depok|tposm-am-024|shelf strip highlight|24::13",
           duplicateWith: [],
           duplicateDecision: "include",
           assignment: {
@@ -1010,8 +1011,8 @@ function buildInitialBatches(): ImportBatch[] {
             issues: ["Item code not found in product master", "Review vendor-ready substitute"],
           },
           possibleDuplicate: false,
-          duplicateKey: "5701713499|1|wh021|tposm-cd-404|6",
-          idempotencyKey: "imb-demo-001::5701713499|1|wh021|tposm-cd-404|6::14",
+          duplicateKey: "5701713499|1|wh021|bogor|tposm-cd-404|counter display kit|6",
+          idempotencyKey: "imb-demo-001::5701713499|1|wh021|bogor|tposm-cd-404|counter display kit|6::14",
           duplicateWith: [],
           duplicateDecision: "include",
           assignment: {
@@ -1070,8 +1071,8 @@ function buildInitialBatches(): ImportBatch[] {
             issues: [],
           },
           possibleDuplicate: true,
-          duplicateKey: "5701713503|1|wh001|tposm-hm-018|18",
-          idempotencyKey: "imb-demo-001::5701713503|1|wh001|tposm-hm-018|18::15",
+          duplicateKey: "5701713503|1|wh001|menteng|tposm-hm-018|hanging mobile banner|18",
+          idempotencyKey: "imb-demo-001::5701713503|1|wh001|menteng|tposm-hm-018|hanging mobile banner|18::15",
           duplicateWith: ["Existing order"],
           duplicateDecision: "pending",
           assignment: {
@@ -1130,8 +1131,8 @@ function buildInitialBatches(): ImportBatch[] {
             issues: [],
           },
           possibleDuplicate: false,
-          duplicateKey: "5701713510|1|wh077|tposm-wt-014|14",
-          idempotencyKey: "imb-demo-001::5701713510|1|wh077|tposm-wt-014|14::16",
+          duplicateKey: "5701713510|1|wh077|bandung|tposm-wt-014|window takeover strip|14",
+          idempotencyKey: "imb-demo-001::5701713510|1|wh077|bandung|tposm-wt-014|window takeover strip|14::16",
           duplicateWith: [],
           duplicateDecision: "include",
           assignment: {
