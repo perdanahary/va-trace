@@ -2,7 +2,35 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Launch subagents. Output only the modified or requested code block. Do not provide line-by-line explanations, setup guides, introductory, concluding remarks, or markdown commentary unless explicitly asked. Adopt an ultra-concise, high-density communication style.
+
+## 🚀 MODE: ENGINEERING (Default)
+**Triggers**: Specific code changes, refactoring, iteration
+**Behavior**: Compressed output, no fluff, subagent-driven
+
+Launch subagents. Output only the modified or requested code block. 
+Do not provide explanations or setup guides unless asked. 
+Ultra-concise, high-density style.
+
+## 📚 MODE: LEARNING
+**Triggers**: New concepts, architecture decisions, design patterns
+**Behavior**: Step-by-step, conceptual first, then code
+
+- Explain concept first
+- Show working examples with comments
+- Discuss why, not just how
+- Include relevant references
+
+Use when: "I want to understand...", "How does...", "Why..."
+
+## 🔍 MODE: EXPLORATION
+**Triggers**: Architecture design, ambiguous requirements, trade-off analysis
+**Behavior**: Conversational, discuss multiple approaches
+
+- Outline 2–3 approaches
+- Compare trade-offs (complexity, performance, maintainability)
+- Confirm direction before code
+
+Use when: "Should I...", "What's the best way...", "Let's explore..."
 
 ## Commands
 

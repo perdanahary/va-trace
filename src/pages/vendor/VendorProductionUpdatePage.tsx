@@ -236,7 +236,7 @@ export function VendorProductionUpdatePage({ userRole = "vendor" }: VendorProduc
                   ? "Accept this job to begin production."
                   : isEditable
                     ? "Update the production status and quantities."
-                    : "This job is completed or cancelled."}
+                    : "This job is finished or cancelled."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5 p-6">
@@ -294,7 +294,7 @@ export function VendorProductionUpdatePage({ userRole = "vendor" }: VendorProduc
 
                   {isCompletedActive && (
                     <div className="space-y-1.5">
-                      <Label htmlFor="completed-qty">Completed</Label>
+                      <Label htmlFor="completed-qty">Finish</Label>
                       <Input
                         id="completed-qty"
                         type="number"
@@ -318,7 +318,7 @@ export function VendorProductionUpdatePage({ userRole = "vendor" }: VendorProduc
                   <Metric label="Produced" value={job.producedQuantity} />
                   <Metric label="QC Passed" value={job.qcPassedQuantity} />
                   <Metric label="Ready" value={job.readyQuantity} />
-                  <Metric label="Completed" value={job.completedQuantity} />
+                  <Metric label="Finish" value={job.completedQuantity} />
                 </div>
               ) : null}
             </CardContent>
