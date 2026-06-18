@@ -8,6 +8,7 @@
  * events and enforce `expectedVersion`.
  */
 
+import type { ExternalReference } from "@/lib/types/v2/orderRequest";
 import type { CommandMetadata, ID, UserRole, MutationResponse } from "@/lib/types/v2/foundation";
 import type { CreateOperationalExceptionDto, OperationalException } from "@/lib/types/v2/exception";
 import type {
@@ -139,6 +140,7 @@ export interface CreateSubmittedOrderInput {
     notes?: string;
   }>;
   underAllocationReason?: string;
+  externalReferences?: ExternalReference[];
 }
 
 export function createSubmittedOrder(input: CreateSubmittedOrderInput, actor: Actor) {
@@ -161,9 +163,12 @@ export function createSubmittedOrder(input: CreateSubmittedOrderInput, actor: Ac
       priority: "NORMAL",
       remarks: input.remarks,
       underAllocationReason: input.underAllocationReason,
-      externalReferences: input.clientPoNumber
-        ? [{ type: "CLIENT_PO", value: input.clientPoNumber, sourceSystem: "MANUAL" }]
-        : [],
+      externalReferences: [
+        ...(input.clientPoNumber
+          ? [{ type: "CLIENT_PO" as const, value: input.clientPoNumber, sourceSystem: "MANUAL" as const }]
+          : []),
+        ...(input.externalReferences ?? []),
+      ],
       items: input.items.map((item) => ({
         ...item,
         unitOfMeasure: item.unitOfMeasure ?? "PCS",

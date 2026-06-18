@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import { getSalesPointClientBinding, mockSalesPoints } from "@/lib/mockData";
 import type { SalesPointMapping } from "@/lib/types";
 import { normalizeOrder } from "@/lib/orderDomain";
+import type { OrderReferenceLink } from "@/lib/orderMetadata";
 import { findProductForImport, upsertProvisionalProductsFromImportRows } from "@/lib/productMaster";
 import { getSupplierSnapshot } from "@/lib/supplierStore";
 import { appendOrders, getOrdersSnapshot, type StoredOrder } from "@/lib/orderStore";
@@ -52,6 +53,7 @@ export interface ImportRowRaw {
   receivedDateBasedOnCpt: string;
   dnNumber: string;
   entity: string;
+  linkFa: string;
 }
 
 export interface ImportRowMatch {
@@ -217,6 +219,7 @@ const expectedHeaders = [
   "Received Date Based on CPT",
   "DN Number",
   "Entity",
+  "Link FA",
 ];
 
 type SheetRowRecord = Record<string, string>;
@@ -630,6 +633,7 @@ function buildImportRow(record: SheetRowRecord, sheetRowNumber: number): ImportB
     receivedDateBasedOnCpt: record["Received Date Based on CPT"] ?? "",
     dnNumber: record["DN Number"] ?? "",
     entity: record["Entity"] ?? "",
+    linkFa: record["Link FA"] ?? "",
   };
 
   const quantity = Number(raw.quantity) || 0;
@@ -670,7 +674,8 @@ function resolveRowMatch(raw: ImportRowRaw, quantity: number): ImportRowMatch {
   if (!raw.itemName) issues.push("Missing Item Name");
   if (!raw.quantity || quantity <= 0) issues.push("Quantity must be greater than zero");
   if (!salesPoint) issues.push("Sales point not found in master data");
-  if (!product) issues.push("Item code not found in product master");
+  if (!product && raw.itemCode) issues.push(`Item code "${raw.itemCode}" not found in product master`);
+  else if (!product && !raw.itemCode) issues.push("Item code not found in product master");
   if (salesPoint && raw.salesPoint && salesPoint.salesPoint.toLowerCase() !== raw.salesPoint.toLowerCase()) {
     issues.push("Sales point label does not match Wcode");
   }
@@ -829,327 +834,6 @@ export function buildImportBatch(
     dispatchRuns: [],
   };
 }
-
-function buildInitialBatches(): ImportBatch[] {
-  const uploadedAt = "2026-06-08T13:44:34.000Z";
-
-  return [
-    {
-      id: "IMB-DEMO-001",
-      fileName: "Sampling Data for System Demo (1).xlsx",
-      sourceSheetName: "Item Vendor Tracking",
-      sourceHeaderRowNumber: 3,
-      uploadedBy: "Operations Desk",
-      uploadedAt,
-      stage: "Assignment in progress",
-      progressPercent: 40,
-      validationStatus: "blocked",
-      importJob: null,
-      assignmentRules: [],
-      assignmentDraft: null,
-      dispatchRuns: [],
-      rows: [
-        {
-          id: "IMR-001",
-          sheetRowNumber: 12,
-          raw: {
-            poNumber: "5701713444",
-            poLine: "1",
-            cycle: "Cycle 3",
-            year: "2026",
-            zone: "West",
-            region: "Jakarta Inner",
-            area: "Depok",
-            wcode: "WH059",
-            salesPoint: "Depok",
-            itemName: "TPOSM - Sunscreen Without Velcro - 0.5x1 m - Vinyl FF Frontlight 10 Oz - DPP12 20K",
-            category: "POSM",
-            itemCode: "TPOSM-SC-001",
-            brand: "Sunscreen",
-            brandSku: "SC-001",
-            brandNamePo: "DPP12 20K",
-            length: "0.5",
-            width: "1",
-            quantity: "10",
-            orderDate: "2026-06-02",
-            productionStartDate: "2026-06-06",
-            productionFinishDate: "2026-06-10",
-            shipmentDate: "2026-06-12",
-            estReceivedDate: "2026-06-14",
-            receivedDateBasedOnCpt: "",
-            dnNumber: "",
-            entity: "PT HM Sampoerna Tbk",
-          },
-          quantity: 10,
-          status: "unassigned",
-          match: {
-            productCode: "TPOSM-SC-001",
-            productName: "TPOSM - Sunscreen Without Velcro - 0.5x1 m - Vinyl FF Frontlight 10 Oz - DPP12 20K",
-            salesPointId: "WH059",
-            salesPointName: "Depok",
-            clientId: "CLNT-001",
-            clientName: "Sampoerna",
-            clientEntityName: "PT HM Sampoerna Tbk",
-            companyName: "Sampoerna",
-            brandName: "Sunscreen",
-            categoryName: "POSM",
-            issues: [],
-          },
-          possibleDuplicate: false,
-          duplicateKey: "5701713444|1|wh059|depok|tposm-sc-001|tposm - sunscreen without velcro - 0.5x1 m - vinyl ff frontlight 10 oz - dpp12 20k|10",
-          idempotencyKey: "imb-demo-001::5701713444|1|wh059|depok|tposm-sc-001|tposm - sunscreen without velcro - 0.5x1 m - vinyl ff frontlight 10 oz - dpp12 20k|10::12",
-          duplicateWith: [],
-          duplicateDecision: "include",
-          assignment: null,
-          excludedReason: null,
-          dispatchedOrderId: null,
-        },
-        {
-          id: "IMR-002",
-          sheetRowNumber: 13,
-          raw: {
-            poNumber: "5701713444",
-            poLine: "2",
-            cycle: "Cycle 3",
-            year: "2026",
-            zone: "West",
-            region: "Jakarta Inner",
-            area: "Depok",
-            wcode: "WH059",
-            salesPoint: "Depok",
-            itemName: "Shelf Strip Highlight",
-            category: "POSM",
-            itemCode: "TPOSM-AM-024",
-            brand: "A Mild",
-            brandSku: "AM-024",
-            brandNamePo: "A Mild",
-            length: "1",
-            width: "0.2",
-            quantity: "24",
-            orderDate: "2026-06-02",
-            productionStartDate: "2026-06-06",
-            productionFinishDate: "2026-06-10",
-            shipmentDate: "2026-06-12",
-            estReceivedDate: "2026-06-14",
-            receivedDateBasedOnCpt: "",
-            dnNumber: "",
-            entity: "PT HM Sampoerna Tbk",
-          },
-          quantity: 24,
-          status: "assigned",
-          match: {
-            productCode: "TPOSM-AM-024",
-            productName: "Shelf Strip Highlight",
-            salesPointId: "WH059",
-            salesPointName: "Depok",
-            clientId: "CLNT-001",
-            clientName: "Sampoerna",
-            clientEntityName: "PT HM Sampoerna Tbk",
-            companyName: "Sampoerna",
-            brandName: "A Mild",
-            categoryName: "POSM",
-            issues: [],
-          },
-          possibleDuplicate: false,
-          duplicateKey: "5701713444|2|wh059|depok|tposm-am-024|shelf strip highlight|24",
-          idempotencyKey: "imb-demo-001::5701713444|2|wh059|depok|tposm-am-024|shelf strip highlight|24::13",
-          duplicateWith: [],
-          duplicateDecision: "include",
-          assignment: {
-            vendorId: "SUP-004",
-            vendorName: "PT. HH Global Services Indonesia",
-            assignedAt: uploadedAt,
-            assignedBy: "Admin Dispatch Workspace",
-          },
-          excludedReason: null,
-          dispatchedOrderId: null,
-        },
-        {
-          id: "IMR-003",
-          sheetRowNumber: 14,
-          raw: {
-            poNumber: "5701713499",
-            poLine: "1",
-            cycle: "Cycle 3",
-            year: "2026",
-            zone: "West",
-            region: "Jakarta Outer",
-            area: "Bogor",
-            wcode: "WH021",
-            salesPoint: "Bogor",
-            itemName: "Counter Display Kit",
-            category: "Display",
-            itemCode: "TPOSM-CD-404",
-            brand: "Dji Sam Soe",
-            brandSku: "DSS-404",
-            brandNamePo: "Dji Sam Soe",
-            length: "1",
-            width: "1",
-            quantity: "6",
-            orderDate: "2026-06-03",
-            productionStartDate: "2026-06-07",
-            productionFinishDate: "2026-06-11",
-            shipmentDate: "2026-06-13",
-            estReceivedDate: "2026-06-15",
-            receivedDateBasedOnCpt: "",
-            dnNumber: "",
-            entity: "PT HM Sampoerna Tbk",
-          },
-          quantity: 6,
-          status: "unresolved",
-          match: {
-            productCode: null,
-            productName: null,
-            salesPointId: "WH021",
-            salesPointName: "Bogor",
-            clientId: "CLNT-001",
-            clientName: "Sampoerna",
-            clientEntityName: "PT HM Sampoerna Tbk",
-            companyName: "Sampoerna",
-            brandName: "Dji Sam Soe",
-            categoryName: "Display",
-            issues: ["Item code not found in product master", "Review vendor-ready substitute"],
-          },
-          possibleDuplicate: false,
-          duplicateKey: "5701713499|1|wh021|bogor|tposm-cd-404|counter display kit|6",
-          idempotencyKey: "imb-demo-001::5701713499|1|wh021|bogor|tposm-cd-404|counter display kit|6::14",
-          duplicateWith: [],
-          duplicateDecision: "include",
-          assignment: {
-            vendorId: "SUP-002",
-            vendorName: "RouteCraft Visual",
-            assignedAt: uploadedAt,
-            assignedBy: "Admin Dispatch Workspace",
-          },
-          excludedReason: null,
-          dispatchedOrderId: null,
-        },
-        {
-          id: "IMR-004",
-          sheetRowNumber: 15,
-          raw: {
-            poNumber: "5701713503",
-            poLine: "1",
-            cycle: "Cycle 3",
-            year: "2026",
-            zone: "West",
-            region: "Jakarta Inner",
-            area: "Menteng",
-            wcode: "WH001",
-            salesPoint: "Menteng",
-            itemName: "Hanging Mobile Banner",
-            category: "POSM",
-            itemCode: "TPOSM-HM-018",
-            brand: "Marlboro",
-            brandSku: "MB-018",
-            brandNamePo: "Marlboro",
-            length: "1",
-            width: "0.4",
-            quantity: "18",
-            orderDate: "2026-06-03",
-            productionStartDate: "2026-06-07",
-            productionFinishDate: "2026-06-11",
-            shipmentDate: "2026-06-13",
-            estReceivedDate: "2026-06-15",
-            receivedDateBasedOnCpt: "",
-            dnNumber: "",
-            entity: "PT HM Sampoerna Tbk",
-          },
-          quantity: 18,
-          status: "assigned",
-          match: {
-            productCode: "TPOSM-HM-018",
-            productName: "Hanging Mobile Banner",
-            salesPointId: "WH001",
-            salesPointName: "Menteng",
-            clientId: "CLNT-001",
-            clientName: "Sampoerna",
-            clientEntityName: "PT HM Sampoerna Tbk",
-            companyName: "Sampoerna",
-            brandName: "Marlboro",
-            categoryName: "POSM",
-            issues: [],
-          },
-          possibleDuplicate: true,
-          duplicateKey: "5701713503|1|wh001|menteng|tposm-hm-018|hanging mobile banner|18",
-          idempotencyKey: "imb-demo-001::5701713503|1|wh001|menteng|tposm-hm-018|hanging mobile banner|18::15",
-          duplicateWith: ["Existing order"],
-          duplicateDecision: "pending",
-          assignment: {
-            vendorId: "SUP-003",
-            vendorName: "Metro Printworks",
-            assignedAt: uploadedAt,
-            assignedBy: "Admin Dispatch Workspace",
-          },
-          excludedReason: null,
-          dispatchedOrderId: null,
-        },
-        {
-          id: "IMR-005",
-          sheetRowNumber: 16,
-          raw: {
-            poNumber: "5701713510",
-            poLine: "1",
-            cycle: "Cycle 3",
-            year: "2026",
-            zone: "Central",
-            region: "Bandung",
-            area: "Bandung",
-            wcode: "WH077",
-            salesPoint: "Bandung",
-            itemName: "Window Takeover Strip",
-            category: "POSM",
-            itemCode: "TPOSM-WT-014",
-            brand: "Sampoerna Kretek",
-            brandSku: "SK-014",
-            brandNamePo: "Sampoerna Kretek",
-            length: "2",
-            width: "0.3",
-            quantity: "14",
-            orderDate: "2026-06-04",
-            productionStartDate: "2026-06-08",
-            productionFinishDate: "2026-06-12",
-            shipmentDate: "2026-06-14",
-            estReceivedDate: "2026-06-16",
-            receivedDateBasedOnCpt: "",
-            dnNumber: "",
-            entity: "PT HM Sampoerna Tbk",
-          },
-          quantity: 14,
-          status: "dispatched",
-          match: {
-            productCode: "TPOSM-WT-014",
-            productName: "Window Takeover Strip",
-            salesPointId: "WH077",
-            salesPointName: "Bandung",
-            clientId: "CLNT-001",
-            clientName: "Sampoerna",
-            clientEntityName: "PT HM Sampoerna Tbk",
-            companyName: "Sampoerna",
-            brandName: "Sampoerna Kretek",
-            categoryName: "POSM",
-            issues: [],
-          },
-          possibleDuplicate: false,
-          duplicateKey: "5701713510|1|wh077|bandung|tposm-wt-014|window takeover strip|14",
-          idempotencyKey: "imb-demo-001::5701713510|1|wh077|bandung|tposm-wt-014|window takeover strip|14::16",
-          duplicateWith: [],
-          duplicateDecision: "include",
-          assignment: {
-            vendorId: "SUP-004",
-            vendorName: "PT. HH Global Services Indonesia",
-            assignedAt: uploadedAt,
-            assignedBy: "Admin Dispatch Workspace",
-          },
-          excludedReason: null,
-          dispatchedOrderId: "OR-2026-555555",
-        },
-      ],
-    },
-  ];
-}
-
-const initialSeedBatches = buildInitialBatches();
 
 function computeBatchStage(batch: ImportBatch): ImportBatchStage {
   if (batch.rows.every((row) => row.status === "dispatched" || row.status === "excluded")) {
@@ -1359,6 +1043,10 @@ export function createOrdersFromDispatchableRows(batch: ImportBatch, dispatchabl
         }
       : getSalesPointClientBinding(salesPointId);
     const sourcePoNumber = firstRow.raw.poNumber;
+    const linkFa = firstRow.raw.linkFa?.trim();
+    const referenceLink: OrderReferenceLink | undefined = linkFa && /^https?:\/\//i.test(linkFa)
+      ? { url: linkFa, displayTitle: `Link FA — ${sourcePoNumber}` }
+      : undefined;
     const topProjectName = rows.reduce<Record<string, number>>((accumulator, row) => {
       const key = row.raw.brandNamePo || row.raw.brand || "Imported Project";
       accumulator[key] = (accumulator[key] ?? 0) + 1;
@@ -1401,6 +1089,7 @@ export function createOrdersFromDispatchableRows(batch: ImportBatch, dispatchabl
       assignedVendorId: vendor.vendorId,
       dispatchRunId,
       importPoNumbers: [sourcePoNumber],
+      referenceLink,
       items,
       labelStatus: "none" as const,
       storedLabels: [],

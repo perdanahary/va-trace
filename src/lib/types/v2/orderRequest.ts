@@ -49,7 +49,8 @@ export type ExternalReferenceType =
   | "SALES_ORDER"
   | "COUPA_REQUISITION"
   | "SAP_ORDER"
-  | "IMPORT_BATCH";
+  | "IMPORT_BATCH"
+  | "PIC_CODE";
 
 export interface ExternalReference {
   type: ExternalReferenceType;
