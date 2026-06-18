@@ -4,6 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 
 import { ProductionStatusBadge } from "@/components/domain/badges/badges";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -19,6 +20,8 @@ export interface ColumnContext {
   orderId: string;
   userRole: string;
   onStatusChange: (jobId: string, status: ProductionStatus) => void;
+  onQuantityChange: (jobId: string, field: "producedQuantity" | "completedQuantity", value: number) => void;
+  getDraftQuantity: (jobId: string, field: "producedQuantity" | "completedQuantity") => number | undefined;
 }
 
 const STATUS_TRANSITIONS: Record<ProductionStatus, ProductionStatus[]> = {
@@ -130,20 +133,52 @@ export function useColumns(ctx: ColumnContext): ColumnDef<ProductionJobListRow>[
           {
             accessorKey: "producedQuantity",
             id: "producedQuantity",
-            header: () => <span className="block text-right">Prod.</span>,
-            cell: ({ getValue }) => (
-              <span className="block text-right text-sm tabular-nums">{getValue<number>()}</span>
-            ),
-            size: 72,
+            header: () => <span className="block text-center">Prod.</span>,
+            cell: ({ row }) => {
+              const draft = ctx.getDraftQuantity(row.original.id, "producedQuantity");
+              const value = draft ?? row.original.producedQuantity;
+              return (
+                <div className="flex items-center justify-center">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={row.original.orderedQuantity}
+                    value={value}
+                    onChange={(e) => {
+                      const n = parseInt(e.target.value, 10);
+                      if (!isNaN(n) && n >= 0) ctx.onQuantityChange(row.original.id, "producedQuantity", n);
+                    }}
+                    className="h-7 w-16 text-center tabular-nums text-sm"
+                  />
+                </div>
+              );
+            },
+            size: 80,
           },
           {
             accessorKey: "completedQuantity",
             id: "completedQuantity",
-            header: () => <span className="block text-right">Finish</span>,
-            cell: ({ getValue }) => (
-              <span className="block text-right text-sm tabular-nums">{getValue<number>()}</span>
-            ),
-            size: 72,
+            header: () => <span className="block text-center">Finish</span>,
+            cell: ({ row }) => {
+              const draft = ctx.getDraftQuantity(row.original.id, "completedQuantity");
+              const value = draft ?? row.original.completedQuantity;
+              return (
+                <div className="flex items-center justify-center">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={row.original.orderedQuantity}
+                    value={value}
+                    onChange={(e) => {
+                      const n = parseInt(e.target.value, 10);
+                      if (!isNaN(n) && n >= 0) ctx.onQuantityChange(row.original.id, "completedQuantity", n);
+                    }}
+                    className="h-7 w-16 text-center tabular-nums text-sm"
+                  />
+                </div>
+              );
+            },
+            size: 80,
           },
         ],
       },
@@ -155,26 +190,7 @@ export function useColumns(ctx: ColumnContext): ColumnDef<ProductionJobListRow>[
         ),
         size: 140,
       },
-      {
-        accessorKey: "deadline",
-        header: "Deadline",
-        cell: ({ getValue }) => {
-          const v = getValue<string | undefined>();
-          return v ? (
-            <span className="text-xs text-muted-foreground">
-              {new Date(v).toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })}
-            </span>
-          ) : (
-            <span className="text-xs text-muted-foreground">—</span>
-          );
-        },
-        size: 100,
-      },
     ],
-    [orderId, userRole, ctx.onStatusChange],
+    [orderId, userRole, ctx.onStatusChange, ctx.onQuantityChange, ctx.getDraftQuantity],
   );
 }

@@ -20,6 +20,8 @@ interface BulkJobTableProps {
   selectedIds: Set<string>;
   onSelectionChange: (ids: Set<string>) => void;
   onStatusChange: (jobId: string, status: ProductionStatus) => void;
+  onQuantityChange: (jobId: string, field: "producedQuantity" | "completedQuantity", value: number) => void;
+  getDraftQuantity: (jobId: string, field: "producedQuantity" | "completedQuantity") => number | undefined;
 }
 
 export function BulkJobTable({
@@ -29,10 +31,12 @@ export function BulkJobTable({
   selectedIds,
   onSelectionChange,
   onStatusChange,
+  onQuantityChange,
+  getDraftQuantity,
 }: BulkJobTableProps) {
   const ctx: ColumnContext = useMemo(
-    () => ({ orderId, userRole, onStatusChange }),
-    [orderId, userRole, onStatusChange],
+    () => ({ orderId, userRole, onStatusChange, onQuantityChange, getDraftQuantity }),
+    [orderId, userRole, onStatusChange, onQuantityChange, getDraftQuantity],
   );
   const columns = useColumns(ctx);
 

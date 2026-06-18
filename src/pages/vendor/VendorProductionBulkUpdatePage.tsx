@@ -132,6 +132,26 @@ export function VendorProductionBulkUpdatePage({ userRole = "vendor" }: VendorPr
     [activeJobs],
   );
 
+  const handleQuantityChange = useCallback(
+    (jobId: string, field: "producedQuantity" | "completedQuantity", value: number) => {
+      const job = activeJobs.find((j) => j.id === jobId);
+      if (!job) return;
+      setDrafts((prev) => {
+        const existing = prev[jobId] ?? initialDraft(job);
+        return { ...prev, [jobId]: { ...existing, [field]: value } };
+      });
+    },
+    [activeJobs],
+  );
+
+  const getDraftQuantity = useCallback(
+    (jobId: string, field: "producedQuantity" | "completedQuantity") => {
+      const draft = drafts[jobId];
+      return draft ? draft[field] : undefined;
+    },
+    [drafts],
+  );
+
   const handleBatchAction = useCallback(
     (action: BatchAction) => {
       const jobsToAct = selectedJobs;
@@ -382,6 +402,8 @@ export function VendorProductionBulkUpdatePage({ userRole = "vendor" }: VendorPr
                   selectedIds={selectedIds}
                   onSelectionChange={setSelectedIds}
                   onStatusChange={handleStatusChange}
+                  onQuantityChange={handleQuantityChange}
+                  getDraftQuantity={getDraftQuantity}
                 />
 
                 {/* Update progress dialog */}
