@@ -126,6 +126,7 @@ export function useAllocationProgressRows(rolePrefix: string, vendorName?: strin
             orderRequestNumber: order.orderRequestNumber,
             clientPoNumber: order.clientPoNumber,
             vendorName: order.vendor.name,
+            createdAt: order.audit.createdAt,
             deadlineDate: order.deadlineDate,
             deadlineState: deriveDeadlineState(order.deadlineDate),
             salesPointName: allocation.salesPoint.name,

@@ -303,6 +303,7 @@ export interface AllocationProgressRow {
   orderRequestNumber: string;
   clientPoNumber: string | null;
   vendorName: string;
+  createdAt: ISODateTimeString;
   deadlineDate: ISODateString;
   deadlineState: DeadlineState;
   salesPointName: string;

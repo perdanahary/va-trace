@@ -12,8 +12,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AppliedFilterRow, FilterMenu, matchesFilterValue } from "@/components/shared/AdvancedFilterBar";
 import { AllocationStatusBadge, ExceptionStateBadge, PodStatusBadge } from "@/components/domain/badges/badges";
 import { DeliveryProgressBar } from "@/components/domain/DeliveryProgressBar";
-import { ArrowUpRight, Download, Package, Truck, CheckCircle2, AlertTriangle, Boxes, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, CheckCircle2, ChevronsUpDown, Download, Package, Search, Truck, AlertTriangle, Boxes } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/format";
 import type { AllocationProgressRow } from "@/lib/types/v2/orderRequest";
 import { ALLOCATION_STATUSES } from "@/lib/types/v2/status";
 import { formatStatusLabel } from "@/lib/v2/selectors/derivedStatus";
@@ -37,6 +38,10 @@ export function OrderProgress({ userRole }: OrderProgressProps) {
   const [vendorFilter, setVendorFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sort, setSort] = useState<{ column: "created" | "deadline"; direction: "asc" | "desc" }>({
+    column: "created",
+    direction: "desc",
+  });
   const pageSize = 10;
 
   const vendorOptions = useMemo(() => Array.from(new Set(allRows.map((r) => r.vendorName))).sort(), [allRows]);
@@ -114,11 +119,28 @@ export function OrderProgress({ userRole }: OrderProgressProps) {
     });
   }, [allocationFilter, allocationOperator, allRows, searchQuery, vendorFilter, vendorOperator]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const sortedRows = useMemo(() => {
+    const sorted = [...filteredRows];
+    sorted.sort((a, b) => {
+      let cmp = 0;
+      switch (sort.column) {
+        case "created":
+          cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          break;
+        case "deadline":
+          cmp = a.deadlineDate.localeCompare(b.deadlineDate);
+          break;
+      }
+      return sort.direction === "desc" ? -cmp : cmp;
+    });
+    return sorted;
+  }, [filteredRows, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / pageSize));
   const visibleRows = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return filteredRows.slice(start, start + pageSize);
-  }, [currentPage, filteredRows]);
+    return sortedRows.slice(start, start + pageSize);
+  }, [currentPage, sortedRows]);
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
@@ -126,7 +148,7 @@ export function OrderProgress({ userRole }: OrderProgressProps) {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [allocationFilter, allocationOperator, searchQuery, vendorFilter, vendorOperator]);
+  }, [allocationFilter, allocationOperator, searchQuery, vendorFilter, vendorOperator, sort]);
 
   const clearFilters = () => {
     setAllocationFilter("all");
@@ -227,13 +249,18 @@ export function OrderProgress({ userRole }: OrderProgressProps) {
                   <TableHead>Progress</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>POD</TableHead>
-                  <TableHead>Deadline</TableHead>
+                  <TableHead>
+                    <SortButton column="created" label="Created" sort={sort} onSortChange={setSort} />
+                  </TableHead>
+                  <TableHead>
+                    <SortButton column="deadline" label="Deadline" sort={sort} onSortChange={setSort} />
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visibleRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={13} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={14} className="h-24 text-center text-muted-foreground">
                       No allocation progress rows found.
                     </TableCell>
                   </TableRow>
@@ -278,6 +305,7 @@ export function OrderProgress({ userRole }: OrderProgressProps) {
                         <PodStatusBadge status={row.podStatus} />
                         {row.hasException && <ExceptionStateBadge status={row.exceptionState} className="ml-1" />}
                       </TableCell>
+                      <TableCell className="text-xs">{formatDate(row.createdAt)}</TableCell>
                       <TableCell className="text-xs">{row.deadlineDate || "—"}</TableCell>
                     </TableRow>
                   ))
@@ -288,8 +316,8 @@ export function OrderProgress({ userRole }: OrderProgressProps) {
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
-              Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredRows.length)} of{" "}
-              {filteredRows.length} rows
+              Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, sortedRows.length)} of{" "}
+              {sortedRows.length} rows
             </p>
             <div className="flex items-center gap-2">
               <Button variant="outline" onClick={() => setCurrentPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1}>
@@ -303,5 +331,38 @@ export function OrderProgress({ userRole }: OrderProgressProps) {
         </main>
       </ContentArea>
     </div>
+  );
+}
+
+function SortButton({
+  column,
+  label,
+  sort,
+  onSortChange,
+}: {
+  column: "created" | "deadline";
+  label: string;
+  sort: { column: "created" | "deadline"; direction: "asc" | "desc" };
+  onSortChange: (value: { column: "created" | "deadline"; direction: "asc" | "desc" }) => void;
+}) {
+  const isActive = sort.column === column;
+  return (
+    <button
+      type="button"
+      className="-m-1 flex items-center gap-1 rounded-md p-1 text-left font-medium text-muted-foreground transition-colors hover:text-foreground"
+      onClick={() =>
+        onSortChange({
+          column,
+          direction: isActive && sort.direction === "asc" ? "desc" : "asc",
+        })
+      }
+    >
+      {label}
+      {isActive ? (
+        sort.direction === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
+      ) : (
+        <ChevronsUpDown className="h-3.5 w-3.5 opacity-50" />
+      )}
+    </button>
   );
 }
