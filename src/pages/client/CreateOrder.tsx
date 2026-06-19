@@ -291,7 +291,7 @@ const supplierOptions = useMemo(
                     <TableRow>
                       <TableHead className="w-10">#</TableHead>
                       <TableHead>Product</TableHead>
-                      <TableHead className="w-20">Qty</TableHead>
+                      <TableHead className="w-32">Qty</TableHead>
                       <TableHead className="w-10" />
                     </TableRow>
                   </TableHeader>

@@ -284,7 +284,7 @@ export function AdminAmendOrder({ userRole = "admin" }: AdminAmendOrderProps) {
                     <TableRow>
                       <TableHead className="w-10">#</TableHead>
                       <TableHead>Product</TableHead>
-                      <TableHead className="w-24">Qty</TableHead>
+                      <TableHead className="w-32">Qty</TableHead>
                       <TableHead className="w-10" />
                     </TableRow>
                   </TableHeader>
