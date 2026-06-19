@@ -214,7 +214,19 @@ export function AllOrders({ userRole = "admin" }: AllOrdersProps) {
     <div className="flex min-h-screen bg-background">
       <Sidebar userRole={userRole} />
       <ContentArea>
-        <Header title="All Order Requests" />
+        <Header
+          title="All Order Requests"
+          actions={
+            <Button
+              onClick={() => navigate(createPath)}
+              disabled={!writeDecision.allowed}
+              title={writeDecision.disabledReason}
+            >
+              <Plus className="h-4 w-4" />
+              Create New OR
+            </Button>
+          }
+        />
 
         <main className="space-y-6 p-4 sm:p-6 lg:p-8">
           <section className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
@@ -235,14 +247,6 @@ export function AllOrders({ userRole = "admin" }: AllOrdersProps) {
                 visibleColumns={visibleColumns}
                 onToggle={handleColumnToggle}
               />
-              <Button
-                onClick={() => navigate(createPath)}
-                disabled={!writeDecision.allowed}
-                title={writeDecision.disabledReason}
-              >
-                <Plus className="h-4 w-4" />
-                Create New OR
-              </Button>
             </div>
           </section>
 
